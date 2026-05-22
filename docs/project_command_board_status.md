@@ -65,3 +65,17 @@ Starting file: core/functions/src/auth/authRoutes.js (currently placeholder ping
 - V2: guestHouseBookings, boqAllotments, libraryBooks
 - V3: sportsBookings, swimmingConsents, SMS/email/WhatsApp notifications
 - V4: Recipe + Inventory + Procurement
+
+## 22 May 2026
+
+### Completed
+- Project initialised — web, mobile, backend all running
+- constants.js locked to V1 schema — 28 collections, camelCase
+- Flow 01: register, approve, profile endpoints — all tested
+- Flow 02: employee master endpoints — all tested
+- Named Firestore database: servio-dev
+- Firebase web app registered — config saved
+- Test data: FFL00001, FFL00002 (employees), admin@fatima-group.com (super_admin user)
+
+### Next
+- Flow 03: Menu Catalogue — foodTypes, mealTypes, menuItems
