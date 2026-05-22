@@ -20,7 +20,7 @@ const db = admin.firestore();
 const authRoutes = require('./auth/authRoutes');
 const employeeRoutes   = require('./employees/employeeRoutes');
 const menuRoutes       = require('./menu/menuRoutes');
-// const templateRoutes   = require('./templates/templateRoutes');
+const templateRoutes   = require('./templates/templateRoutes');
 // const reservationRoutes = require('./reservations/reservationRoutes');
 // const orderRoutes      = require('./orders/orderRoutes');
 // const rateRoutes       = require('./rates/rateRoutes');
@@ -50,7 +50,7 @@ app.get('/health', (req, res) => {
 app.use('/auth',          authRoutes);
 app.use('/employees',     employeeRoutes);
 app.use('/menu',          menuRoutes);
-// app.use('/templates',     templateRoutes);
+app.use('/templates',     templateRoutes);
 // app.use('/reservations',  reservationRoutes);
 // app.use('/orders',        orderRoutes);
 // app.use('/rates',         rateRoutes);
