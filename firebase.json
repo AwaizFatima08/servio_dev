@@ -1,13 +1,12 @@
 {
   "firestore": {
     "database": "(default)",
-    "location": "asia-south1",
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
+    "rules": "core/functions/firestore.rules",
+    "indexes": "core/functions/firestore.indexes.json"
   },
   "functions": [
     {
-      "source": ".",
+      "source": "core/functions",
       "codebase": "default",
       "disallowLegacyRuntimeConfig": true,
       "ignore": [
@@ -20,7 +19,7 @@
     }
   ],
   "hosting": {
-    "public": "build",
+    "public": "web/build",
     "ignore": [
       "firebase.json",
       "**/.*",
