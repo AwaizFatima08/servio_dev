@@ -73,18 +73,34 @@ const registerEmployee = async ({ uid, officialEmployeeNumber, cnicLast4, dateOf
 
   // 6. Check not already registered
   const existingUser = await db.collection(COLLECTIONS.USERS)
-    .where('officialEmployeeNumber', '==', officialEmployeeNumber)
-    .limit(1)
-    .get();
+  .where('officialEmployeeNumber', '==', officialEmployeeNumber)
+  .limit(1)
+  .get();
 
-  if (!existingUser.empty) {
-    await _logRequest({ officialEmployeeNumber, uid, personalEmail, ipAddress,
-      requestType: ACCOUNT_TYPES.SELF_SIGNUP,
-      requestStatus: REGISTRATION_STATUS.FAILED_DUPLICATE,
-      failureReason: FAILURE_REASONS.ACCOUNT_EXISTS,
-    });
-    return { success: false, code: FAILURE_REASONS.ACCOUNT_EXISTS };
-  }
+if (!existingUser.empty) {
+  await _logRequest({ officialEmployeeNumber, uid, personalEmail, ipAddress,
+    requestType: ACCOUNT_TYPES.SELF_SIGNUP,
+    requestStatus: REGISTRATION_STATUS.FAILED_DUPLICATE,
+    failureReason: FAILURE_REASONS.ACCOUNT_EXISTS,
+  });
+  return { success: false, code: FAILURE_REASONS.ACCOUNT_EXISTS };
+}
+
+// 6b. Check not already pending in registrationRequests
+const existingRequest = await db.collection(COLLECTIONS.REGISTRATION_REQUESTS)
+  .where('officialEmployeeNumber', '==', officialEmployeeNumber)
+  .where('requestStatus', '==', REGISTRATION_STATUS.PENDING)
+  .limit(1)
+  .get();
+
+if (!existingRequest.empty) {
+  await _logRequest({ officialEmployeeNumber, uid, personalEmail, ipAddress,
+    requestType: ACCOUNT_TYPES.SELF_SIGNUP,
+    requestStatus: REGISTRATION_STATUS.FAILED_DUPLICATE,
+    failureReason: FAILURE_REASONS.ACCOUNT_EXISTS,
+  });
+  return { success: false, code: FAILURE_REASONS.ACCOUNT_EXISTS };
+}
 
   // 7. Validate cnicLast4
   if (employee.cnicLast4 !== cnicLast4) {
