@@ -2,18 +2,18 @@
 // verifyRole.js — Role Authorization Middleware
 // HomiLabs | Servio
 // ─────────────────────────────────────────
-
-const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { errorResponse } = require('../utils');
-const { COLLECTIONS } = require('../constants');
+const { COLLECTIONS, ACCOUNT_STATUS } = require('../constants');
+
+const db = getFirestore('servio-dev');
 
 const verifyRole = (...allowedRoles) => {
   return async (req, res, next) => {
     try {
       const uid = req.user.uid;
 
-      const userDoc = await admin
-        .firestore()
+      const userDoc = await db
         .collection(COLLECTIONS.USERS)
         .doc(uid)
         .get();
@@ -24,7 +24,7 @@ const verifyRole = (...allowedRoles) => {
 
       const userData = userDoc.data();
 
-      if (!userData.isActive) {
+      if (userData.status !== ACCOUNT_STATUS.ACTIVE) {
         return errorResponse(res, 'Account is inactive', 403);
       }
 

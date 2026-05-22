@@ -9,7 +9,12 @@ const express = require('express');
 const cors = require('cors');
 
 // ── Initialize Firebase Admin ────────────
-admin.initializeApp();
+admin.initializeApp({
+  credential: admin.credential.cert(require('../service-account.json')),
+});
+
+// Point to the named Firestore database
+const db = admin.firestore();
 
 // ── Import Route Modules ─────────────────
 const authRoutes = require('./auth/authRoutes');
