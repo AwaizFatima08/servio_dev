@@ -155,9 +155,19 @@ Mess Reservations + Issuance — most complex flow
 - Revision flow working — old rate marked isActive:false, new rate created
 - Composite Firestore index created for mealRates (isActive, mealType, menuOptionKey, tenantId, createdAt)
 
-### Next Session — Flow 08: Feedback
-- Employee submits feedback on issued meals
-- POST /feedback — submit feedback (one per feedbackArea per reservation)
-- GET /feedback/reservation/:reservationId — get feedback for a reservation
-- Eligibility: issueStatus must be "issued", within 24hr window
-- Starting file: src/feedback/feedbackService.js (folder already exists)
+### Flow 08 — Completed 23 May 2026
+- Feedback submission — POST /feedback
+- Feedback by reservation — GET /feedback/reservation/:reservationId
+- Feedback summary — GET /feedback/summary?date=&mealType=
+- Duplicate area rejection working
+- 24hr window check implemented
+- Summary aggregation by feedbackArea with averages
+
+### Next Session — Flow 09: Notifications
+- In-app notifications only (V1)
+- Triggers: booking confirmed, booking cancelled, meal issued
+- POST /notifications — admin creates notification
+- GET /notifications/my — employee fetches own unread notifications
+- PATCH /notifications/:id/read — mark as read
+- GET /notifications/admin — admin views all notifications
+- Starting file: src/notifications/notificationService.js (folder already exists)
