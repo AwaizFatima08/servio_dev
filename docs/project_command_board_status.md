@@ -134,13 +134,22 @@ Mess Reservations + Issuance — most complex flow
 - Emulator URL: http://127.0.0.1:5001/servio-dev-55d2d/asia-south1/api
 - Tokens expire after 1 hour — re-login required for each test session
 
-### Next Session — Flow 06 Part B
-Remaining booking types to build:
-1. Proxy booking — supervisor books on behalf of employee
-2. Cancellation — employee or supervisor cancels before cutoff
-3. Guest booking — personal guest billed to employee account
 
-Starting file: src/mess/messReservationService.js — add proxyBooking, cancelReservation functions
+### Flow 06 Part B — Completed 23 May 2026
+- Proxy booking — POST /mess/reservations/proxy (supervisor/manager/admin, no cutoff)
+- Cancellation — PATCH /mess/reservations/:id/cancel (employee own, supervisor any)
+- Double cancel rejection working
+- Issued reservation cannot be cancelled
+- Employee cannot cancel another employee's reservation
 
-### Last Commit
-(run git commit before closing session)
+### Locked Decisions
+- Proxy booking: supervisor/manager/admin exempt from cutoff entirely
+- Cancellation cutoff applies to employee self-cancellation only
+- Tenant check enforced on proxy booking for multi-tenant readiness
+
+### Next Session — Flow 07: Rate Entry
+- Accounts supervisor enters previous day rates
+- POST /mess/rates — create rate entry
+- Cloud Function: rateApplicator — batch update messReservations via rateTargetKey
+- GET /mess/rates/pending — show items needing rate entry
+- Starting file: src/mess/mealRatesService.js (new file)
