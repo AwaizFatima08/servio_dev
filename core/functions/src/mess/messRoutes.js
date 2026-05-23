@@ -9,7 +9,7 @@ const verifyRole = require('../middleware/verifyRole');
 const { ROLES } = require('../constants');
 const { resolveDailyMenus } = require('./dailyMenuResolver');
 const { errorResponse } = require('../utils');
-const { createSelfBooking, getIssuanceList, issueReservation, markNoShow } = require('./messReservationService');
+const { createSelfBooking, createProxyBooking, cancelReservation, getIssuanceList, issueReservation, markNoShow } = require('./messReservationService');
 
 const adminOnly = [verifyToken, verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN)];
 const anyAuthenticated = [verifyToken, verifyRole(
@@ -246,6 +246,115 @@ router.patch('/reservations/:reservationId/no-show', supervisorAndAbove, async (
 
   } catch (error) {
     console.error('No-show error:', error.message);
+    return errorResponse(res, error.message, 400);
+  }
+});
+
+/**
+ * POST /mess/reservations/proxy
+ * Supervisor/Manager/Admin books on behalf of an employee
+ * No cutoff restriction
+ */
+router.post('/reservations/proxy', supervisorAndAbove, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const createdByRole = req.userRole;
+    const createdByEmployeeNumber = req.officialEmployeeNumber;
+    const tenantId = req.tenantId;
+
+    const {
+      targetEmployeeNumber,
+      reservationDate,
+      mealType,
+      menuItemId,
+      menuOptionKey,
+      optionLabel,
+      itemName,
+      diningMode,
+      selectionMode,
+    } = req.body;
+
+    const required = ['targetEmployeeNumber', 'reservationDate', 'mealType', 'menuItemId', 'menuOptionKey', 'optionLabel', 'itemName', 'diningMode', 'selectionMode'];
+    const missing = required.filter(f => !req.body[f]);
+    if (missing.length > 0) {
+      return errorResponse(res, `Missing required fields: ${missing.join(', ')}`, 400);
+    }
+
+    if (!['breakfast', 'lunch', 'dinner'].includes(mealType)) {
+      return errorResponse(res, 'Invalid mealType.', 400);
+    }
+    if (!['dine_in', 'takeaway'].includes(diningMode)) {
+      return errorResponse(res, 'Invalid diningMode.', 400);
+    }
+    if (!['combo', 'alacarte'].includes(selectionMode)) {
+      return errorResponse(res, 'Invalid selectionMode.', 400);
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(reservationDate)) {
+      return errorResponse(res, 'Invalid reservationDate format. Use YYYY-MM-DD.', 400);
+    }
+
+    const result = await createProxyBooking({
+      uid,
+      createdByRole,
+      createdByEmployeeNumber,
+      tenantId,
+      targetEmployeeNumber,
+      reservationDate,
+      mealType,
+      menuItemId,
+      menuOptionKey,
+      optionLabel,
+      itemName,
+      diningMode,
+      selectionMode,
+    });
+
+    return res.status(201).json({
+      message: 'Proxy reservation created successfully.',
+      reservation: result,
+    });
+
+  } catch (error) {
+    console.error('Proxy booking error:', error.message);
+    return errorResponse(res, error.message, 400);
+  }
+});
+
+/**
+ * PATCH /mess/reservations/:reservationId/cancel
+ * Cancel a reservation
+ * Employee can cancel own, supervisor can cancel any
+ */
+router.patch('/reservations/:reservationId/cancel', anyAuthenticated, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const cancelledByRole = req.userRole;
+    const cancelledByEmployeeNumber = req.officialEmployeeNumber;
+    const tenantId = req.tenantId;
+    const { reservationId } = req.params;
+    const { cancellationReason, cancellationNote } = req.body;
+
+    if (!cancellationReason) {
+      return errorResponse(res, 'cancellationReason is required.', 400);
+    }
+
+    const result = await cancelReservation({
+      reservationId,
+      tenantId,
+      cancelledByUid: uid,
+      cancelledByRole,
+      cancelledByEmployeeNumber,
+      cancellationReason,
+      cancellationNote,
+    });
+
+    return res.status(200).json({
+      message: 'Reservation cancelled successfully.',
+      result,
+    });
+
+  } catch (error) {
+    console.error('Cancel reservation error:', error.message);
     return errorResponse(res, error.message, 400);
   }
 });
