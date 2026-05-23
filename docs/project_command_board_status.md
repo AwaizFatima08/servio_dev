@@ -147,9 +147,17 @@ Mess Reservations + Issuance — most complex flow
 - Cancellation cutoff applies to employee self-cancellation only
 - Tenant check enforced on proxy booking for multi-tenant readiness
 
-### Next Session — Flow 07: Rate Entry
-- Accounts supervisor enters previous day rates
-- POST /mess/rates — create rate entry
-- Cloud Function: rateApplicator — batch update messReservations via rateTargetKey
-- GET /mess/rates/pending — show items needing rate entry
-- Starting file: src/mess/mealRatesService.js (new file)
+### Flow 07 — Completed 23 May 2026
+- Rate entry — POST /rates
+- Pending rate list — GET /rates/pending?date=
+- Rates by date — GET /rates/:date
+- rateApplicator built inline — batch updates messReservations via rateTargetKey
+- Revision flow working — old rate marked isActive:false, new rate created
+- Composite Firestore index created for mealRates (isActive, mealType, menuOptionKey, tenantId, createdAt)
+
+### Next Session — Flow 08: Feedback
+- Employee submits feedback on issued meals
+- POST /feedback — submit feedback (one per feedbackArea per reservation)
+- GET /feedback/reservation/:reservationId — get feedback for a reservation
+- Eligibility: issueStatus must be "issued", within 24hr window
+- Starting file: src/feedback/feedbackService.js (folder already exists)
