@@ -107,8 +107,6 @@ const FOOD_TYPE_CODES = {
   COND:     'COND',
   SNACK:    'SNACK',
   BAKED:    'BAKED',
-  VEG:      'VEG',
-  NVEG:     'NVEG',
 };
 
 const MEAL_TYPE_CODES = {
@@ -284,9 +282,9 @@ const FEEDBACK_AREAS_EVENT_NOT_ATTENDED = {
 };
 
 const FEEDBACK_REVIEW_STATUS = {
-  OPEN:        'open',
-  REVIEWED:    'reviewed',
-  ACTION_TAKEN:'action_taken',
+  OPEN:         'open',
+  REVIEWED:     'reviewed',
+  ACTION_TAKEN: 'action_taken',
 };
 
 const NOTIFICATION_LAYERS = {
@@ -346,56 +344,94 @@ const IN_APP_STATUS   = { PENDING: 'pending', DELIVERED: 'delivered', FAILED: 'f
 const REVIEW_STATUS   = { NOT_REQUIRED: 'not_required', PENDING: 'pending', APPROVED: 'approved' };
 
 const REPORT_TYPES = {
-  DAILY_HEADCOUNT:          'daily_headcount',
-  WEEKLY_BOOKING_SUMMARY:   'weekly_booking_summary',
-  MONTHLY_BILLING_EMPLOYEE: 'monthly_billing_employee',
-  MONTHLY_BILLING_OFFICIAL: 'monthly_billing_official',
-  MONTHLY_BILLING_SUMMARY:  'monthly_billing_summary',
-  FEEDBACK_TRENDS:          'feedback_trends',
-  EVENT_SUMMARY:            'event_summary',
-  ADMIN_ALERTS_SUMMARY:     'admin_alerts_summary',
+
+  // ── V1 — Mess + Events (active) ──────────────────────────────────────────
+
+  DAILY_HEADCOUNT:          'daily_headcount',          // live query
+  WEEKLY_BOOKING_SUMMARY:   'weekly_booking_summary',   // snapshot
+  MONTHLY_BILLING_EMPLOYEE: 'monthly_billing_employee', // snapshot
+  MONTHLY_BILLING_OFFICIAL: 'monthly_billing_official', // snapshot
+  MONTHLY_BILLING_SUMMARY:  'monthly_billing_summary',  // snapshot
+  FEEDBACK_TRENDS:          'feedback_trends',          // snapshot
+  EVENT_SUMMARY:            'event_summary',            // snapshot
+  ADMIN_ALERTS_SUMMARY:     'admin_alerts_summary',     // live query
+
+  // ── V1.1 — Cafe, TuckShop, Bakery, TeaBar (stubs) ───────────────────────
+  // Uncomment and implement in Flow 12
+
+  // CAFE_DAILY_SUMMARY:       'cafe_daily_summary',
+  // TUCKSHOP_DAILY_SUMMARY:   'tuckshop_daily_summary',
+  // BAKERY_ORDER_SUMMARY:     'bakery_order_summary',
+  // TEABAR_DAILY_SUMMARY:     'teabar_daily_summary',
+
+  // ── V1.2 — BBQ (stubs) ───────────────────────────────────────────────────
+  // Uncomment and implement in Flow 13
+
+  // BBQ_EVENT_SUMMARY:        'bbq_event_summary',
+
+  // ── V1 Billing Dashboard — Flow 14 (stub) ────────────────────────────────
+  // Uncomment and implement in Flow 14
+
+  // BILLING_DASHBOARD_SUMMARY: 'billing_dashboard_summary',
+
+  // ── V2 — GuestHouse, BOQ, Library (stubs) ────────────────────────────────
+
+  // GUESTHOUSE_OCCUPANCY:     'guesthouse_occupancy',
+  // BOQ_OCCUPANCY:            'boq_occupancy',
+  // LIBRARY_CIRCULATION:      'library_circulation',
+
+  // ── V3 — Sports, Safety (stubs) ──────────────────────────────────────────
+
+  // SPORTS_BOOKING_SUMMARY:   'sports_booking_summary',
+  // POOL_SAFETY_LOG:          'pool_safety_log',
+
+  // ── V4 — Inventory, Procurement, Recipe Costing (stubs) ──────────────────
+
+  // INVENTORY_CONSUMPTION:    'inventory_consumption',
+  // PROCUREMENT_SUMMARY:      'procurement_summary',
+  // RECIPE_COST_ANALYSIS:     'recipe_cost_analysis',
 };
 
 const PERIOD_TYPES = { DAILY: 'daily', WEEKLY: 'weekly', MONTHLY: 'monthly' };
 
-// ── COLLECTIONS ──────────────────────────────────────────────────────────────
+// ── COLLECTIONS ───────────────────────────────────────────────────────────────
 // Single source of truth — must match Firestore collection names exactly
 // Convention: camelCase — 28 collections across 6 layers
 const COLLECTIONS = {
   // Identity & Governance (6)
-  DEPLOYMENT_CONFIG:           'deploymentConfig',
-  EMPLOYEES:                   'employees',
-  USERS:                       'users',
-  REGISTRATION_REQUESTS:       'registrationRequests',
-  FAMILY_MEMBERS:              'familyMembers',
-  OFFICIAL_ACCOUNTS:           'officialAccounts',
+  DEPLOYMENT_CONFIG:          'deploymentConfig',
+  EMPLOYEES:                  'employees',
+  USERS:                      'users',
+  REGISTRATION_REQUESTS:      'registrationRequests',
+  FAMILY_MEMBERS:             'familyMembers',
+  OFFICIAL_ACCOUNTS:          'officialAccounts',
   // Menu Domain (8)
-  FOOD_TYPES:                  'foodTypes',
-  MEAL_TYPES:                  'mealTypes',
-  MENU_ITEMS:                  'menuItems',
-  MESS_WEEKLY_TEMPLATES:       'messWeeklyTemplates',
-  MENU_CYCLES:                 'menuCycles',
-  DAILY_MENUS:                 'dailyMenus',
-  SERVICE_MENU_CONFIGS:        'serviceMenuConfigs',
-  BAKERY_SCHEDULE:             'bakerySchedule',
+  FOOD_TYPES:                 'foodTypes',
+  MEAL_TYPES:                 'mealTypes',
+  MENU_ITEMS:                 'menuItems',
+  MESS_WEEKLY_TEMPLATES:      'messWeeklyTemplates',
+  MENU_CYCLES:                'menuCycles',
+  DAILY_MENUS:                'dailyMenus',
+  SERVICE_MENU_CONFIGS:       'serviceMenuConfigs',
+  BAKERY_SCHEDULE:            'bakerySchedule',
   // Mess Operations (4)
-  RESERVATION_SETTINGS:        'reservationSettings',
-  MESS_RESERVATIONS:           'messReservations',
-  MEAL_RATES:                  'mealRates',
-  MEAL_FEEDBACK:               'mealFeedback',
+  RESERVATION_SETTINGS:       'reservationSettings',
+  MESS_RESERVATIONS:          'messReservations',
+  MEAL_RATES:                 'mealRates',
+  MEAL_FEEDBACK:              'mealFeedback',
   // Events (6)
-  EVENT_NOTE_TEMPLATES:        'eventNoteTemplates',
-  EVENTS:                      'events',
-  EVENT_ATTENDANCE_RESPONSES:  'eventAttendanceResponses',
-  EVENT_ATTENDANCE_SUMMARIES:  'eventAttendanceSummaries',
-  EVENT_RATES:                 'eventRates',
-  EVENT_FEEDBACK:              'eventFeedback',
+  EVENT_NOTE_TEMPLATES:       'eventNoteTemplates',
+  EVENTS:                     'events',
+  EVENT_ATTENDANCE_RESPONSES: 'eventAttendanceResponses',
+  EVENT_ATTENDANCE_SUMMARIES: 'eventAttendanceSummaries',
+  EVENT_RATES:                'eventRates',
+  EVENT_FEEDBACK:             'eventFeedback',
   // Notifications (2)
-  NOTIFICATIONS:               'notifications',
-  NOTIFICATION_DELIVERIES:     'notificationDeliveries',
+  NOTIFICATIONS:              'notifications',
+  NOTIFICATION_DELIVERIES:    'notificationDeliveries',
   // Reporting & Settings (2)
-  REPORTING_SNAPSHOTS:         'reportingSnapshots',
-  APP_SETTINGS:                'appSettings',
+  REPORTING_SNAPSHOTS:        'reportingSnapshots',
+  APP_SETTINGS:               'appSettings',
 };
 
 module.exports = {

@@ -12,35 +12,48 @@
 
 ## Current Status
 
-**Phase:** Project Initialised — Ready for Flow 01
-**Last Commit:** ba89963
-**Date:** 22 May 2026
+**Phase:** V1 Backend — Flows 01–11 Complete
+**Last Commit:** 3bb96ff (post Flow 11)
+**Date:** 23 May 2026
 
 ---
 
-## Completed
+## Completed Flows
 
-- Firebase config relocated to project root
-- React web app initialised (Vite) — smoke tested
-- Expo React Native app initialised — smoke tested
-- Backend (Firebase Functions/Express) — smoke tested, health check confirmed
-- constants.js locked — 28 collections, camelCase, aligned to Servio_V1_Schema_Reference.docx
-- Schema reference document: docs/Servio_V1_Schema_Reference.docx
+- Flow 01: Identity Layer — register, approve, profile
+- Flow 02: Employee Master — add, list, get, status
+- Flow 03: Menu Catalogue — foodTypes, mealTypes, menuItems CRUD
+- Flow 04: Templates + Cycles — create, activate, duplicate protection
+- Flow 05: Reservation Settings — seeded, get, update
+- Flow 06: Mess Reservations + Issuance — self, proxy, guest, official, special, cancel, no-show
+- Flow 07: Rate Entry — retrospective rates, rateApplicator, revision flow
+- Flow 08: Feedback — submission, eligibility, duplicate prevention, summary
+- Flow 09: Notifications — create, dispatch, read, unread count, mark all read
+- Flow 10: Events + Attendance — full lifecycle, aggregator, summary mirrors
+- Flow 11: Reporting Dashboard — live queries, snapshot engine, all endpoints tested
 
 ---
 
-## Next Session — Flow 01: Identity Layer
+## Remaining V1 Flows
 
-Build order:
-1. deploymentConfig read at app startup
-2. Employee lookup and validation (cnicLast4 + dateOfBirth)
-3. Registration request creation (registrationRequests collection)
-4. Admin approval flow
-5. users document creation on approval
-6. Login + token verification (verifyToken middleware already built)
-7. Role-based routing
+- Flow 12: Cafe + TuckShop + Bakery + TeaBar
+- Flow 13: BBQ
+- Flow 14: Billing Dashboard
 
-Starting file: core/functions/src/auth/authRoutes.js (currently placeholder ping only)
+---
+
+## Next Session — Flow 12: Cafe + TuckShop + Bakery + TeaBar
+
+Scope:
+- Cafe orders — ala carte, dine-in + takeaway, family consumer tagging
+- TuckShop transactions — barcode, numeric code, return flow
+- Bakery orders — scheduled items + pre-order queue
+- TeaBar issuance — staff-punched, official hi-tea
+- Kitchen dashboard feeds for cafe and bakery
+- serviceMenuConfigs fat document reads
+- bakerySchedule reads
+
+Starting file: src/cafe/cafeRoutes.js
 
 ---
 
@@ -55,6 +68,27 @@ Starting file: core/functions/src/auth/authRoutes.js (currently placeholder ping
 - Single role per user in V1
 - No grade-based role restriction in V1
 - Throttle: 5 failed attempts within 60 minutes → isThrottled = true → admin resets manually
+- Proxy booking: supervisor/manager/admin exempt from cutoff entirely
+- Cancellation cutoff applies to employee self-cancellation only
+- Tenant check enforced on proxy booking for multi-tenant readiness
+- verifyToken and verifyRole are direct exports — never use { } destructuring
+- db.settings() called once only in index.js — never repeat in service files
+- Every where+orderBy or multi-field query requires a composite index — check emulator log after first run of any new endpoint
+
+---
+
+## Critical Technical Notes
+
+- No shared firebase.js — each service imports firebase-admin directly
+- db.settings({ databaseId: 'servio-dev' }) called once only in index.js
+- verifyToken only decodes Firebase Auth token — does NOT set role or tenantId
+- verifyRole middleware fetches Firestore users doc and sets: req.userRole, req.tenantId, req.officialEmployeeNumber
+- Always use verifyRole for role checks — never check req.user.role directly
+- Function name in emulator: asia-south1-api (not us-central1-api)
+- Emulator URL: http://127.0.0.1:5001/servio-dev-55d2d/asia-south1/api
+- Tokens expire after 1 hour — re-login required for each test session
+- verifyToken export: module.exports = verifyToken (direct, no destructuring)
+- verifyRole export: module.exports = verifyRole (direct, no destructuring)
 
 ---
 
@@ -66,115 +100,95 @@ Starting file: core/functions/src/auth/authRoutes.js (currently placeholder ping
 - V3: sportsBookings, swimmingConsents, SMS/email/WhatsApp notifications
 - V4: Recipe + Inventory + Procurement
 
-## 22 May 2026
+---
 
-### Completed
+## Firestore Composite Indexes Created
+
+| Collection | Fields | Purpose |
+|---|---|---|
+| mealRates | isActive, mealType, menuOptionKey, tenantId, createdAt | Flow 07 rate queries |
+| messReservations | tenantId, reservationDate | Flow 11 weekly booking |
+| messReservations | issueStatus, reservationStatus, tenantId, reservationDate | Flow 11 monthly billing |
+| mealFeedback | tenantId, reservationDate | Flow 11 feedback trends |
+| events | tenantId, eventDate | Flow 11 event summary |
+| reportingSnapshots | reportType, tenantId, periodStart (desc) | Flow 11 snapshot list |
+
+---
+
+## Test Data in Firestore (servio-dev)
+
+- deploymentConfig: ffl document
+- employees: FFL00001, FFL00002, FFL00003
+- users: PQHHC0Egnpafsdvo0oZvLOPKMQH3 (super_admin, admin@fatima-group.com)
+- users: dM34PAhXItby1QOY9K0S6N8JtL42 (employee, test1@fatima-group.com, FFL00002)
+- users: dusMNzDu5faGJQOQEuimJdoNvYL2 (employee, test2@fatima-group.com, FFL00003)
+- Firebase Auth: admin@fatima-group.com / 1234@com
+- Firebase Auth: test1@fatima-group.com / 1234@com
+- Firebase Auth: test2@fatima-group.com / 1234@com
+- menuItems: EJvcPLythiJssM1ze9kr, u6Or4EYW89NM1784nPqs
+- templates: U7RqdMOuyvPXPEbQ1Bv9 (Summer 2026 Week A)
+- cycles: 8pAHziigB5yLHaPNckNz (Summer 2026 — active)
+- dailyMenus: ffl_2026-05-23_breakfast, ffl_2026-05-23_lunch, ffl_2026-05-23_dinner
+- messReservations: LK5REc9kCXGx8164U9yk (FFL00002, lunch, 2026-05-23, issued)
+- events: mBUcM6712HqJgAx9mUjY (Farewell Dinner, official, returned)
+
+---
+
+## Update Log
+
+### 22 May 2026
+
 - Project initialised — web, mobile, backend all running
 - constants.js locked to V1 schema — 28 collections, camelCase
 - Firebase web app registered — config saved
 - Named Firestore database: servio-dev
-- Flow 01: register, approve, profile — all tested
-- Flow 02: employee master — add, list, get, status — all tested  
-- Flow 03: menu catalogue — foodTypes seeded, mealTypes seeded, menuItems CRUD — all tested
-- Flow 04: templates and cycles — create, activate, duplicate protection — all tested
-- Flow 05: reservation settings — seeded, get, update — all tested
+- Flows 01–05 completed and tested
 - Seed scripts: seedCatalogue.js, seedReservationSettings.js
 
-### Test Data in Firestore (servio-dev)
-- deploymentConfig: ffl document
-- employees: FFL00001, FFL00002, FFL00003
-- users: PQHHC0Egnpafsdvo0oZvLOPKMQH3 (super_admin, admin@fatima-group.com)
-- Firebase Auth: admin@fatima-group.com / 1234@com
-- menuItems: EJvcPLythiJssM1ze9kr, u6Or4EYW89NM1784nPqs
-- templates: U7RqdMOuyvPXPEbQ1Bv9 (Summer 2026 Week A)
-- cycles: 8pAHziigB5yLHaPNckNz (Summer 2026 — active)
+### 23 May 2026
 
-### Next Session — Flow 06
-Mess Reservations + Issuance — most complex flow
-- booking logic, cutoff enforcement
-- self/guest/proxy/official/special meal booking
-- issuance flow
-- status management
+- Flow 06 Part A: Daily Menu Resolver + Self Booking + Issuance
+- Flow 06 Part B: Proxy booking + Cancellation
+- Flow 07: Rate Entry + rateApplicator
+- Flow 08: Feedback
+- Flow 09: Notifications
+- Flow 10: Events + Attendance
+- Flow 11: Reporting Dashboard
 
-### Last Commit
-548b7e3
+#### Flow 11 Detail
 
-## 23 May 2026
+**New files:**
+- src/reports/reportRoutes.js
+- src/reports/reportService.js
+- src/reports/snapshotEngine.js
+- src/reports/generators/dailyHeadcount.js
+- src/reports/generators/weeklyBookingSummary.js
+- src/reports/generators/monthlyBilling.js
+- src/reports/generators/feedbackTrends.js
+- src/reports/generators/eventSummary.js
+- src/reports/generators/adminAlerts.js
+- src/reports/generators/cafeDailySummary.js (stub — activate in Flow 12)
+- src/reports/generators/bbqEventSummary.js (stub — activate in Flow 13)
 
-### Completed
-- Flow 06 Part A: Daily Menu Resolver + Self Booking + Issuance — all tested
-- dailyMenuResolver.js — resolves dailyMenus from active cycle + template at 23:55 nightly
-- Manual resolver trigger — POST /mess/resolve-daily-menus (admin/super_admin only)
-- Daily menu fetch — GET /mess/daily-menu/:date/:mealType
-- Self booking — POST /mess/reservations (cutoff, duplicate, past date, menu validation all working)
-- Issuance list — GET /mess/reservations/issuance-list?date=&mealType=
-- Issue reservation — PATCH /mess/reservations/:id/issue
-- No-show — PATCH /mess/reservations/:id/no-show
+**Endpoints validated:**
+- POST /reports/trigger-snapshot — manual engine trigger, admin only
+- GET /reports/daily-headcount?date= — live query
+- GET /reports/admin-alerts — live query
+- GET /reports/snapshot/:reportType?period= — snapshot read
+- GET /reports/snapshots/:reportType — list available periods
+- GET /reports/event/:eventId — on-demand event summary
 
-### New Files
-- src/mess/dailyMenuResolver.js
-- src/mess/messReservationService.js
-- src/mess/messRoutes.js
+**Scheduled job registered:**
+- exports.generateSnapshots — runs nightly at 23:30 PKT
 
-### Test Data Added
-- users: dM34PAhXItby1QOY9K0S6N8JtL42 (employee, test1@fatima-group.com, FFL00002)
-- users: dusMNzDu5faGJQOQEuimJdoNvYL2 (employee, test2@fatima-group.com, FFL00003)
-- Firebase Auth: test1@fatima-group.com / 1234@com
-- Firebase Auth: test2@fatima-group.com / 1234@com
-- dailyMenus: ffl_2026-05-23_breakfast, ffl_2026-05-23_lunch, ffl_2026-05-23_dinner
-- messReservations: LK5REc9kCXGx8164U9yk (FFL00002, lunch, 2026-05-23, issued)
+**constants.js updated:**
+- REPORT_TYPES expanded with V1 active keys + stubs for V1.1, V1.2, V2, V3, V4
+- VEG and NVEG removed from FOOD_TYPE_CODES — not in schema reference doc
 
-### Critical Technical Notes (Learned Today)
-- No firebase.js shared file exists — each service imports firebase-admin directly
-- db.settings({ databaseId: 'servio-dev' }) must be called only ONCE across entire app — already called in index.js or first loaded service. Never repeat in new files.
-- verifyToken only decodes Firebase Auth token — does NOT set role or tenantId
-- verifyRole middleware fetches Firestore users doc and sets: req.userRole, req.tenantId, req.officialEmployeeNumber
-- Always use verifyRole for role checks — never check req.user.role directly
-- Function name in emulator: asia-south1-api (not us-central1-api)
-- Emulator URL: http://127.0.0.1:5001/servio-dev-55d2d/asia-south1/api
-- Tokens expire after 1 hour — re-login required for each test session
-
-
-### Flow 06 Part B — Completed 23 May 2026
-- Proxy booking — POST /mess/reservations/proxy (supervisor/manager/admin, no cutoff)
-- Cancellation — PATCH /mess/reservations/:id/cancel (employee own, supervisor any)
-- Double cancel rejection working
-- Issued reservation cannot be cancelled
-- Employee cannot cancel another employee's reservation
-
-### Locked Decisions
-- Proxy booking: supervisor/manager/admin exempt from cutoff entirely
-- Cancellation cutoff applies to employee self-cancellation only
-- Tenant check enforced on proxy booking for multi-tenant readiness
-
-### Flow 07 — Completed 23 May 2026
-- Rate entry — POST /rates
-- Pending rate list — GET /rates/pending?date=
-- Rates by date — GET /rates/:date
-- rateApplicator built inline — batch updates messReservations via rateTargetKey
-- Revision flow working — old rate marked isActive:false, new rate created
-- Composite Firestore index created for mealRates (isActive, mealType, menuOptionKey, tenantId, createdAt)
-
-### Flow 08 — Completed 23 May 2026
-- Feedback submission — POST /feedback
-- Feedback by reservation — GET /feedback/reservation/:reservationId
-- Feedback summary — GET /feedback/summary?date=&mealType=
-- Duplicate area rejection working
-- 24hr window check implemented
-- Summary aggregation by feedbackArea with averages
-
-### Flow 09 — Completed 23 May 2026
-- Create notification — POST /notifications (admin only)
-- My notifications — GET /notifications/my
-- Unread count — GET /notifications/unread-count
-- Mark as read — PATCH /notifications/:deliveryId/read
-- Mark all read — PATCH /notifications/mark-all-read
-- Dispatcher built inline — resolves target UIDs and creates deliveries in batch
-- Supports: single_user, role, all_employees, admin_only target types
-
-### Next Session — Flow 10: Events + Attendance
-- Official and personal events
-- Event creation, approval workflow
-- Attendance response with counts
-- Aggregation via Cloud Function
-- Starting file: src/events/eventService.js (folder already exists)
+**Issues encountered and resolved:**
+- reportService.js had trailing space in filename on NAS — renamed with mv
+- verifyToken imported with { } destructuring — fixed to direct require
+- verifyRole imported with { } destructuring — fixed to direct require
+- db.settings() called in snapshotEngine.js — removed, violates locked rule
+- admin.firestore.FieldValue.serverTimestamp() used in snapshotEngine.js — replaced with new Date()
+- 5 composite indexes required and created during testing

@@ -29,7 +29,7 @@ const rateRoutes       = require('./rates/ratesRoutes');
 const notificationRoutes = require('./notifications/notificationRoutes');
 const feedbackRoutes   = require('./feedback/feedbackRoutes');
 const eventRoutes      = require('./events/eventRoutes');
-// const reportRoutes     = require('./reports/reportRoutes');
+const reportRoutes     = require('./reports/reportRoutes');
 
 // ── Create Express App ───────────────────
 const app = express();
@@ -60,7 +60,7 @@ app.use('/rates',         rateRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/feedback',      feedbackRoutes);
 app.use('/events',        eventRoutes);
-// app.use('/reports',       reportRoutes);
+app.use('/reports',       reportRoutes);
 
 // ── 404 Handler ──────────────────────────
 app.use((req, res) => {
@@ -91,3 +91,12 @@ exports.api = functions
 //   .pubsub.schedule('0 8 * * *')
 //   .timeZone('Asia/Karachi')
 //   .onRun(require('./scheduled/overdueChecker').run);
+
+exports.generateSnapshots = functions
+  .region('asia-south1')
+  .pubsub.schedule('30 23 * * *')
+  .timeZone('Asia/Karachi')
+  .onRun(async () => {
+    const { run } = require('./reports/snapshotEngine');
+    await run(null);
+  });
