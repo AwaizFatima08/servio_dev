@@ -71,11 +71,76 @@ Starting file: core/functions/src/auth/authRoutes.js (currently placeholder ping
 ### Completed
 - Project initialised — web, mobile, backend all running
 - constants.js locked to V1 schema — 28 collections, camelCase
-- Flow 01: register, approve, profile endpoints — all tested
-- Flow 02: employee master endpoints — all tested
-- Named Firestore database: servio-dev
 - Firebase web app registered — config saved
-- Test data: FFL00001, FFL00002 (employees), admin@fatima-group.com (super_admin user)
+- Named Firestore database: servio-dev
+- Flow 01: register, approve, profile — all tested
+- Flow 02: employee master — add, list, get, status — all tested  
+- Flow 03: menu catalogue — foodTypes seeded, mealTypes seeded, menuItems CRUD — all tested
+- Flow 04: templates and cycles — create, activate, duplicate protection — all tested
+- Flow 05: reservation settings — seeded, get, update — all tested
+- Seed scripts: seedCatalogue.js, seedReservationSettings.js
 
-### Next
-- Flow 03: Menu Catalogue — foodTypes, mealTypes, menuItems
+### Test Data in Firestore (servio-dev)
+- deploymentConfig: ffl document
+- employees: FFL00001, FFL00002, FFL00003
+- users: PQHHC0Egnpafsdvo0oZvLOPKMQH3 (super_admin, admin@fatima-group.com)
+- Firebase Auth: admin@fatima-group.com / 1234@com
+- menuItems: EJvcPLythiJssM1ze9kr, u6Or4EYW89NM1784nPqs
+- templates: U7RqdMOuyvPXPEbQ1Bv9 (Summer 2026 Week A)
+- cycles: 8pAHziigB5yLHaPNckNz (Summer 2026 — active)
+
+### Next Session — Flow 06
+Mess Reservations + Issuance — most complex flow
+- booking logic, cutoff enforcement
+- self/guest/proxy/official/special meal booking
+- issuance flow
+- status management
+
+### Last Commit
+548b7e3
+
+## 23 May 2026
+
+### Completed
+- Flow 06 Part A: Daily Menu Resolver + Self Booking + Issuance — all tested
+- dailyMenuResolver.js — resolves dailyMenus from active cycle + template at 23:55 nightly
+- Manual resolver trigger — POST /mess/resolve-daily-menus (admin/super_admin only)
+- Daily menu fetch — GET /mess/daily-menu/:date/:mealType
+- Self booking — POST /mess/reservations (cutoff, duplicate, past date, menu validation all working)
+- Issuance list — GET /mess/reservations/issuance-list?date=&mealType=
+- Issue reservation — PATCH /mess/reservations/:id/issue
+- No-show — PATCH /mess/reservations/:id/no-show
+
+### New Files
+- src/mess/dailyMenuResolver.js
+- src/mess/messReservationService.js
+- src/mess/messRoutes.js
+
+### Test Data Added
+- users: dM34PAhXItby1QOY9K0S6N8JtL42 (employee, test1@fatima-group.com, FFL00002)
+- users: dusMNzDu5faGJQOQEuimJdoNvYL2 (employee, test2@fatima-group.com, FFL00003)
+- Firebase Auth: test1@fatima-group.com / 1234@com
+- Firebase Auth: test2@fatima-group.com / 1234@com
+- dailyMenus: ffl_2026-05-23_breakfast, ffl_2026-05-23_lunch, ffl_2026-05-23_dinner
+- messReservations: LK5REc9kCXGx8164U9yk (FFL00002, lunch, 2026-05-23, issued)
+
+### Critical Technical Notes (Learned Today)
+- No firebase.js shared file exists — each service imports firebase-admin directly
+- db.settings({ databaseId: 'servio-dev' }) must be called only ONCE across entire app — already called in index.js or first loaded service. Never repeat in new files.
+- verifyToken only decodes Firebase Auth token — does NOT set role or tenantId
+- verifyRole middleware fetches Firestore users doc and sets: req.userRole, req.tenantId, req.officialEmployeeNumber
+- Always use verifyRole for role checks — never check req.user.role directly
+- Function name in emulator: asia-south1-api (not us-central1-api)
+- Emulator URL: http://127.0.0.1:5001/servio-dev-55d2d/asia-south1/api
+- Tokens expire after 1 hour — re-login required for each test session
+
+### Next Session — Flow 06 Part B
+Remaining booking types to build:
+1. Proxy booking — supervisor books on behalf of employee
+2. Cancellation — employee or supervisor cancels before cutoff
+3. Guest booking — personal guest billed to employee account
+
+Starting file: src/mess/messReservationService.js — add proxyBooking, cancelReservation functions
+
+### Last Commit
+(run git commit before closing session)
