@@ -28,7 +28,7 @@ const rateRoutes       = require('./rates/ratesRoutes');
 // const billingRoutes    = require('./billing/billingRoutes');
 const notificationRoutes = require('./notifications/notificationRoutes');
 const feedbackRoutes   = require('./feedback/feedbackRoutes');
-// const eventRoutes      = require('./events/eventRoutes');
+const eventRoutes      = require('./events/eventRoutes');
 // const reportRoutes     = require('./reports/reportRoutes');
 
 // ── Create Express App ───────────────────
@@ -59,7 +59,7 @@ app.use('/rates',         rateRoutes);
 // app.use('/billing',       billingRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/feedback',      feedbackRoutes);
-// app.use('/events',        eventRoutes);
+app.use('/events',        eventRoutes);
 // app.use('/reports',       reportRoutes);
 
 // ── 404 Handler ──────────────────────────

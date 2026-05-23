@@ -163,11 +163,18 @@ Mess Reservations + Issuance — most complex flow
 - 24hr window check implemented
 - Summary aggregation by feedbackArea with averages
 
-### Next Session — Flow 09: Notifications
-- In-app notifications only (V1)
-- Triggers: booking confirmed, booking cancelled, meal issued
-- POST /notifications — admin creates notification
-- GET /notifications/my — employee fetches own unread notifications
-- PATCH /notifications/:id/read — mark as read
-- GET /notifications/admin — admin views all notifications
-- Starting file: src/notifications/notificationService.js (folder already exists)
+### Flow 09 — Completed 23 May 2026
+- Create notification — POST /notifications (admin only)
+- My notifications — GET /notifications/my
+- Unread count — GET /notifications/unread-count
+- Mark as read — PATCH /notifications/:deliveryId/read
+- Mark all read — PATCH /notifications/mark-all-read
+- Dispatcher built inline — resolves target UIDs and creates deliveries in batch
+- Supports: single_user, role, all_employees, admin_only target types
+
+### Next Session — Flow 10: Events + Attendance
+- Official and personal events
+- Event creation, approval workflow
+- Attendance response with counts
+- Aggregation via Cloud Function
+- Starting file: src/events/eventService.js (folder already exists)
