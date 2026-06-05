@@ -3,7 +3,8 @@
 const express = require('express');
 const router = express.Router();
 const admin = require('firebase-admin');
-const db = admin.firestore();
+const { getFirestore } = require('firebase-admin/firestore');
+const db = getFirestore('servio-dev');
 const verifyToken = require('../middleware/verifyToken');
 const verifyRole = require('../middleware/verifyRole');
 const { ROLES } = require('../constants');
@@ -153,6 +154,13 @@ router.post('/reservations', [verifyToken, verifyRole(
 
   } catch (error) {
     console.error('Create reservation error:', error.message);
+    if (error.existingReservationId) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+        existingReservationId: error.existingReservationId,
+      });
+    }
     return errorResponse(res, error.message, 400);
   }
 });
@@ -356,6 +364,84 @@ router.patch('/reservations/:reservationId/cancel', anyAuthenticated, async (req
   } catch (error) {
     console.error('Cancel reservation error:', error.message);
     return errorResponse(res, error.message, 400);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// messRoutes_ADDITION.js
+// HomiLabs | Servio
+//
+// INSTRUCTIONS FOR HOMI:
+// ONE new route to ADD to your existing messRoutes.js file.
+// Paste it BEFORE the final line:  module.exports = router;
+// No changes needed to messReservationService.js — this route
+// queries Firestore directly (simple read, no business logic needed).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /mess/my-reservations
+// Returns the current employee's own reservations
+// Query params:
+//   ?month=YYYY-MM          — filter by month (optional)
+//   ?status=active|cancelled — filter by reservationStatus (optional)
+// Any authenticated user — returns only their own records
+// Used by: Screen 11 — My Bookings
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/my-reservations', anyAuthenticated, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const officialEmployeeNumber = req.officialEmployeeNumber;
+    const { month, status } = req.query;
+
+    // Validate month if provided
+    if (month && !/^\d{4}-\d{2}$/.test(month)) {
+      return errorResponse(res, 'Invalid month format. Use YYYY-MM.', 400);
+    }
+
+    // Validate status if provided
+    const validStatuses = ['active', 'cancelled'];
+    if (status && !validStatuses.includes(status)) {
+      return errorResponse(res, `Invalid status. Valid values: ${validStatuses.join(', ')}`, 400);
+    }
+
+    // Build query
+    let query = db
+      .collection('messReservations')
+      .where('tenantId', '==', tenantId)
+      .where('employeeNumber', '==', officialEmployeeNumber);
+
+    // Filter by reservationStatus if requested
+    if (status) {
+      query = query.where('reservationStatus', '==', status);
+    }
+
+    // Filter by month if requested
+    if (month) {
+      const [year, mon] = month.split('-');
+      const pad = (n) => String(n).padStart(2, '0');
+      const monthNum = parseInt(mon, 10);
+      const lastDay = new Date(parseInt(year, 10), monthNum, 0).getDate();
+      const start = `${year}-${pad(monthNum)}-01`;
+      const end = `${year}-${pad(monthNum)}-${pad(lastDay)}`;
+
+      query = query
+        .where('reservationDate', '>=', start)
+        .where('reservationDate', '<=', end);
+    }
+
+    query = query.orderBy('reservationDate', 'desc');
+
+    const snap = await query.get();
+    const reservations = snap.docs.map(doc => doc.data());
+
+    return res.status(200).json({
+      count: reservations.length,
+      reservations,
+    });
+
+  } catch (error) {
+    console.error('GET my-reservations error:', error.message);
+    return errorResponse(res, error.message, 500);
   }
 });
 

@@ -1,0 +1,64 @@
+/* web/src/pages/employee/NotificationsPage.module.css */
+
+.page {
+  padding: 28px 32px;
+  min-height: 100%;
+  font-family: 'DM Sans', sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #042C1E;
+  margin: 0 0 4px 0;
+}
+
+.subtitle { font-size: 13px; color: #6b7280; margin: 0; }
+
+.filterBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 14px;
+  background: white;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.filterBtn:hover { border-color: #0F6E56; color: #0F6E56; }
+
+.filterActive {
+  border-color: #0F6E56;
+  color: #0F6E56;
+  background: #EBF9F4;
+}
+
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+}

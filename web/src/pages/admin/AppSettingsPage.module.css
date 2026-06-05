@@ -1,0 +1,161 @@
+/* web/src/pages/admin/AppSettingsPage.module.css */
+
+.page {
+  padding: 32px;
+  max-width: 860px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  color: #042C1E;
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.editBtn {
+  padding: 8px 20px;
+  background: #fff;
+  border: 1px solid #0F6E56;
+  color: #0F6E56;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+}
+.editBtn:hover { background: #EBF9F4; }
+
+.editActions { display: flex; gap: 10px; }
+
+.saveBtn {
+  padding: 8px 20px;
+  background: #0F6E56;
+  border: none;
+  color: #fff;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+}
+.saveBtn:hover:not(:disabled) { background: #0a5540; }
+.saveBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.cancelBtn {
+  padding: 8px 20px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cancelBtn:hover { background: #f9fafb; }
+
+.section {
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px;
+  margin-bottom: 20px;
+  border: 1px solid #e5f0eb;
+}
+
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: #042C1E;
+  margin: 0 0 4px 0;
+}
+
+.sectionNote {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0 0 20px 0;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 24px;
+}
+
+.fieldItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+.fieldValue {
+  font-size: 14px;
+  color: #042C1E;
+  padding: 4px 0;
+}
+
+.fieldEmpty {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.fieldInput {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  color: #042C1E;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.fieldInput:focus { border-color: #0F6E56; box-shadow: 0 0 0 2px #C6F0E5; }
+
+.errorBanner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.successBanner {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.loading {
+  padding: 48px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+}

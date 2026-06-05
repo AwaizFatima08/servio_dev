@@ -1,0 +1,1073 @@
+/* BookMealPage.module.css — v3 */
+
+/* ── Page ── */
+.page {
+  max-width: 920px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Page header ── */
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pageTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #042C1E;
+  margin: 0 0 4px;
+}
+
+.pageSub {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+}
+
+/* ── Mode toggle ── */
+.modeToggle {
+  display: flex;
+  border: 1.5px solid #ddeee8;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.modeBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  border: none;
+  background: #fff;
+  color: #888;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.modeBtn:first-child { border-right: 1.5px solid #ddeee8; }
+
+.modeBtnActive {
+  background: #042C1E;
+  color: #fff;
+}
+
+/* ── Flow wrapper ── */
+.flowWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Step progress bar ── */
+.stepBar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: #fff;
+  border: 1px solid #e5f0eb;
+  border-radius: 12px;
+  padding: 14px 20px;
+}
+
+.stepBarItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stepBarDot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #f0f5f2;
+  border: 2px solid #ddeee8;
+  color: #aaa;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.dotActive { background: #0F6E56; border-color: #0F6E56; color: #fff; }
+.dotDone   { background: #EBF9F4; border-color: #3DBFA0; color: #3DBFA0; }
+
+.stepBarLabel {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #bbb;
+  white-space: nowrap;
+}
+.stepBarLabelActive { color: #042C1E; font-weight: 600; }
+
+.stepBarLine {
+  height: 2px;
+  width: 24px;
+  background: #ddeee8;
+  margin: 0 6px;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.lineDone { background: #3DBFA0; }
+
+/* ── Card ── */
+.card {
+  background: #fff;
+  border: 1px solid #e5f0eb;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 6px rgba(4,44,30,0.07);
+}
+
+/* ── Step pane ── */
+.stepPane {
+  padding: 24px;
+}
+
+.stepHeader {
+  margin-bottom: 20px;
+}
+
+.stepTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  color: #042C1E;
+  margin: 0 0 4px;
+}
+
+.stepSub {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+}
+
+/* ─────────────────────────────────────────
+   DATE PICKER
+───────────────────────────────────────── */
+.datePicker {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 20px;
+}
+
+.dateCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 10px 10px;
+  border: 1.5px solid #ddeee8;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  min-width: 64px;
+  flex-shrink: 0;
+  position: relative;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dateCell:hover { border-color: #0F6E56; background: #F2F8F5; }
+
+.dateCellSelected {
+  border-color: #0F6E56;
+  background: #EBF9F4;
+}
+
+.dateCellToday {
+  border-color: #3DBFA0;
+}
+
+.dateDayName {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #aaa;
+}
+
+.dateDayNum {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #042C1E;
+  line-height: 1;
+}
+
+.dateMonth {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  color: #aaa;
+}
+
+.todayDot {
+  position: absolute;
+  bottom: 7px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #3DBFA0;
+}
+
+/* ─────────────────────────────────────────
+   MEAL TYPE CARDS
+───────────────────────────────────────── */
+.mealGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.mealCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1.5px solid #ddeee8;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+.mealCard:hover:not(:disabled) { border-color: #0F6E56; background: #F2F8F5; }
+.mealCard:disabled { opacity: 0.45; cursor: not-allowed; }
+.mealCardBooked { opacity: 0.45; cursor: not-allowed; }
+
+.mealIcon {
+  font-size: 22px;
+  color: #0F6E56;
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.mealCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+}
+
+.mealLabel {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #042C1E;
+}
+
+.mealTime {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #888;
+}
+
+.bookedBadge {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: #0F6E56;
+  background: #C6F0E5;
+  padding: 2px 10px;
+  border-radius: 20px;
+}
+
+/* ─────────────────────────────────────────
+   MENU PICKER (shared by single + weekly)
+───────────────────────────────────────── */
+.menuList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.menuRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1.5px solid #ddeee8;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: border-color 0.15s, background 0.15s;
+}
+.menuRow:hover { border-color: #0F6E56; background: #F2F8F5; }
+.menuRowSelected { border-color: #0F6E56; background: #EBF9F4; }
+
+.menuRowLeft { display: flex; flex-direction: column; gap: 2px; }
+.menuRowName {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #042C1E;
+}
+.menuRowDetail {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: #888;
+}
+
+.menuRowRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.menuBadge {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: #0F6E56;
+  background: #C6F0E5;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.menuBadgeAC {
+  color: #D4960A;
+  background: #fdf3d8;
+}
+
+.menuLoadingRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #888;
+}
+
+.menuNotReady {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: #fffbf0;
+  border: 1px solid #f0ead0;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #D4960A;
+  margin-bottom: 8px;
+}
+
+/* ─────────────────────────────────────────
+   DINING MODE (single flow)
+───────────────────────────────────────── */
+.diningGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.diningCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 16px;
+  border: 1.5px solid #ddeee8;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.diningCard:hover { border-color: #0F6E56; background: #F2F8F5; }
+.diningSelected   { border-color: #0F6E56; background: #EBF9F4; }
+
+.diningLabel {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #042C1E;
+}
+.diningNote {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: #888;
+}
+
+/* ─────────────────────────────────────────
+   STEP ACTIONS
+───────────────────────────────────────── */
+.stepActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  align-items: center;
+}
+
+.backBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: 1.5px solid #ddeee8;
+  border-radius: 10px;
+  background: #fff;
+  color: #666;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.backBtn:hover:not(:disabled) { border-color: #aaa; }
+.backBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.continueBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  background: #0F6E56;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.continueBtn:hover:not(:disabled) { background: #042C1E; }
+.continueBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.confirmBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  background: #0F6E56;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.confirmBtn:hover:not(:disabled) { background: #042C1E; }
+.confirmBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.weeklyModeLink {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border: 1.5px solid #ddeee8;
+  border-radius: 10px;
+  background: #fff;
+  color: #0F6E56;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s;
+}
+.weeklyModeLink:hover { border-color: #0F6E56; }
+
+.singleModeLink {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #0F6E56;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+/* ─────────────────────────────────────────
+   SUCCESS
+───────────────────────────────────────── */
+.successBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.successIcon {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: #EBF9F4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  color: #0F6E56;
+}
+
+.successIconFail {
+  background: #fdf0f0;
+  color: #c0392b;
+}
+
+.successTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  color: #042C1E;
+  margin: 0;
+}
+
+.successIntro {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+}
+
+.summaryCard {
+  width: 100%;
+  border: 1px solid #e5f0eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.summaryRow {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid #f0f5f2;
+}
+.summaryRow:last-child { border-bottom: none; }
+
+.summaryKey {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #888;
+  width: 60px;
+  flex-shrink: 0;
+}
+
+.summaryVal {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #042C1E;
+}
+
+.billingNote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #888;
+}
+
+.doneBtn {
+  padding: 12px 0;
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  background: #0F6E56;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.doneBtn:hover { background: #042C1E; }
+
+/* ─────────────────────────────────────────
+   WEEKLY BOOKING LAYOUT
+───────────────────────────────────────── */
+.weeklyHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.weeklyTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  color: #042C1E;
+  margin: 0 0 4px;
+}
+
+.weeklySub {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+}
+
+/* Default dining bar */
+.defaultDiningBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #e5f0eb;
+  border-radius: 10px;
+  padding: 12px 16px;
+  flex-wrap: wrap;
+}
+
+.defaultDiningLabel {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  white-space: nowrap;
+}
+
+.defaultDiningToggle {
+  display: flex;
+  border: 1.5px solid #ddeee8;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.defaultDiningBtn {
+  padding: 6px 14px;
+  border: none;
+  background: #fff;
+  color: #888;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.defaultDiningBtn:first-child { border-right: 1.5px solid #ddeee8; }
+.defaultDiningBtnActive { background: #0F6E56; color: #fff; }
+
+.defaultDiningNote {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: #aaa;
+}
+
+/* 7-day grid */
+.weekGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  overflow-x: auto;
+}
+
+/* Day column */
+.weekDayCol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 120px;
+}
+
+.weekDayHeader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 4px 8px;
+  background: #fff;
+  border: 1px solid #e5f0eb;
+  border-radius: 10px;
+  gap: 2px;
+}
+
+.weekDayName {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #aaa;
+}
+
+.weekDayNum {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #042C1E;
+  line-height: 1;
+}
+
+.weekTodayTag {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  color: #3DBFA0;
+  background: #EBF9F4;
+  padding: 1px 6px;
+  border-radius: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Slot */
+.weekSlot {
+  border: 1.5px solid #e5f0eb;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.weekSlotSelected {
+  border-color: #0F6E56;
+}
+
+.weekSlotBooked {
+  opacity: 0.5;
+}
+
+.weekSlotHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.weekSlotLabel {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: #555;
+  flex: 1;
+}
+
+.weekSlotBadge {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  color: #0F6E56;
+  background: #C6F0E5;
+  padding: 1px 6px;
+  border-radius: 10px;
+}
+
+.weekCheckbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: #EBF9F4;
+  border: 1.5px solid #0F6E56;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #0F6E56;
+}
+
+.weekCheckboxDone {
+  background: #0F6E56;
+  color: #fff;
+}
+
+.weekCheckboxEmpty {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.5px solid #ddeee8;
+  flex-shrink: 0;
+}
+
+.weekSlotBody {
+  padding: 8px 10px 10px;
+  border-top: 1px solid #f0f5f2;
+  background: #FAFCFB;
+}
+
+.slotUnavailable {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: #D4960A;
+  padding: 4px 0;
+}
+
+.slotDiningRow {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.slotDiningBtn {
+  flex: 1;
+  padding: 5px 4px;
+  border: 1.5px solid #ddeee8;
+  border-radius: 6px;
+  background: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.slotDiningBtnActive {
+  border-color: #0F6E56;
+  background: #EBF9F4;
+  color: #0F6E56;
+  font-weight: 600;
+}
+
+/* Submit bar */
+.weekSubmitBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid #e5f0eb;
+  border-radius: 12px;
+  padding: 14px 20px;
+}
+
+.weekSubmitCount {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #555;
+}
+
+.weekSubmitHint {
+  color: #D4960A;
+  font-size: 12px;
+}
+
+/* ─────────────────────────────────────────
+   WEEKLY RESULT
+───────────────────────────────────────── */
+.resultSection {
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid #e5f0eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.resultSectionLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #F2F8F5;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #555;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.resultRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 14px;
+  border-top: 1px solid #f0f5f2;
+}
+
+.resultRowFail { background: #fffafa; }
+
+.resultDate {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #555;
+  min-width: 80px;
+}
+
+.resultMeal {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #888;
+  min-width: 60px;
+}
+
+.resultItem {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #042C1E;
+  flex: 1;
+}
+
+.resultError {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: #c0392b;
+  flex: 1;
+}
+
+/* ─────────────────────────────────────────
+   SPINNERS
+───────────────────────────────────────── */
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #C6F0E5;
+  border-top-color: #0F6E56;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.spinnerSmall {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.spinnerTiny {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid #C6F0E5;
+  border-top-color: #0F6E56;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Error box */
+.errorBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fdf0f0;
+  border: 1px solid #f5c6c6;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #c0392b;
+  margin-top: 12px;
+}
+
+/* ─────────────────────────────────────────
+   RESPONSIVE
+───────────────────────────────────────── */
+@media (max-width: 900px) {
+  .weekGrid { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .stepPane { padding: 16px; }
+  .weekGrid { grid-template-columns: repeat(2, 1fr); }
+  .diningGrid { grid-template-columns: 1fr; }
+  .pageHeader { flex-direction: column; }
+  .defaultDiningBar { gap: 8px; }
+}
+
+/* ── Quantity selector — APPEND these styles to BookMealPage.module.css ── */
+
+.qtyWrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #F2F8F5;
+  border: 1.5px solid #ddeee8;
+  border-radius: 10px;
+}
+
+.qtyLabel {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #042C1E;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.qtyHint {
+  font-size: 11px;
+  color: #aaa;
+  font-weight: 400;
+}
+
+.qtyControl {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.qtyBtn {
+  width: 34px;
+  height: 34px;
+  border: 1.5px solid #ddeee8;
+  border-radius: 8px;
+  background: #fff;
+  color: #0F6E56;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.qtyBtn:hover:not(:disabled) { background: #EBF9F4; border-color: #0F6E56; }
+.qtyBtn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.qtyValue {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #042C1E;
+  min-width: 28px;
+  text-align: center;
+}
+
+.cancelExistingBtn {
+  display: block;
+  margin-top: 10px;
+  padding: 7px 14px;
+  background: #C0392B;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.15s;
+}
+.cancelExistingBtn:hover { background: #A93226; }
+.cancelExistingBtn:disabled { opacity: 0.5; cursor: not-allowed; }

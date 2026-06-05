@@ -1,18 +1,17 @@
 // core/functions/src/rates/mealRatesService.js
 
 const admin = require('firebase-admin');
-const db = admin.firestore();
+const { getFirestore } = require('firebase-admin/firestore');
+const db = getFirestore('servio-dev');
 const { FieldValue } = require('firebase-admin/firestore');
-const { COLLECTIONS } = require('../constants');
+const { COLLECTIONS, NOTIFICATION_TARGET_TYPES, NOTIFICATION_LAYERS } = require('../constants');
 
-// ─────────────────────────────────────────
-// getPendingRateEntries
-// Returns yesterday's served items needing rate entry
-// Shows issued count for each item
-// ─────────────────────────────────────────
+// Bug 3 fix: wire in notification service
+const { createNotification } = require('../notifications/notificationService');
+
+// ── getPendingRateEntries ──
 async function getPendingRateEntries({ tenantId, rateDate }) {
 
-  // --- 1. Get all 3 daily menu documents for the date ---
   const mealTypes = ['breakfast', 'lunch', 'dinner'];
   const pendingItems = [];
 
@@ -27,11 +26,9 @@ async function getPendingRateEntries({ tenantId, rateDate }) {
 
     const dailyMenu = dailyMenuDoc.data();
 
-    // --- 2. For each combo in the menu, check issued count ---
     for (const combo of dailyMenu.combos) {
       const rateTargetKey = `${rateDate}_${mealType}_${combo.menuOptionKey}`;
 
-      // Check if rate already entered for this item
       const existingRate = await db
         .collection(COLLECTIONS.MEAL_RATES)
         .where('tenantId', '==', tenantId)
@@ -40,7 +37,6 @@ async function getPendingRateEntries({ tenantId, rateDate }) {
         .limit(1)
         .get();
 
-      // Count how many reservations were issued for this item
       const issuedSnap = await db
         .collection(COLLECTIONS.MESS_RESERVATIONS)
         .where('tenantId', '==', tenantId)
@@ -50,7 +46,6 @@ async function getPendingRateEntries({ tenantId, rateDate }) {
 
       const issuedCount = issuedSnap.size;
 
-      // Get last historical rate for this item if exists
       const lastRateSnap = await db
         .collection(COLLECTIONS.MEAL_RATES)
         .where('tenantId', '==', tenantId)
@@ -83,13 +78,8 @@ async function getPendingRateEntries({ tenantId, rateDate }) {
   return pendingItems;
 }
 
-// ─────────────────────────────────────────
-// submitRateEntries
-// Accounts supervisor submits rates for one date
-// One rate document per item, then updates all matching reservations
-// ─────────────────────────────────────────
+// ── submitRateEntries ──
 async function submitRateEntries({ tenantId, rateDate, entryDate, entries, enteredByUid, enteredByName }) {
-  // entries = [{ rateTargetKey, menuItemId, itemName, mealType, menuOptionKey, selectionMode, unitRate }]
 
   if (!entries || entries.length === 0) {
     throw new Error('No rate entries provided.');
@@ -113,7 +103,6 @@ async function submitRateEntries({ tenantId, rateDate, entryDate, entries, enter
       throw new Error(`Invalid rate for ${itemName}. Rate must be greater than 0.`);
     }
 
-    // --- Check if rate already entered (revision scenario) ---
     const existingSnap = await db
       .collection(COLLECTIONS.MEAL_RATES)
       .where('tenantId', '==', tenantId)
@@ -125,7 +114,6 @@ async function submitRateEntries({ tenantId, rateDate, entryDate, entries, enter
     const isRevision = !existingSnap.empty;
     let revisedFromId = null;
 
-    // If revision: mark old rate inactive
     if (isRevision) {
       const oldRateRef = existingSnap.docs[0].ref;
       revisedFromId = existingSnap.docs[0].id;
@@ -135,7 +123,6 @@ async function submitRateEntries({ tenantId, rateDate, entryDate, entries, enter
       });
     }
 
-    // --- Count issued reservations for this item ---
     const issuedSnap = await db
       .collection(COLLECTIONS.MESS_RESERVATIONS)
       .where('tenantId', '==', tenantId)
@@ -146,7 +133,6 @@ async function submitRateEntries({ tenantId, rateDate, entryDate, entries, enter
     const issuedCount = issuedSnap.size;
     const totalAmount = unitRate * issuedCount;
 
-    // --- Write mealRates document ---
     const rateRef = db.collection(COLLECTIONS.MEAL_RATES).doc();
     const rateId = rateRef.id;
 
@@ -179,7 +165,6 @@ async function submitRateEntries({ tenantId, rateDate, entryDate, entries, enter
 
     await rateRef.set(rateDoc);
 
-    // --- Collect reservation IDs to update ---
     issuedSnap.docs.forEach(doc => {
       reservationUpdates.push({
         ref: doc.ref,
@@ -218,6 +203,22 @@ async function submitRateEntries({ tenantId, rateDate, entryDate, entries, enter
     await batch.commit();
   }
 
+  // Bug 3 fix: Notify admin/accounts that rates have been entered (fire-and-forget)
+  const mealSummary = results.map(r => `${r.mealType} (${r.itemName}): Rs. ${r.unitRate}`).join(', ');
+  createNotification({
+    tenantId,
+    createdByUid: enteredByUid,
+    createdByName: enteredByName,
+    notificationLayer: NOTIFICATION_LAYERS.INFORMATIONAL,
+    notificationType: 'rates_entered',
+    triggerSource: 'rate_entry',
+    title: 'Meal Rates Entered',
+    body: `Rates entered for ${rateDate} by ${enteredByName || 'Accounts'}. ${results.length} item(s): ${mealSummary}.`,
+    targetType: NOTIFICATION_TARGET_TYPES.ADMIN_ONLY,
+    contextType: 'rate_entry',
+    contextId: rateDate,
+  }).catch(err => console.error('[Notification] rates_entered failed:', err));
+
   return {
     rateDate,
     entriesProcessed: results.length,
@@ -226,10 +227,7 @@ async function submitRateEntries({ tenantId, rateDate, entryDate, entries, enter
   };
 }
 
-// ─────────────────────────────────────────
-// getRatesForDate
-// Returns all rate entries for a given date
-// ─────────────────────────────────────────
+// ── getRatesForDate ──
 async function getRatesForDate({ tenantId, rateDate }) {
   const snap = await db
     .collection(COLLECTIONS.MEAL_RATES)

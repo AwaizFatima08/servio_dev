@@ -1,0 +1,62 @@
+/* FeedbackPage.module.css */
+.page { padding: 28px 32px; max-width: 800px; }
+.header { margin-bottom: 24px; }
+.title { font-family: 'Playfair Display', serif; font-size: 26px; color: #042C1E; margin: 0 0 4px; }
+.subtitle { font-size: 14px; color: #6b7280; margin: 0; }
+.errorBanner   { background: #fee2e2; color: #b91c1c; padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+.successBanner { background: #d1fae5; color: #065f46; padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+.loading { color: #6b7280; padding: 40px 0; text-align: center; }
+.emptyState { text-align: center; padding: 60px 0; color: #6b7280; font-size: 15px; }
+.emptyIcon { font-size: 40px; margin-bottom: 8px; }
+
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1.5px solid #e5e7eb; }
+.tab { padding: 10px 20px; font-size: 14px; font-weight: 500; color: #6b7280; border: none; background: none; cursor: pointer; font-family: 'DM Sans', sans-serif; border-bottom: 2.5px solid transparent; margin-bottom: -1.5px; }
+.tab:hover { color: #0F6E56; }
+.tabActive { color: #0F6E56; border-bottom-color: #0F6E56; font-weight: 700; }
+
+.list { display: flex; flex-direction: column; gap: 10px; }
+.eligibleCard { background: #fff; border-radius: 12px; border: 1.5px solid #d1fae5; padding: 18px 20px; }
+.eligibleInfo { margin-bottom: 12px; }
+.eligibleMeal { font-size: 13px; color: #6b7280; margin-bottom: 2px; }
+.eligibleItem { font-size: 16px; font-weight: 700; color: #042C1E; }
+.eligibleOption { font-size: 12px; color: #0F6E56; margin-top: 2px; }
+
+.rateBtn {
+  background: #EBF9F4; color: #0F6E56; border: 1.5px solid #3DBFA0; border-radius: 8px;
+  padding: 8px 20px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif;
+}
+.rateBtn:hover { background: #d1fae5; }
+
+.feedbackForm { margin-top: 12px; border-top: 1px solid #f3f4f6; padding-top: 16px; }
+.areaRow { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.areaBtn { padding: 5px 12px; border-radius: 99px; font-size: 12px; border: 1.5px solid #d1fae5; background: #fff; color: #6b7280; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+.areaBtn:hover { border-color: #0F6E56; color: #0F6E56; }
+.areaBtnActive { background: #EBF9F4; border-color: #0F6E56; color: #0F6E56; font-weight: 700; }
+
+.starRow { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; }
+.star { font-size: 28px; background: none; border: none; cursor: pointer; color: #d1fae5; padding: 0; line-height: 1; }
+.starFilled { color: #D4960A; }
+.ratingLabel { font-size: 13px; color: #6b7280; margin-left: 8px; }
+
+.anonLabel { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6b7280; margin-bottom: 14px; cursor: pointer; }
+.anonLabel input { accent-color: #0F6E56; }
+
+.formActions { display: flex; gap: 10px; }
+.submitBtn {
+  background: #0F6E56; color: #fff; border: none; border-radius: 8px;
+  padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif;
+}
+.submitBtn:hover:not(:disabled) { background: #1D9E75; }
+.submitBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+.cancelFormBtn {
+  background: #f3f4f6; color: #374151; border: none; border-radius: 8px;
+  padding: 10px 20px; font-size: 14px; cursor: pointer; font-family: 'DM Sans', sans-serif;
+}
+
+.submittedCard { background: #fff; border-radius: 12px; border: 1.5px solid #d1fae5; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+.submittedInfo { }
+.areaTag { font-size: 12px; background: #EBF9F4; color: #0F6E56; padding: 2px 8px; border-radius: 99px; font-weight: 600; display: inline-block; margin-top: 4px; text-transform: capitalize; }
+.ratingStars { display: flex; align-items: center; gap: 2px; }
+.starFilledStatic { font-size: 18px; color: #D4960A; }
+.starEmpty        { font-size: 18px; color: #e5e7eb; }
+.submittedStatus  { font-size: 11px; color: #9ca3af; margin-left: 8px; text-transform: capitalize; }

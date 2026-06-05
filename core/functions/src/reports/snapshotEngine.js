@@ -83,7 +83,8 @@ const SNAPSHOT_GENERATORS = [
  */
 async function run(targetTenantId = null) {
 
-  const db = admin.firestore();
+  const { getFirestore } = require('firebase-admin/firestore');
+  const db = getFirestore('servio-dev');
 
   const results = { success: [], failed: [], skipped: [] };
 

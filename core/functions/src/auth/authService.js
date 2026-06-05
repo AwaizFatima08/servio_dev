@@ -6,8 +6,8 @@ const admin = require('firebase-admin');
 const { COLLECTIONS, REGISTRATION_STATUS, FAILURE_REASONS, ACCOUNT_STATUS, ROLES, DEFAULT_VIEWS, ACCOUNT_TYPES } = require('../constants');
 const { nowISO } = require('../utils');
 
-const db = admin.firestore();
-db.settings({ databaseId: 'servio-dev' });
+const { getFirestore } = require('firebase-admin/firestore');
+const db = getFirestore('servio-dev');
 
 // ── Helper: get Firestore server timestamp ──
 const { FieldValue } = require('firebase-admin/firestore');
@@ -18,7 +18,10 @@ const ts = () => FieldValue.serverTimestamp();
 // Called when a management employee signs up
 // uid comes from Firebase Auth (already created on client)
 // ─────────────────────────────────────────
-const registerEmployee = async ({ uid, officialEmployeeNumber, cnicLast4, dateOfBirth, personalEmail, ipAddress }) => {
+const registerEmployee = async ({ uid, officialEmployeeNumber: rawEmployeeNumber, cnicLast4, dateOfBirth, personalEmail, ipAddress }) => {
+
+  // Feature C — silently strip hyphens: "FFL-00100" → "FFL00100"
+  const officialEmployeeNumber = rawEmployeeNumber.replace(/-/g, '').trim().toUpperCase();
 
   // 1. Read deploymentConfig
   const configDoc = await db.collection(COLLECTIONS.DEPLOYMENT_CONFIG).doc('ffl').get();
@@ -34,6 +37,7 @@ const registerEmployee = async ({ uid, officialEmployeeNumber, cnicLast4, dateOf
       requestType: ACCOUNT_TYPES.SELF_SIGNUP,
       requestStatus: REGISTRATION_STATUS.FAILED_VALIDATION,
       failureReason: FAILURE_REASONS.EMPLOYEE_NOT_FOUND,
+      tenantId: config.tenantId,
     });
     return { success: false, code: FAILURE_REASONS.EMPLOYEE_NOT_FOUND };
   }
@@ -45,6 +49,7 @@ const registerEmployee = async ({ uid, officialEmployeeNumber, cnicLast4, dateOf
       requestType: ACCOUNT_TYPES.SELF_SIGNUP,
       requestStatus: REGISTRATION_STATUS.FAILED_VALIDATION,
       failureReason: FAILURE_REASONS.EMPLOYEE_NOT_FOUND,
+      tenantId: config.tenantId,
     });
     return { success: false, code: FAILURE_REASONS.EMPLOYEE_NOT_FOUND };
   }
@@ -57,6 +62,7 @@ const registerEmployee = async ({ uid, officialEmployeeNumber, cnicLast4, dateOf
       requestType: ACCOUNT_TYPES.SELF_SIGNUP,
       requestStatus: REGISTRATION_STATUS.FAILED_INACTIVE,
       failureReason: FAILURE_REASONS.EMPLOYEE_INACTIVE,
+      tenantId: config.tenantId,
     });
     return { success: false, code: FAILURE_REASONS.EMPLOYEE_INACTIVE };
   }
@@ -67,40 +73,43 @@ const registerEmployee = async ({ uid, officialEmployeeNumber, cnicLast4, dateOf
       requestType: ACCOUNT_TYPES.SELF_SIGNUP,
       requestStatus: REGISTRATION_STATUS.FAILED_THROTTLED,
       failureReason: FAILURE_REASONS.THROTTLE_EXCEEDED,
+      tenantId: config.tenantId,
     });
     return { success: false, code: FAILURE_REASONS.THROTTLE_EXCEEDED };
   }
 
   // 6. Check not already registered
   const existingUser = await db.collection(COLLECTIONS.USERS)
-  .where('officialEmployeeNumber', '==', officialEmployeeNumber)
-  .limit(1)
-  .get();
+    .where('officialEmployeeNumber', '==', officialEmployeeNumber)
+    .limit(1)
+    .get();
 
-if (!existingUser.empty) {
-  await _logRequest({ officialEmployeeNumber, uid, personalEmail, ipAddress,
-    requestType: ACCOUNT_TYPES.SELF_SIGNUP,
-    requestStatus: REGISTRATION_STATUS.FAILED_DUPLICATE,
-    failureReason: FAILURE_REASONS.ACCOUNT_EXISTS,
-  });
-  return { success: false, code: FAILURE_REASONS.ACCOUNT_EXISTS };
-}
+  if (!existingUser.empty) {
+    await _logRequest({ officialEmployeeNumber, uid, personalEmail, ipAddress,
+      requestType: ACCOUNT_TYPES.SELF_SIGNUP,
+      requestStatus: REGISTRATION_STATUS.FAILED_DUPLICATE,
+      failureReason: FAILURE_REASONS.ACCOUNT_EXISTS,
+      tenantId: config.tenantId,
+    });
+    return { success: false, code: FAILURE_REASONS.ACCOUNT_EXISTS };
+  }
 
-// 6b. Check not already pending in registrationRequests
-const existingRequest = await db.collection(COLLECTIONS.REGISTRATION_REQUESTS)
-  .where('officialEmployeeNumber', '==', officialEmployeeNumber)
-  .where('requestStatus', '==', REGISTRATION_STATUS.PENDING)
-  .limit(1)
-  .get();
+  // 6b. Check not already pending in registrationRequests
+  const existingRequest = await db.collection(COLLECTIONS.REGISTRATION_REQUESTS)
+    .where('officialEmployeeNumber', '==', officialEmployeeNumber)
+    .where('requestStatus', '==', REGISTRATION_STATUS.PENDING)
+    .limit(1)
+    .get();
 
-if (!existingRequest.empty) {
-  await _logRequest({ officialEmployeeNumber, uid, personalEmail, ipAddress,
-    requestType: ACCOUNT_TYPES.SELF_SIGNUP,
-    requestStatus: REGISTRATION_STATUS.FAILED_DUPLICATE,
-    failureReason: FAILURE_REASONS.ACCOUNT_EXISTS,
-  });
-  return { success: false, code: FAILURE_REASONS.ACCOUNT_EXISTS };
-}
+  if (!existingRequest.empty) {
+    await _logRequest({ officialEmployeeNumber, uid, personalEmail, ipAddress,
+      requestType: ACCOUNT_TYPES.SELF_SIGNUP,
+      requestStatus: REGISTRATION_STATUS.FAILED_DUPLICATE,
+      failureReason: FAILURE_REASONS.ACCOUNT_EXISTS,
+      tenantId: config.tenantId,
+    });
+    return { success: false, code: FAILURE_REASONS.ACCOUNT_EXISTS };
+  }
 
   // 7. Validate cnicLast4
   if (employee.cnicLast4 !== cnicLast4) {
@@ -109,6 +118,7 @@ if (!existingRequest.empty) {
       requestType: ACCOUNT_TYPES.SELF_SIGNUP,
       requestStatus: REGISTRATION_STATUS.FAILED_VALIDATION,
       failureReason: FAILURE_REASONS.CNIC_MISMATCH,
+      tenantId: config.tenantId,
     });
     return { success: false, code: FAILURE_REASONS.CNIC_MISMATCH };
   }
@@ -120,6 +130,7 @@ if (!existingRequest.empty) {
       requestType: ACCOUNT_TYPES.SELF_SIGNUP,
       requestStatus: REGISTRATION_STATUS.FAILED_VALIDATION,
       failureReason: FAILURE_REASONS.DOB_MISMATCH,
+      tenantId: config.tenantId,
     });
     return { success: false, code: FAILURE_REASONS.DOB_MISMATCH };
   }
@@ -269,12 +280,12 @@ const getUserProfile = async (uid) => {
 // Private helpers
 // ─────────────────────────────────────────
 
-const _logRequest = async ({ officialEmployeeNumber, uid, personalEmail, ipAddress, requestType, requestStatus, failureReason }) => {
+const _logRequest = async ({ officialEmployeeNumber, uid, personalEmail, ipAddress, requestType, requestStatus, failureReason, tenantId: logTenantId }) => {
   const ref = db.collection(COLLECTIONS.REGISTRATION_REQUESTS).doc();
   await ref.set({
     requestId: ref.id,
     officialEmployeeNumber,
-    tenantId: 'ffl',
+    tenantId: logTenantId || 'ffl',
     requestType,
     requestStatus,
     failureReason: failureReason || null,
@@ -302,4 +313,184 @@ const _incrementFailedAttempts = async (officialEmployeeNumber, employee) => {
   await db.collection(COLLECTIONS.EMPLOYEES).doc(officialEmployeeNumber).update(updateData);
 };
 
-module.exports = { registerEmployee, approveRegistration, getUserProfile };
+// ─────────────────────────────────────────
+// getPendingRequests
+// Returns all registrationRequests with status "pending" for the tenant
+// ─────────────────────────────────────────
+const getPendingRequests = async ({ tenantId }) => {
+  const snap = await db
+    .collection(COLLECTIONS.REGISTRATION_REQUESTS)
+    .where('tenantId', '==', tenantId)
+    .where('requestStatus', '==', REGISTRATION_STATUS.PENDING)
+    .orderBy('createdAt', 'desc')
+    .get();
+
+  return snap.docs.map(doc => doc.data());
+};
+
+// ─────────────────────────────────────────
+// rejectRegistration
+// Admin rejects a pending registration request
+// ─────────────────────────────────────────
+const rejectRegistration = async ({ requestId, rejectedByUid }) => {
+  const requestDoc = await db
+    .collection(COLLECTIONS.REGISTRATION_REQUESTS)
+    .doc(requestId)
+    .get();
+
+  if (!requestDoc.exists) {
+    return { success: false, message: 'Registration request not found' };
+  }
+
+  const request = requestDoc.data();
+
+  if (request.requestStatus !== REGISTRATION_STATUS.PENDING) {
+    return { success: false, message: `Request is already ${request.requestStatus}` };
+  }
+
+  await db.collection(COLLECTIONS.REGISTRATION_REQUESTS).doc(requestId).update({
+    requestStatus: REGISTRATION_STATUS.FAILED_VALIDATION,
+    resolvedBy: rejectedByUid,
+    resolvedAt: ts(),
+    updatedAt: ts(),
+  });
+
+  return { success: true, message: 'Registration request rejected' };
+};
+
+// ─────────────────────────────────────────
+// listUsers
+// Returns all user accounts for the tenant
+// Joins with employees collection to return fullName alongside user data
+// ─────────────────────────────────────────
+const listUsers = async ({ tenantId }) => {
+  const snap = await db
+    .collection(COLLECTIONS.USERS)
+    .where('tenantId', '==', tenantId)
+    .orderBy('createdAt', 'desc')
+    .get();
+
+  const users = snap.docs.map(doc => doc.data());
+
+  // Enrich each user with employee fullName
+  const enriched = await Promise.all(
+    users.map(async (user) => {
+      const empDoc = await db
+        .collection(COLLECTIONS.EMPLOYEES)
+        .doc(user.officialEmployeeNumber)
+        .get();
+
+      const fullName = empDoc.exists ? (empDoc.data().fullName || '') : '';
+
+      return {
+        uid: user.uid,
+        officialEmployeeNumber: user.officialEmployeeNumber,
+        fullName,
+        personalEmail: user.personalEmail,
+        role: user.role,
+        status: user.status,
+        defaultView: user.defaultView,
+        accountType: user.accountType,
+        tenantId: user.tenantId,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt,
+      };
+    })
+  );
+
+  return enriched;
+};
+
+// ─────────────────────────────────────────
+// changeUserRole
+// Admin changes a user's role
+// ─────────────────────────────────────────
+const changeUserRole = async ({ uid, role, changedByUid }) => {
+  const validRoles = Object.values(ROLES);
+  if (!validRoles.includes(role)) {
+    return { success: false, message: `Invalid role: ${role}` };
+  }
+
+  const userDoc = await db.collection(COLLECTIONS.USERS).doc(uid).get();
+  if (!userDoc.exists) {
+    return { success: false, message: 'User not found' };
+  }
+
+  await db.collection(COLLECTIONS.USERS).doc(uid).update({
+    role,
+    updatedAt: ts(),
+  });
+
+  return { success: true, message: `Role updated to ${role}` };
+};
+
+// ─────────────────────────────────────────
+// changeUserStatus
+// Admin activates, deactivates, or suspends a user account
+// ─────────────────────────────────────────
+const changeUserStatus = async ({ uid, status, changedByUid }) => {
+  const userDoc = await db.collection(COLLECTIONS.USERS).doc(uid).get();
+  if (!userDoc.exists) {
+    return { success: false, message: 'User not found' };
+  }
+
+  await db.collection(COLLECTIONS.USERS).doc(uid).update({
+    status,
+    updatedAt: ts(),
+  });
+
+  return { success: true, message: `Account status updated to ${status}` };
+};
+
+// ─────────────────────────────────────────
+// resetThrottle
+// Admin clears isThrottled flag on the employee record
+// ─────────────────────────────────────────
+const resetThrottle = async ({ uid, resetByUid }) => {
+  const userDoc = await db.collection(COLLECTIONS.USERS).doc(uid).get();
+
+  let officialEmployeeNumber = null;
+
+  if (userDoc.exists) {
+    officialEmployeeNumber = userDoc.data().officialEmployeeNumber;
+  } else {
+    const reqSnap = await db
+      .collection(COLLECTIONS.REGISTRATION_REQUESTS)
+      .where('uid', '==', uid)
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
+
+    if (!reqSnap.empty) {
+      officialEmployeeNumber = reqSnap.docs[0].data().officialEmployeeNumber;
+    }
+  }
+
+  if (!officialEmployeeNumber) {
+    return { success: false, message: 'Could not find employee record for this user' };
+  }
+
+  const empDoc = await db
+    .collection(COLLECTIONS.EMPLOYEES)
+    .doc(officialEmployeeNumber)
+    .get();
+
+  if (!empDoc.exists) {
+    return { success: false, message: 'Employee record not found' };
+  }
+
+  await db.collection(COLLECTIONS.EMPLOYEES).doc(officialEmployeeNumber).update({
+    isThrottled: false,
+    failedAttemptCount: 0,
+    lastFailedAt: null,
+    updatedAt: ts(),
+  });
+
+  return { success: true, message: `Throttle reset for ${officialEmployeeNumber}` };
+};
+
+module.exports = {
+  registerEmployee, approveRegistration, getUserProfile,
+  getPendingRequests, rejectRegistration,
+  listUsers, changeUserRole, changeUserStatus, resetThrottle,
+};

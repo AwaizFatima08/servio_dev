@@ -1,0 +1,180 @@
+// ─────────────────────────────────────────
+// messService.js — Mess API calls
+// HomiLabs | Servio | Web
+// Updated: quantity now passed in createReservation
+// ─────────────────────────────────────────
+
+const BASE_URL = 'https://asia-south1-servio-dev-55d2d.cloudfunctions.net/api';
+
+function authHeader(token) {
+  return { Authorization: `Bearer ${token}` };
+}
+
+// ── getDailyMenu ──
+// GET /mess/daily-menu/:date/:mealType
+// Returns null for 404 (menu not generated yet)
+export async function getDailyMenu(date, mealType, token) {
+  const res = await fetch(
+    `${BASE_URL}/mess/daily-menu/${date}/${mealType}`,
+    { headers: authHeader(token) }
+  );
+  const data = await res.json();
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    throw new Error(data.message || 'Failed to load menu');
+  }
+  return data.menu;
+}
+
+// ── getReservationsForDate ──
+// GET /mess/reservations?date=YYYY-MM-DD
+// NOTE: Endpoint parked — returns empty array if missing
+export async function getReservationsForDate(date, token) {
+  const res = await fetch(
+    `${BASE_URL}/mess/reservations?date=${date}`,
+    { headers: authHeader(token) }
+  );
+  if (res.status === 404) {
+    console.warn('GET /mess/reservations not found — endpoint may be missing');
+    return [];
+  }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to load reservations');
+  return data.reservations || data.data || [];
+}
+
+// ── getTodayReservations ── shorthand
+export async function getTodayReservations(token) {
+  const pkt   = new Date(new Date().getTime() + 5 * 60 * 60 * 1000);
+  const today = `${pkt.getUTCFullYear()}-${String(pkt.getUTCMonth() + 1).padStart(2, '0')}-${String(pkt.getUTCDate()).padStart(2, '0')}`;
+  return getReservationsForDate(today, token);
+}
+
+// ── createReservation ──
+// POST /mess/reservations
+// payload includes quantity — backend now accepts and stores it
+export async function createReservation(payload, token) {
+  const res = await fetch(`${BASE_URL}/mess/reservations`, {
+    method: 'POST',
+    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const err = new Error(data.message || 'Booking failed');
+    if (data.existingReservationId) err.existingReservationId = data.existingReservationId;
+    throw err;
+  }
+  return data.reservation;
+}
+
+// ── createWeeklyReservations ──
+// Calls createReservation once per slot. Returns { succeeded, failed }.
+// Partial failure is expected — continues even if some slots fail.
+export async function createWeeklyReservations(slots, token) {
+  const succeeded = [];
+  const failed = [];
+
+  for (const slot of slots) {
+    try {
+      const result = await createReservation({
+        reservationDate: slot.reservationDate,
+        mealType:        slot.mealType,
+        menuItemId:      slot.menuItemId,
+        menuOptionKey:   slot.menuOptionKey,
+        optionLabel:     slot.optionLabel,
+        itemName:        slot.itemName,
+        selectionMode:   slot.selectionMode,
+        diningMode:      slot.diningMode,
+        subjectType:     'self',
+        quantity:        slot.quantity || 1,
+      }, token);
+      succeeded.push({ ...slot, reservationId: result?.reservationId });
+    } catch (err) {
+      failed.push({ ...slot, error: err.message });
+    }
+  }
+
+  return { succeeded, failed };
+}
+
+// ── cancelReservation ──
+// PATCH /mess/reservations/:id/cancel
+export async function cancelReservation(reservationId, cancellationReason, token) {
+  const res = await fetch(
+    `${BASE_URL}/mess/reservations/${reservationId}/cancel`,
+    {
+      method: 'PATCH',
+      headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cancellationReason }),
+    }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Cancellation failed');
+  return data.result;
+}
+
+// ── getBookableWeek ──
+// Returns array of 7 YYYY-MM-DD strings starting from today
+export function getBookableWeek() {
+  const days = [];
+  const today = new Date();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+  return days;
+}
+
+// ── getIssuanceList ──
+// GET /mess/reservations/issuance-list?date=YYYY-MM-DD&mealType=lunch
+export async function getIssuanceList(date, mealType, token) {
+  const params = new URLSearchParams({ date, mealType });
+  const res = await fetch(`${BASE_URL}/mess/reservations/issuance-list?${params}`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to load issuance list');
+  return data; // { date, mealType, count, reservations }
+}
+
+// ── issueReservation ──
+// PATCH /mess/reservations/:reservationId/issue
+export async function issueReservation(reservationId, token) {
+  const res = await fetch(`${BASE_URL}/mess/reservations/${reservationId}/issue`, {
+    method: 'PATCH',
+    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to issue reservation');
+  return data;
+}
+
+// ── markNoShow ──
+// PATCH /mess/reservations/:reservationId/no-show
+export async function markNoShow(reservationId, token) {
+  const res = await fetch(`${BASE_URL}/mess/reservations/${reservationId}/no-show`, {
+    method: 'PATCH',
+    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to mark no-show');
+  return data;
+}
+
+// ── getEmployees ──
+// GET /employees?search=...&limit=30
+// Used by Proxy Booking and Walk-in for employee search dropdown
+export async function getEmployees(search, token) {
+  const params = new URLSearchParams({ limit: '30' });
+  if (search) params.set('search', search);
+  const res = await fetch(`${BASE_URL}/employees?${params}`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to load employees');
+  return data.data?.employees || data.employees || [];
+}

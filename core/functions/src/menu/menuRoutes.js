@@ -15,11 +15,12 @@ const { successResponse, errorResponse, validateRequired } = require('../utils')
 const { ROLES } = require('../constants');
 
 const adminOnly = [verifyToken, verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN)];
+const managerAndAbove = [verifyToken, verifyRole(ROLES.MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN)];
 
 // ─────────────────────────────────────────
 // GET /menu/food-types
 // ─────────────────────────────────────────
-router.get('/food-types', adminOnly, async (req, res) => {
+router.get('/food-types', managerAndAbove, async (req, res) => {
   try {
     const result = await getFoodTypes();
     return successResponse(res, { count: result.count, foodTypes: result.foodTypes }, 'Food types retrieved');
@@ -31,7 +32,7 @@ router.get('/food-types', adminOnly, async (req, res) => {
 // ─────────────────────────────────────────
 // GET /menu/meal-types
 // ─────────────────────────────────────────
-router.get('/meal-types', adminOnly, async (req, res) => {
+router.get('/meal-types', managerAndAbove, async (req, res) => {
   try {
     const result = await getMealTypes();
     return successResponse(res, { count: result.count, mealTypes: result.mealTypes }, 'Meal types retrieved');
@@ -46,7 +47,7 @@ router.get('/meal-types', adminOnly, async (req, res) => {
 //         supportsFeedback, supportsRate, sortOrder, rateType,
 //         constituentItemIds, constituentItemNames }
 // ─────────────────────────────────────────
-router.post('/items', adminOnly, async (req, res) => {
+router.post('/items', managerAndAbove, async (req, res) => {
   try {
     const missing = validateRequired(req.body, [
       'itemName', 'itemType', 'foodTypeCode', 'baseUnit',
@@ -77,7 +78,7 @@ router.post('/items', adminOnly, async (req, res) => {
 // GET /menu/items
 // Query: serviceCategory, foodTypeCode, isActive, search, limit
 // ─────────────────────────────────────────
-router.get('/items', adminOnly, async (req, res) => {
+router.get('/items', managerAndAbove, async (req, res) => {
   try {
     const { serviceCategory, foodTypeCode, isActive, search, limit } = req.query;
 
@@ -99,7 +100,7 @@ router.get('/items', adminOnly, async (req, res) => {
 // ─────────────────────────────────────────
 // GET /menu/items/:itemId
 // ─────────────────────────────────────────
-router.get('/items/:itemId', adminOnly, async (req, res) => {
+router.get('/items/:itemId', managerAndAbove, async (req, res) => {
   try {
     const result = await getMenuItem(req.params.itemId);
 
@@ -118,7 +119,7 @@ router.get('/items/:itemId', adminOnly, async (req, res) => {
 // PATCH /menu/items/:itemId
 // Update item fields
 // ─────────────────────────────────────────
-router.patch('/items/:itemId', adminOnly, async (req, res) => {
+router.patch('/items/:itemId', managerAndAbove, async (req, res) => {
   try {
     const result = await updateMenuItem(req.params.itemId, req.body);
 
@@ -137,7 +138,7 @@ router.patch('/items/:itemId', adminOnly, async (req, res) => {
 // PATCH /menu/items/:itemId/status
 // Body: { isActive: true | false }
 // ─────────────────────────────────────────
-router.patch('/items/:itemId/status', adminOnly, async (req, res) => {
+router.patch('/items/:itemId/status', managerAndAbove, async (req, res) => {
   try {
     if (req.body.isActive === undefined) {
       return errorResponse(res, 'isActive field is required', 400);

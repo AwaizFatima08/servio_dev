@@ -1,0 +1,234 @@
+
+
+
+SERVIO
+Club Management Platform
+V1 Frontend & UI — Scope Reference Document
+Every meal, every service, every event; perfectly managed.
+
+
+HomiLabs  ·  homilabs.org
+Developed by HomiLabs
+Managed by Awaiz Fatima  ·  Muhammad Abdulhadi  ·  Parishay Zainab
+Date: 23 May 2026  ·  Version: 1.0
+ 
+1. Purpose of This Document
+This document is the locked reference for all V1 frontend and UI development of Servio. It must be read at the start of every development session before any screen is built or modified.
+It defines the design system, screen inventory, build phases, role-based navigation, and all UI decisions that have been agreed and locked. Nothing in this document may be changed without a formal decision logged in the command board.
+
+2. Design System — Locked
+2.1 Colour Palette
+Role	Hex	Usage
+Primary Green	#0F6E56	Sidebar active, buttons, accents
+Dark Green	#042C1E	Top bar, popup headers, text
+Mid Green	#1D9E75	Gradients, hover states, avatar
+Bright Teal	#3DBFA0	Active dots, confirmed states, logo mark
+Light Teal	#C6F0E5	Sidebar active bg, card accent circles
+Pale Green	#EBF9F4	User block bg, active nav bg, card bg
+Gold	#D4960A	Pending/action-needed card gradient
+App Background	#F2F8F5	Main content area background
+
+2.2 Typography
+Element	Font	Usage
+Display / Headings	Playfair Display	Page greetings, card values, logo name
+Body / UI	DM Sans	All UI text, labels, buttons, nav items
+
+2.3 Top Bar
+•	Background: #042C1E (dark green)
+•	Left: Servio name only in Playfair Display — no sub-text, no credentials, no avatar
+•	Centre: Meal status pill — current meal open/closed with animated dot
+•	Right: Bell (notifications), Help circle, Logout — white icons, no background box
+•	Notification bell shows gold dot when unread notifications exist
+•	Logout button turns red on hover
+
+2.4 Left Sidebar
+•	Background: white, 0.5px right border
+•	Top: user block — initials circle, name, role badge — inside pale green card
+•	Nav items: icon + label, active item has left green border indicator and pale green background
+•	Section labels: 9px uppercase, muted
+•	Badges: gold for action-needed counts, green for informational counts
+•	Bottom: Logout link in muted colour, turns red on hover
+
+2.5 Main Content Area
+•	Background: #F2F8F5
+•	Header: greeting in Playfair Display italic, date/tenant sub-text, role pill (dark green)
+•	Stat cards: 3 per row — white card, dark green gradient card, gold gradient card
+•	Order CTA: employees only — white card with Order Now button in primary green
+•	Two-column section: Today Menu + Recent Activity
+
+2.6 Bottom Strip
+Three lines, centre-aligned, dark green background:
+•	Line 1: Tagline in Playfair Display italic — Every meal, every service, every event; perfectly managed.
+•	Line 2: Developed by HomiLabs · homilabs.org
+•	Line 3: Managed by Awaiz Fatima · Muhammad Abdulhadi · Parishay Zainab
+•	Right side: support icon — opens popup with manager contact number and tenant support email from appSettings
+
+2.7 Notification Popup
+•	Drops from bell icon, right-aligned
+•	Dark green header with notification count and Mark all read
+•	Each notification: icon (green or gold tinted square), message, timestamp
+•	Footer: Servio v1.0 · FFL Management Club only — no developer contact
+•	Dismisses on outside click
+
+3. Role-Based Navigation
+Single role per user. No role switcher visible in the app. Each user sees only their role dashboard on login. The following defines the sidebar structure per role.
+
+3.1 Employee
+Nav Item	Icon	Section
+Home	ti-home	My Space
+My Profile	ti-user	My Space
+Book a Meal	ti-shopping-bag	Mess & Dining
+My Bookings	ti-history	Mess & Dining
+My Bill	ti-receipt	Mess & Dining
+Feedback	ti-star	Mess & Dining
+Events	ti-calendar-event	Club
+Notifications	ti-bell	Club
+
+3.2 Mess Supervisor
+Nav Item	Icon	Section
+Home	ti-home	Operations
+Issuance Dashboard	ti-check	Operations
+Kitchen Dashboard	ti-chef-hat	Operations
+Proxy Booking	ti-users	Operations
+Walk-in	ti-door-enter	Operations
+Events	ti-calendar-event	View
+Notifications	ti-bell	View
+
+3.3 Accounts Supervisor
+Nav Item	Icon	Section
+Home	ti-home	Billing
+Rate Entry	ti-coin	Billing
+Billing Dashboard	ti-file-invoice	Billing
+Official Accounts	ti-building-bank	Billing
+Reports	ti-chart-bar	Reports
+Notifications	ti-bell	Reports
+
+3.4 Manager
+Nav Item	Icon	Section
+Home	ti-home	Club Operations
+Menu Management	ti-tool	Club Operations
+Templates & Cycles	ti-calendar	Club Operations
+Events	ti-calendar-event	Club Operations
+Reports	ti-chart-bar	Reports & Admin
+Employee Master	ti-users	Reports & Admin
+Notifications	ti-bell	Reports & Admin
+
+3.5 Admin
+Nav Item	Icon	Section
+Home	ti-home	Administration
+Employee Master	ti-users	Administration
+User Management	ti-user-check	Administration
+Menu Management	ti-tool	Administration
+Templates & Cycles	ti-calendar	Administration
+Events	ti-calendar-event	Operations
+Reports	ti-chart-bar	Operations
+App Settings	ti-settings	Operations
+Contact Us	ti-phone	Operations
+Notifications	ti-bell	Operations
+
+3.6 Super Admin
+Nav Item	Icon	Section
+Home	ti-home	System
+Tenant Config	ti-building	System
+All Users	ti-users	System
+App Settings	ti-settings	System
+Deployment Config	ti-database	System
+System Reports	ti-chart-bar	Platform
+Security Log	ti-shield	Platform
+System Alerts	ti-bell	Platform
+
+ 
+4. Screen Inventory
+
+Phase A — Minimum for Field Testing (12 screens)
+#	Screen	Role	Backend Flow	Status
+1	Login + Registration	All	Flow 01	To build
+2	Employee — Home + Book a Meal	Employee	Flow 06	To build
+3	Supervisor — Issuance Dashboard	Mess Supervisor	Flow 06	To build
+4	Supervisor — Kitchen Dashboard	Mess Supervisor	Flow 15	To build
+5	Accounts — Rate Entry	Accounts Supervisor	Flow 07	To build
+6	Accounts — Billing Dashboard	Accounts Supervisor	Flow 14	To build
+7	Admin — Employee Master	Admin	Flow 02	To build
+8	Admin — Menu Management	Admin/Manager	Flow 03	To build
+9	Admin — Templates + Cycles	Admin/Manager	Flow 04	To build
+10	Admin/Manager — Event Management	Admin/Manager	Flow 10	To build
+11	Employee — Event Response	Employee	Flow 10	To build
+12	Admin — Reporting Dashboard	Manager/Admin	Flow 11	To build
+
+Phase B — Complete V1 (8 screens)
+#	Screen	Role	Backend Flow	Status
+13	Admin — User Management + Approvals	Admin	Flow 01	To build
+14	Admin — Notification Centre	Admin	Flow 09	To build
+15	Employee — My Bookings + History	Employee	Flow 06	To build
+16	Employee — My Bill	Employee	Flow 14	To build
+17	Employee — Feedback	Employee	Flow 08	To build
+18	Employee — Notifications	Employee	Flow 09	To build
+19	Admin — Contact Us (support details)	Admin	appSettings	To build
+20	All Roles — My Profile	All	Flow 01	To build
+
+5. Technical Stack
+5.1 Web Frontend
+•	Framework: React with Vite
+•	Location: /web directory in servio_dev repository
+•	State management: React hooks — no Redux in V1
+•	HTTP client: axios or fetch — consistent choice per session
+•	Routing: React Router v6
+•	Icons: Tabler Icons (ti-*) — outline only, never filled variants
+•	Fonts: DM Sans + Playfair Display — loaded from Google Fonts
+
+5.2 Mobile Frontend
+•	Framework: Expo React Native
+•	Build sequence: mobile starts after web Phase A is stable
+•	Design system: same colours, typography, and layout patterns as web
+•	Same backend API — no separate mobile endpoints
+
+5.3 Backend API
+•	Base URL (emulator): http://127.0.0.1:5001/servio-dev-55d2d/asia-south1/api
+•	Authentication: Firebase Auth token in Authorization header
+•	All role-protected routes require verifyToken + verifyRole middleware
+•	Tokens expire after 1 hour — re-login required per test session
+
+6. Frontend Development Rules
+6.1 Design Rules
+•	Never deviate from the locked colour palette — see Section 2
+•	Never add credentials or branding to the top bar — Servio name only
+•	Never show a role switcher in the UI — each user has one role
+•	Home screen must remain clean — maximum 3 stat cards + 1 CTA + 2 small panels
+•	Order Now CTA appears on home screen for employee role only
+
+6.2 Build Rules
+•	Build Phase A screens fully before starting Phase B
+•	Each screen must be tested against the backend emulator before moving to the next
+•	No UI improvisation — if a field is not in the schema, it does not appear on screen
+•	Mobile build starts only after all Phase A web screens are validated
+
+6.3 Support Contact Flow
+•	Support icon sits on the right side of the bottom strip
+•	Clicking it opens a small popup containing manager contact number and tenant support email
+•	These values are read from appSettings collection in Firestore — not hardcoded
+•	Admin updates them via the Contact Us screen (Screen 19)
+•	Developer contact is never shown in the app
+
+6.4 Deferred Features — Do Not Build in V1
+•	Kiosk / touch screen ordering — parked to V3
+•	Interactive menu with dish photos — parked to V3
+•	photoUrl and itemDescription on menu items — parked to V3
+•	Cafe, tuck shop, bakery, BBQ screens — parked to V1.1 and V1.2
+•	SMS, email, WhatsApp notifications — parked to V3
+
+7. Parked Decisions Log
+Feature	Target Version	Notes
+Kiosk / touch screen ordering	V3	McDonald-style, tablet/large screen, standalone deployment
+Interactive menu — dish photos	V3	photoUrl + itemDescription fields added to menuItems at V3
+Cafe / TuckShop screens	V1.1	Requires family member flow first
+Bakery screens	V1.1	Alongside cafe flow
+BBQ screens	V1.2	After V1.1 stable
+Cafe/Bakery/BBQ kitchen dashboards	V1.1 / V1.2	Follow their operational flows
+SMS/email/WhatsApp notifications	V3	V1 is in-app only
+GuestHouse, BOQ, Library	V2	Post V1 launch
+Sports, Safety	V3	Post V2
+Recipe, Inventory, Procurement	V4	Requires stable operational base
+Multiple roles per user	V2+	V1 is single role only — schema change required
+
+
+End of Document  ·  Servio V1 Frontend Scope  ·  HomiLabs  ·  23 May 2026

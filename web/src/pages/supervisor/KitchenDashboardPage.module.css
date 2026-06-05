@@ -1,0 +1,114 @@
+/* KitchenDashboardPage.module.css */
+
+.page { padding: 28px 32px; max-width: 1100px; }
+
+.header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+.title { font-family: 'Playfair Display', serif; font-size: 26px; color: #042C1E; margin: 0 0 4px; }
+.subtitle { font-size: 14px; color: #6b7280; margin: 0; }
+
+.headerActions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.autoLabel { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #374151; cursor: pointer; }
+.autoLabel input { accent-color: #0F6E56; }
+.refreshBtn {
+  background: #0F6E56; color: #fff; border: none; border-radius: 8px;
+  padding: 8px 16px; font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif;
+}
+.refreshBtn:hover { background: #1D9E75; }
+.refreshBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+.refreshTime { font-size: 12px; color: #9ca3af; }
+
+/* Controls */
+.controlsRow { display: flex; align-items: flex-end; gap: 24px; margin-bottom: 28px; flex-wrap: wrap; }
+.dateBlock { display: flex; flex-direction: column; gap: 4px; }
+.controlLabel { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+.dateInput {
+  border: 1.5px solid #d1fae5; border-radius: 8px; padding: 8px 12px;
+  font-size: 14px; font-family: 'DM Sans', sans-serif; color: #042C1E;
+  background: #fff; outline: none;
+}
+.dateInput:focus { border-color: #0F6E56; }
+
+.mealTabs { display: flex; gap: 8px; }
+.mealTab {
+  display: flex; flex-direction: column; align-items: center;
+  border: 1.5px solid #d1fae5; border-radius: 10px;
+  padding: 8px 20px; background: #fff; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; transition: all 0.15s;
+}
+.mealTab:hover { border-color: #0F6E56; }
+.mealTabActive { border-color: #0F6E56; background: #EBF9F4; }
+.mealTabLabel { font-size: 14px; font-weight: 600; color: #042C1E; }
+.mealTabWindow { font-size: 11px; color: #6b7280; }
+.mealTabActive .mealTabLabel { color: #0F6E56; }
+
+.errorBanner {
+  background: #fee2e2; color: #b91c1c; padding: 12px 16px;
+  border-radius: 8px; font-size: 14px; margin-bottom: 20px;
+}
+
+/* Sections */
+.section { margin-bottom: 32px; }
+.sectionTitle { font-size: 16px; font-weight: 700; color: #042C1E; margin: 0 0 16px; }
+
+/* Headcount Cards */
+.cardRow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
+.hcCard {
+  background: #fff; border-radius: 12px; padding: 20px;
+  border: 1.5px solid #d1fae5; text-align: center;
+}
+.hcCard_dark  { background: #042C1E; border-color: #042C1E; }
+.hcCard_green { background: linear-gradient(135deg, #0F6E56, #1D9E75); border-color: transparent; }
+.hcCard_gold  { background: linear-gradient(135deg, #D4960A, #f5b93b); border-color: transparent; }
+.hcCard_neutral { /* default white */ }
+
+.hcValue { font-size: 36px; font-weight: 800; font-family: 'Playfair Display', serif; }
+.hcCard_neutral .hcValue { color: #042C1E; }
+.hcCard_dark  .hcValue, .hcCard_green .hcValue, .hcCard_gold .hcValue { color: #fff; }
+
+.hcLabel { font-size: 13px; font-weight: 600; margin-top: 4px; }
+.hcCard_neutral .hcLabel { color: #374151; }
+.hcCard_dark  .hcLabel, .hcCard_green .hcLabel, .hcCard_gold .hcLabel { color: rgba(255,255,255,0.85); }
+
+.hcSub { font-size: 11px; margin-top: 2px; }
+.hcCard_neutral .hcSub { color: #9ca3af; }
+.hcCard_dark  .hcSub, .hcCard_green .hcSub, .hcCard_gold .hcSub { color: rgba(255,255,255,0.6); }
+
+/* Progress */
+.progressCard { background: #fff; border-radius: 12px; padding: 24px; border: 1.5px solid #d1fae5; }
+.progressBarWrap { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.progressBarTrack { flex: 1; height: 14px; background: #EBF9F4; border-radius: 999px; overflow: hidden; }
+.progressBarFill { height: 100%; background: linear-gradient(90deg, #0F6E56, #3DBFA0); border-radius: 999px; transition: width 0.4s ease; }
+.progressPct { font-size: 15px; font-weight: 700; color: #0F6E56; white-space: nowrap; }
+
+.progressStats { display: flex; gap: 28px; }
+.progressStatItem { display: flex; align-items: center; gap: 8px; }
+.progressStatDot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.progressStatValue { font-size: 22px; font-weight: 800; font-family: 'Playfair Display', serif; color: #042C1E; }
+.progressStatLabel { font-size: 13px; color: #6b7280; }
+
+/* Combo Table */
+.comboTable { margin-top: 20px; }
+.comboTableTitle { font-size: 14px; font-weight: 600; color: #042C1E; margin: 0 0 10px; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th { text-align: left; padding: 8px 12px; font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e5e7eb; }
+.table td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; color: #374151; }
+.comboName { font-weight: 600; color: #042C1E; }
+.issued  { color: #0F6E56; font-weight: 600; }
+.pending { color: #D4960A; font-weight: 600; }
+.noshow  { color: #9ca3af; }
+
+/* Day Summary */
+.daySummaryGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.daySummaryCard { background: #fff; border-radius: 12px; padding: 20px; border: 1.5px solid #d1fae5; }
+.daySummaryMeal { font-size: 16px; font-weight: 700; color: #042C1E; margin-bottom: 2px; }
+.daySummaryWindow { font-size: 12px; color: #9ca3af; margin-bottom: 16px; }
+.daySummaryStats { display: flex; justify-content: space-between; }
+.dayStat { text-align: center; }
+.dayStatValue { display: block; font-size: 28px; font-weight: 800; font-family: 'Playfair Display', serif; color: #042C1E; }
+.issuedValue  { color: #0F6E56; }
+.pendingValue { color: #D4960A; }
+.dayStatLabel { font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.grandTotal { text-align: center; margin-top: 16px; font-size: 15px; color: #374151; }
+.grandTotal strong { color: #042C1E; }

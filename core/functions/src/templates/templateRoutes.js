@@ -14,13 +14,14 @@ const { successResponse, errorResponse, validateRequired } = require('../utils')
 const { ROLES, CYCLE_STATUS } = require('../constants');
 
 const adminOnly = [verifyToken, verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN)];
+const managerAndAbove = [verifyToken, verifyRole(ROLES.MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN)];
 const TENANT_ID = 'ffl';
 
 // ─────────────────────────────────────────
 // POST /templates
 // Body: { templateName, description, schedule }
 // ─────────────────────────────────────────
-router.post('/', adminOnly, async (req, res) => {
+router.post('/', managerAndAbove, async (req, res) => {
   try {
     const missing = validateRequired(req.body, ['templateName', 'schedule']);
     if (missing.length > 0) {
@@ -47,58 +48,11 @@ router.post('/', adminOnly, async (req, res) => {
 });
 
 // ─────────────────────────────────────────
-// GET /templates
-// ─────────────────────────────────────────
-router.get('/', adminOnly, async (req, res) => {
-  try {
-    const result = await getTemplates(TENANT_ID);
-    return successResponse(res, { count: result.count, templates: result.templates }, 'Templates retrieved');
-  } catch (error) {
-    return errorResponse(res, 'Failed to retrieve templates', 500, error);
-  }
-});
-
-// ─────────────────────────────────────────
-// GET /templates/:templateId
-// ─────────────────────────────────────────
-router.get('/:templateId', adminOnly, async (req, res) => {
-  try {
-    const result = await getTemplate(req.params.templateId);
-
-    if (!result.success) {
-      return errorResponse(res, result.message, 404);
-    }
-
-    return successResponse(res, { template: result.template }, 'Template retrieved');
-
-  } catch (error) {
-    return errorResponse(res, 'Failed to retrieve template', 500, error);
-  }
-});
-
-// ─────────────────────────────────────────
-// PATCH /templates/:templateId
-// ─────────────────────────────────────────
-router.patch('/:templateId', adminOnly, async (req, res) => {
-  try {
-    const result = await updateTemplate(req.params.templateId, req.body);
-
-    if (!result.success) {
-      return errorResponse(res, result.message, 400);
-    }
-
-    return successResponse(res, { templateId: result.templateId }, result.message);
-
-  } catch (error) {
-    return errorResponse(res, 'Failed to update template', 500, error);
-  }
-});
-
-// ─────────────────────────────────────────
 // POST /templates/cycles
 // Body: { cycleName, startDate, weekTemplateId }
+// Placed before /:templateId to avoid route conflict
 // ─────────────────────────────────────────
-router.post('/cycles', adminOnly, async (req, res) => {
+router.post('/cycles', managerAndAbove, async (req, res) => {
   try {
     const missing = validateRequired(req.body, ['cycleName', 'startDate', 'weekTemplateId']);
     if (missing.length > 0) {
@@ -125,21 +79,22 @@ router.post('/cycles', adminOnly, async (req, res) => {
 });
 
 // ─────────────────────────────────────────
-// GET /templates/cycles
+// GET /templates
 // ─────────────────────────────────────────
-router.get('/cycles', adminOnly, async (req, res) => {
+router.get('/', managerAndAbove, async (req, res) => {
   try {
-    const result = await getCycles(TENANT_ID);
-    return successResponse(res, { count: result.count, cycles: result.cycles }, 'Cycles retrieved');
+    const result = await getTemplates(TENANT_ID);
+    return successResponse(res, { count: result.count, templates: result.templates }, 'Templates retrieved');
   } catch (error) {
-    return errorResponse(res, 'Failed to retrieve cycles', 500, error);
+    return errorResponse(res, 'Failed to retrieve templates', 500, error);
   }
 });
 
 // ─────────────────────────────────────────
 // GET /templates/cycles/active
+// Placed before /cycles and /:templateId to avoid route conflict
 // ─────────────────────────────────────────
-router.get('/cycles/active', adminOnly, async (req, res) => {
+router.get('/cycles/active', managerAndAbove, async (req, res) => {
   try {
     const result = await getActiveCycle(TENANT_ID);
 
@@ -155,10 +110,24 @@ router.get('/cycles/active', adminOnly, async (req, res) => {
 });
 
 // ─────────────────────────────────────────
+// GET /templates/cycles
+// Placed before /:templateId to avoid route conflict
+// ─────────────────────────────────────────
+router.get('/cycles', managerAndAbove, async (req, res) => {
+  try {
+    const result = await getCycles(TENANT_ID);
+    return successResponse(res, { count: result.count, cycles: result.cycles }, 'Cycles retrieved');
+  } catch (error) {
+    return errorResponse(res, 'Failed to retrieve cycles', 500, error);
+  }
+});
+
+// ─────────────────────────────────────────
 // PATCH /templates/cycles/:cycleId/status
 // Body: { status: 'active' | 'closed', endDate? }
+// Placed before /:templateId to avoid route conflict
 // ─────────────────────────────────────────
-router.patch('/cycles/:cycleId/status', adminOnly, async (req, res) => {
+router.patch('/cycles/:cycleId/status', managerAndAbove, async (req, res) => {
   try {
     const { status, endDate } = req.body;
 
@@ -186,6 +155,44 @@ router.patch('/cycles/:cycleId/status', adminOnly, async (req, res) => {
 
   } catch (error) {
     return errorResponse(res, 'Failed to update cycle status', 500, error);
+  }
+});
+
+// ─────────────────────────────────────────
+// GET /templates/:templateId
+// Parameterised — must come after all specific /cycles routes
+// ─────────────────────────────────────────
+router.get('/:templateId', managerAndAbove, async (req, res) => {
+  try {
+    const result = await getTemplate(req.params.templateId);
+
+    if (!result.success) {
+      return errorResponse(res, result.message, 404);
+    }
+
+    return successResponse(res, { template: result.template }, 'Template retrieved');
+
+  } catch (error) {
+    return errorResponse(res, 'Failed to retrieve template', 500, error);
+  }
+});
+
+// ─────────────────────────────────────────
+// PATCH /templates/:templateId
+// Parameterised — must come after all specific /cycles routes
+// ─────────────────────────────────────────
+router.patch('/:templateId', managerAndAbove, async (req, res) => {
+  try {
+    const result = await updateTemplate(req.params.templateId, req.body);
+
+    if (!result.success) {
+      return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, { templateId: result.templateId }, result.message);
+
+  } catch (error) {
+    return errorResponse(res, 'Failed to update template', 500, error);
   }
 });
 

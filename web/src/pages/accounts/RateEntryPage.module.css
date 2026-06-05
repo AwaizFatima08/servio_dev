@@ -1,0 +1,403 @@
+/* web/src/pages/accounts/RateEntryPage.module.css */
+
+.page {
+  padding: 28px 32px;
+  min-height: 100%;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ─── Header ─── */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #042C1E;
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.datePicker {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #042C1E;
+  background: white;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.datePicker:focus { border-color: #0F6E56; }
+
+/* ─── Date label ─── */
+.dateLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+.dateLabel strong { color: #042C1E; }
+
+/* ─── Banners ─── */
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.successBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #16a34a;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* ─── Summary pills ─── */
+.summaryRow {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.summaryPill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 16px;
+}
+
+.pillEntered { border-color: #86efac; background: #f0fdf4; }
+.pillPending { border-color: #fde68a; background: #fffbeb; }
+
+.pillNum {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: #042C1E;
+  line-height: 1;
+}
+
+.pillLabel {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ─── Loading ─── */
+.loadingBlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #0F6E56;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.spinnerSm {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Empty state ─── */
+.emptyState {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 56px 24px;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.emptyState i { font-size: 36px; display: block; margin-bottom: 12px; }
+.emptyState p { font-size: 14px; margin: 0 0 6px; color: #6b7280; }
+.emptyState small { font-size: 12px; }
+
+/* ─── Meal section ─── */
+.mealSection {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.mealHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.mealLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: #042C1E;
+}
+
+.mealCount {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* ─── Items grid ─── */
+.itemsGrid {
+  display: flex;
+  flex-direction: column;
+}
+
+.gridHeader {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 0.8fr 1.2fr 1.4fr 1.2fr 1fr;
+  padding: 10px 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #f3f4f6;
+  background: #fafafa;
+}
+
+.gridRow {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 0.8fr 1.2fr 1.4fr 1.2fr 1fr;
+  padding: 14px 20px;
+  align-items: center;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 13px;
+  color: #374151;
+  transition: background 0.1s;
+}
+
+.gridRow:last-child { border-bottom: none; }
+.gridRow:hover { background: #fafafa; }
+.rowEntered { background: #fafffe; }
+
+.itemName {
+  font-weight: 500;
+  color: #042C1E;
+}
+
+.optionKey {
+  font-size: 12px;
+  color: #9ca3af;
+  font-family: 'Courier New', monospace;
+}
+
+.issuedCount {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  color: #042C1E;
+}
+
+.lastRate { color: #6b7280; }
+
+/* ─── Rate input ─── */
+.rateInputCell {}
+
+.inputWrapper {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+  transition: border-color 0.15s;
+  max-width: 140px;
+}
+
+.inputWrapper:focus-within { border-color: #0F6E56; }
+
+.currencyPrefix {
+  padding: 7px 8px;
+  background: #f9fafb;
+  font-size: 12px;
+  color: #6b7280;
+  border-right: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.rateInput {
+  border: none;
+  outline: none;
+  padding: 7px 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #042C1E;
+  width: 80px;
+  background: transparent;
+}
+
+.rateInput::-webkit-outer-spin-button,
+.rateInput::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.rateInputModified { color: #d97706; }
+
+/* ─── Est total ─── */
+.estTotal {
+  font-size: 13px;
+  font-weight: 500;
+  color: #0F6E56;
+}
+
+/* ─── Status badges ─── */
+.badgeEntered {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #16a34a;
+  background: #f0fdf4;
+  padding: 3px 8px;
+  border-radius: 20px;
+  border: 1px solid #86efac;
+}
+
+.badgePending {
+  font-size: 11px;
+  font-weight: 600;
+  color: #d97706;
+  background: #fffbeb;
+  padding: 3px 8px;
+  border-radius: 20px;
+  border: 1px solid #fde68a;
+}
+
+.badgeRevision {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7c3aed;
+  background: #f5f3ff;
+  padding: 3px 8px;
+  border-radius: 20px;
+  border: 1px solid #ddd6fe;
+}
+
+/* ─── Actions ─── */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 4px 0 8px;
+}
+
+.fillBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 9px 18px;
+  background: white;
+  color: #0F6E56;
+  border: 1px solid #0F6E56;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.fillBtn:hover:not(:disabled) { background: #EBF9F4; }
+.fillBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.submitBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 24px;
+  background: #0F6E56;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.submitBtn:hover:not(:disabled) { background: #042C1E; }
+.submitBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ─── Note ─── */
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 900px) {
+  .gridHeader,
+  .gridRow {
+    grid-template-columns: 2fr 1fr 1fr 1.4fr 1fr;
+  }
+
+  .gridHeader span:nth-child(2),
+  .gridRow span:nth-child(2),
+  .gridHeader span:nth-child(4),
+  .gridRow span:nth-child(4) {
+    display: none;
+  }
+}

@@ -1,14 +1,26 @@
 // core/functions/src/mess/messReservationService.js
 
 const admin = require('firebase-admin');
-const db = admin.firestore();
+const { getFirestore } = require('firebase-admin/firestore');
+const db = getFirestore('servio-dev');
 const { FieldValue } = require('firebase-admin/firestore');
-const { COLLECTIONS } = require('../constants');
+const { COLLECTIONS, NOTIFICATION_TARGET_TYPES, NOTIFICATION_LAYERS } = require('../constants');
 
-// ─────────────────────────────────────────
-// createSelfBooking
-// Called when an employee books a meal for themselves
-// ─────────────────────────────────────────
+// Bug 3 fix: wire in notification service
+const { createNotification } = require('../notifications/notificationService');
+
+// ── pktDateStr ──
+// Returns today's date as YYYY-MM-DD in PKT (UTC+5).
+function pktDateStr(date) {
+  const pkt = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
+  return (
+    pkt.getFullYear() +
+    '-' + String(pkt.getMonth() + 1).padStart(2, '0') +
+    '-' + String(pkt.getDate()).padStart(2, '0')
+  );
+}
+
+// ── createSelfBooking ──
 async function createSelfBooking({
   uid,
   officialEmployeeNumber,
@@ -21,6 +33,7 @@ async function createSelfBooking({
   itemName,
   diningMode,
   selectionMode,
+  quantity,
 }) {
 
   // --- 1. Read reservationSettings ---
@@ -35,24 +48,21 @@ async function createSelfBooking({
   const settings = settingsDoc.data();
 
   // --- 2. Validate reservation date ---
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = pktDateStr(new Date());
 
   if (reservationDate < todayStr) {
     throw new Error('Cannot book for a past date.');
   }
 
-  // Booking window: today + bookingWindowDays forward
   const maxDate = new Date();
   maxDate.setDate(maxDate.getDate() + settings.bookingWindowDays);
-  const maxDateStr = maxDate.toISOString().split('T')[0];
+  const maxDateStr = pktDateStr(maxDate);
 
   if (reservationDate > maxDateStr) {
     throw new Error(`Booking window is ${settings.bookingWindowDays} days. Cannot book this far ahead.`);
   }
 
   // --- 3. Check cutoff ---
-  // Get meal service start time from mealTypes collection
   const mealTypeDoc = await db
     .collection(COLLECTIONS.MEAL_TYPES)
     .doc(mealType)
@@ -68,7 +78,6 @@ async function createSelfBooking({
     throw new Error(`Meal type ${mealType} is not available for booking.`);
   }
 
-  // Cutoff check: only applies if booking is for today
   if (reservationDate === todayStr) {
     const cutoffBreached = isCutoffBreached(
       mealTypeData.serviceWindowStart,
@@ -94,27 +103,29 @@ async function createSelfBooking({
 
   const dailyMenu = dailyMenuDoc.data();
 
-  // Confirm the selected combo/item exists in the daily menu
   const comboExists = dailyMenu.combos.some(c => c.menuOptionKey === menuOptionKey);
   if (selectionMode === 'combo' && !comboExists) {
     throw new Error(`Selected option ${menuOptionKey} does not exist in today's menu.`);
   }
 
   // --- 5. Check for duplicate booking ---
-  // One booking per employee per meal per date
   const duplicateCheck = await db
     .collection(COLLECTIONS.MESS_RESERVATIONS)
     .where('tenantId', '==', tenantId)
     .where('employeeNumber', '==', officialEmployeeNumber)
     .where('reservationDate', '==', reservationDate)
     .where('mealType', '==', mealType)
+    .where('menuOptionKey', '==', menuOptionKey)
     .where('reservationStatus', '==', 'active')
     .where('subjectType', '==', 'self')
     .limit(1)
     .get();
 
   if (!duplicateCheck.empty) {
-    throw new Error(`You already have an active booking for ${mealType} on ${reservationDate}.`);
+    const existingId = duplicateCheck.docs[0].data().reservationId;
+    const err = new Error(`You already have an active booking for ${menuOptionKey} on ${reservationDate} ${mealType}. Cancel it first if you want to change the quantity.`);
+    err.existingReservationId = existingId;
+    throw err;
   }
 
   // --- 6. Fetch employee name ---
@@ -129,7 +140,6 @@ async function createSelfBooking({
   const employeeData = employeeDoc.data();
 
   // --- 7. Build menuSnapshot ---
-  // Preserve what the combo contained at time of booking
   const selectedCombo = dailyMenu.combos.find(c => c.menuOptionKey === menuOptionKey) || null;
   const menuSnapshot = selectedCombo ? {
     comboId: selectedCombo.comboId,
@@ -139,11 +149,9 @@ async function createSelfBooking({
   } : null;
 
   // --- 8. Build rateTargetKey ---
-  // Format: "2026-05-23_lunch_combo_1"
   const rateTargetKey = `${reservationDate}_${mealType}_${menuOptionKey}`;
 
   // --- 9. Build bookingGroupId ---
-  // Single booking = its own group. Week-wide bookings share one group ID.
   const bookingGroupId = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc().id;
 
   // --- 10. Write reservation document ---
@@ -162,7 +170,7 @@ async function createSelfBooking({
     employeeNumber: officialEmployeeNumber,
     employeeName: employeeData.fullName,
     guestName: null,
-    quantity: 1,
+    quantity: quantity || 1,
     reservationDate,
     mealType,
     menuItemId,
@@ -205,6 +213,24 @@ async function createSelfBooking({
 
   await reservationRef.set(reservationDoc);
 
+  // --- 11. Bug 3 fix: Notify employee of confirmed booking (fire-and-forget) ---
+  const mealLabel = mealType.charAt(0).toUpperCase() + mealType.slice(1);
+  const comboLabel = menuSnapshot?.comboName || itemName || menuOptionKey;
+  createNotification({
+    tenantId,
+    createdByUid: uid,
+    createdByName: employeeData.fullName,
+    notificationLayer: NOTIFICATION_LAYERS.INFORMATIONAL,
+    notificationType: 'booking_confirmed',
+    triggerSource: 'self_booking',
+    title: 'Meal Booked',
+    body: `Your ${mealLabel} booking (${comboLabel}) for ${reservationDate} has been confirmed.`,
+    targetType: NOTIFICATION_TARGET_TYPES.SINGLE_USER,
+    targetUserUids: [uid],
+    contextType: 'reservation',
+    contextId: reservationId,
+  }).catch(err => console.error('[Notification] booking_confirmed failed:', err));
+
   return {
     reservationId,
     bookingGroupId,
@@ -214,14 +240,11 @@ async function createSelfBooking({
     itemName,
     menuOptionKey,
     diningMode,
+    quantity: quantity || 1,
   };
 }
 
-// ─────────────────────────────────────────
-// createProxyBooking
-// Supervisor/Manager/Admin books on behalf of an employee
-// No cutoff restriction for proxy bookings
-// ─────────────────────────────────────────
+// ── createProxyBooking ──
 async function createProxyBooking({
   uid,
   createdByRole,
@@ -236,6 +259,7 @@ async function createProxyBooking({
   itemName,
   diningMode,
   selectionMode,
+  quantity,
 }) {
 
   // --- 1. Read reservationSettings ---
@@ -254,8 +278,7 @@ async function createProxyBooking({
   }
 
   // --- 2. Validate reservation date ---
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = pktDateStr(new Date());
 
   if (reservationDate < todayStr) {
     throw new Error('Cannot book for a past date.');
@@ -263,7 +286,7 @@ async function createProxyBooking({
 
   const maxDate = new Date();
   maxDate.setDate(maxDate.getDate() + settings.bookingWindowDays);
-  const maxDateStr = maxDate.toISOString().split('T')[0];
+  const maxDateStr = pktDateStr(maxDate);
 
   if (reservationDate > maxDateStr) {
     throw new Error(`Booking window is ${settings.bookingWindowDays} days. Cannot book this far ahead.`);
@@ -287,7 +310,7 @@ async function createProxyBooking({
 
   // No cutoff check for proxy bookings — supervisor/manager/admin exempt
 
-  // --- 4. Validate target employee exists and belongs to same tenant ---
+  // --- 4. Validate target employee ---
   const targetEmployeeDoc = await db
     .collection(COLLECTIONS.EMPLOYEES)
     .doc(targetEmployeeNumber)
@@ -332,13 +355,14 @@ async function createProxyBooking({
     .where('employeeNumber', '==', targetEmployeeNumber)
     .where('reservationDate', '==', reservationDate)
     .where('mealType', '==', mealType)
+    .where('menuOptionKey', '==', menuOptionKey)
     .where('reservationStatus', '==', 'active')
     .where('subjectType', '==', 'self')
     .limit(1)
     .get();
 
   if (!duplicateCheck.empty) {
-    throw new Error(`Employee ${targetEmployeeNumber} already has an active booking for ${mealType} on ${reservationDate}.`);
+    throw new Error(`Employee ${targetEmployeeNumber} already has an active booking for ${menuOptionKey} on ${reservationDate} ${mealType}.`);
   }
 
   // --- 7. Build menuSnapshot ---
@@ -372,7 +396,7 @@ async function createProxyBooking({
     employeeNumber: targetEmployeeNumber,
     employeeName: targetEmployee.fullName,
     guestName: null,
-    quantity: 1,
+    quantity: quantity || 1,
     reservationDate,
     mealType,
     menuItemId,
@@ -415,6 +439,35 @@ async function createProxyBooking({
 
   await reservationRef.set(reservationDoc);
 
+  // --- 11. Bug 3 fix: Notify target employee of proxy booking (fire-and-forget) ---
+  // Look up target employee's uid from users collection
+  const targetUserSnap = await db
+    .collection(COLLECTIONS.USERS)
+    .where('tenantId', '==', tenantId)
+    .where('officialEmployeeNumber', '==', targetEmployeeNumber)
+    .limit(1)
+    .get();
+
+  if (!targetUserSnap.empty) {
+    const targetUid = targetUserSnap.docs[0].data().uid;
+    const mealLabel = mealType.charAt(0).toUpperCase() + mealType.slice(1);
+    const comboLabel = menuSnapshot?.comboName || itemName || menuOptionKey;
+    createNotification({
+      tenantId,
+      createdByUid: uid,
+      createdByName: null,
+      notificationLayer: NOTIFICATION_LAYERS.INFORMATIONAL,
+      notificationType: 'proxy_booking_confirmed',
+      triggerSource: 'proxy_booking',
+      title: 'Meal Booked on Your Behalf',
+      body: `A ${mealLabel} booking (${comboLabel}) for ${reservationDate} was made for you by the supervisor.`,
+      targetType: NOTIFICATION_TARGET_TYPES.SINGLE_USER,
+      targetUserUids: [targetUid],
+      contextType: 'reservation',
+      contextId: reservationId,
+    }).catch(err => console.error('[Notification] proxy_booking_confirmed failed:', err));
+  }
+
   return {
     reservationId,
     bookingGroupId,
@@ -424,15 +477,13 @@ async function createProxyBooking({
     itemName,
     menuOptionKey,
     diningMode,
+    quantity: quantity || 1,
     bookedFor: targetEmployeeNumber,
     bookedByRole: createdByRole,
   };
 }
 
-// ─────────────────────────────────────────
-// cancelReservation
-// Employee cancels own booking, or supervisor cancels on behalf
-// ─────────────────────────────────────────
+// ── cancelReservation ──
 async function cancelReservation({
   reservationId,
   tenantId,
@@ -481,7 +532,6 @@ async function cancelReservation({
     throw new Error('Cannot cancel a reservation that has already been issued.');
   }
 
-  // Employee can only cancel their own reservation
   const isSupervisorOrAbove = ['mess_supervisor', 'manager', 'admin', 'super_admin']
     .includes(cancelledByRole);
 
@@ -489,7 +539,6 @@ async function cancelReservation({
     throw new Error('You can only cancel your own reservations.');
   }
 
-  // Cutoff check for employee self-cancellation only
   if (!isSupervisorOrAbove) {
     const settingsDoc = await db
       .collection(COLLECTIONS.RESERVATION_SETTINGS)
@@ -503,8 +552,7 @@ async function cancelReservation({
       .get();
     const mealTypeData = mealTypeDoc.data();
 
-    // Only enforce cutoff for today's reservations
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = pktDateStr(new Date());
     if (data.reservationDate === todayStr) {
       const cutoffBreached = isCutoffBreached(
         mealTypeData.serviceWindowStart,
@@ -529,28 +577,17 @@ async function cancelReservation({
   return { reservationId, reservationStatus: 'cancelled', cancellationReason };
 }
 
-// ─────────────────────────────────────────
-// isCutoffBreached
-// Checks if current time is past the cutoff for a meal
-// serviceWindowStart: "06:00", cutoffHours: 3
-// Cutoff = 06:00 - 3hrs = 03:00
-// ─────────────────────────────────────────
+// ── isCutoffBreached ──
 function isCutoffBreached(serviceWindowStart, cutoffHours) {
-  const now = new Date();
-  const [startHour, startMinute] = serviceWindowStart.split(':').map(Number);
-
-  // Build cutoff time for today
-  const cutoff = new Date();
-  cutoff.setHours(startHour - cutoffHours, startMinute, 0, 0);
-
-  return now >= cutoff;
+  const nowPkt = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
+  const [utcHour, utcMin] = serviceWindowStart.split(':').map(Number);
+  const pktStartHour = utcHour + 5;
+  const cutoff = new Date(nowPkt);
+  cutoff.setHours(pktStartHour - cutoffHours, utcMin, 0, 0);
+  return nowPkt >= cutoff;
 }
 
-// ─────────────────────────────────────────
-// getIssuanceList
-// Returns all active/pending reservations for a given date and mealType
-// Used by mess supervisor at kitchen counter
-// ─────────────────────────────────────────
+// ── getIssuanceList ──
 async function getIssuanceList({ tenantId, reservationDate, mealType }) {
   const snapshot = await db
     .collection(COLLECTIONS.MESS_RESERVATIONS)
@@ -561,33 +598,21 @@ async function getIssuanceList({ tenantId, reservationDate, mealType }) {
     .where('issueStatus', '==', 'pending')
     .get();
 
-  const reservations = snapshot.docs.map(doc => doc.data());
-  return reservations;
+  return snapshot.docs.map(doc => doc.data());
 }
 
-// ─────────────────────────────────────────
-// issueReservation
-// Marks a reservation as issued — meal has been served
-// ─────────────────────────────────────────
+// ── issueReservation ──
 async function issueReservation({ reservationId, tenantId, issuedByUid, issuedByRole }) {
   const ref = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc(reservationId);
   const doc = await ref.get();
 
-  if (!doc.exists) {
-    throw new Error('Reservation not found.');
-  }
+  if (!doc.exists) throw new Error('Reservation not found.');
 
   const data = doc.data();
 
-  if (data.tenantId !== tenantId) {
-    throw new Error('Access denied.');
-  }
-  if (data.reservationStatus !== 'active') {
-    throw new Error('Cannot issue a cancelled reservation.');
-  }
-  if (data.issueStatus !== 'pending') {
-    throw new Error(`Reservation is already ${data.issueStatus}.`);
-  }
+  if (data.tenantId !== tenantId) throw new Error('Access denied.');
+  if (data.reservationStatus !== 'active') throw new Error('Cannot issue a cancelled reservation.');
+  if (data.issueStatus !== 'pending') throw new Error(`Reservation is already ${data.issueStatus}.`);
 
   await ref.update({
     issueStatus: 'issued',
@@ -600,29 +625,18 @@ async function issueReservation({ reservationId, tenantId, issuedByUid, issuedBy
   return { reservationId, issueStatus: 'issued' };
 }
 
-// ─────────────────────────────────────────
-// markNoShow
-// Marks a reservation as no_show — employee did not collect meal
-// ─────────────────────────────────────────
+// ── markNoShow ──
 async function markNoShow({ reservationId, tenantId, issuedByUid, issuedByRole }) {
   const ref = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc(reservationId);
   const doc = await ref.get();
 
-  if (!doc.exists) {
-    throw new Error('Reservation not found.');
-  }
+  if (!doc.exists) throw new Error('Reservation not found.');
 
   const data = doc.data();
 
-  if (data.tenantId !== tenantId) {
-    throw new Error('Access denied.');
-  }
-  if (data.reservationStatus !== 'active') {
-    throw new Error('Cannot update a cancelled reservation.');
-  }
-  if (data.issueStatus !== 'pending') {
-    throw new Error(`Reservation is already ${data.issueStatus}.`);
-  }
+  if (data.tenantId !== tenantId) throw new Error('Access denied.');
+  if (data.reservationStatus !== 'active') throw new Error('Cannot update a cancelled reservation.');
+  if (data.issueStatus !== 'pending') throw new Error(`Reservation is already ${data.issueStatus}.`);
 
   await ref.update({
     issueStatus: 'no_show',

@@ -18,7 +18,7 @@ const { generateForEvent } = require('./generators/eventSummary');
 const snapshotEngine    = require('./snapshotEngine');
 
 function getDb() {
-  return admin.firestore();
+  const { getFirestore } = require('firebase-admin/firestore'); return getFirestore('servio-dev');
 }
 
 // ── LIVE QUERIES ──────────────────────────────────────────────────────────

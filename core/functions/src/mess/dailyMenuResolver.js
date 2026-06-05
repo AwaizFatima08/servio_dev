@@ -1,7 +1,8 @@
 // core/functions/src/mess/dailyMenuResolver.js
 
 const admin = require('firebase-admin');
-const db = admin.firestore();
+const { getFirestore } = require('firebase-admin/firestore');
+const db = getFirestore('servio-dev');
 const { FieldValue } = require('firebase-admin/firestore');
 
 /**

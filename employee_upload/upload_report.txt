@@ -1,0 +1,105 @@
+SERVIO Employee Upload Report
+Generated: 2026-05-31T11:51:31.051Z
+============================================================
+
+SUMMARY
+  Uploaded:  332
+  Skipped:   2
+  Warnings:  90
+
+SKIPPED ROWS (need manual handling)
+  - Row 217 (FFL03109 - Kasaf Jahangir): Skipped — no CNIC last 4
+  - Row 335: Skipped — no employee number
+
+WARNINGS (uploaded but needs attention)
+  - FFL02983 (Hafiz Muhammad rashid): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL02984 (KHALID NAWAZ): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03003 (MUHAMMAD AHMAD): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03009 (Wais Mujeeb Arjumand): DOB missing or unreadable — self-signup will fail for this employee
+  - OSL00096 (Amir Khan): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03080 (Lt. Col (R) Muhammad Raihan Akhtar): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03112 (SYED NOMUAN SHAH): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03113 (SHAHMIR GOHAR): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03118 (SALMAN ZAHID): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03120 (MUHAMMAD ABDUL HASEEB): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03123 (HANZLA ARSHAD): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03125 (MUHAMMAD ALI ABDULLAH): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03131 (ARSLAN SHAHZAD KHAN): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03134 (MUHAMMAD ZAIN RAZA): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03135 (MOHSIN ALI): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03152 (Hafsa Rahmeen): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03153 (Muhammad Qasim Bilal): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03167 (Namira Jabbar): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03168 (BRIG. ® OBAID ULLAH ANWAR): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03171 (Somia Mehar): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03173 (Shahdev): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03174 (Qurat Ul Ain): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03179 (Hafiz Muhammad Waqas): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03187 (WAJID ISHAQ BHATTI): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03282 (MUHAMMAD AWAIS NAWAZ): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03317 (HAFIZ MUHAMMAD ZEESHAN): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03319 (Lt. Col. ® NASIR BASHIR): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03321 (SHAKOOR AHMED): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03328 (ABDUL HASEEB): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03330 (ABDUL REHMAN HAFEEZ): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03338 (ABDUL REHMAN MINHAS): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL02797 (HASSAN ARSHAD): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL02797 (HASSAN ARSHAD): Phone number missing
+  - FFL03076 (SADIA BIBI): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03357 (Syed Muhammad Sajid Hassan): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03358 (JAMIL-UR-REHMAN): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03364 (MUHAMMAD FAROOQ): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03365 (MUHAMMAD FARAZ MANZOOR): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05044 (Sadia Rizwan): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05077 (Asma Latif): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05093 (Kushbakht): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05094 (Sumaira Humayun): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05152 (Qari Saeed Ur Rehman): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05142 (Fizza Zulfiqar): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05146 (Rabia Maqsood): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05154 (Mrs. Maheen Shafiq): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05155 (Miss Tooba Ahmed): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05156 (Mrs. Sehrish Rasheed): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05157 (Mrs. Nadia Nazir): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05158 (Mrs. Mehwash Imran): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05159 (Syed Salman Ahmed): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05161 (Miss Maria Mehmood): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05163 (SANA FATIMA): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05164 (Umair Iqbal): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05165 (Asghar Ali): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05166 (KINZA MUSHATQ): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05167 (GHULAM KABIR KHAN): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05168 (Abdul Waheed): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05169 (Hira Afzal): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05170 (Eman Muqaddus): DOB missing or unreadable — self-signup will fail for this employee
+  - ESB05171 (Anoosha Nadeem): DOB missing or unreadable — self-signup will fail for this employee
+  - OSL00007 (UMAR RIAZ): DOB missing or unreadable — self-signup will fail for this employee
+  - OSL00008 (RAJA GHAZANFAR ANSARI): DOB missing or unreadable — self-signup will fail for this employee
+  - OSL00012 (ABDUL GHAFFAR): DOB missing or unreadable — self-signup will fail for this employee
+  - OSL00013 (MUHAMMAD SHAHZAD ANWAR): DOB missing or unreadable — self-signup will fail for this employee
+  - OSL00037 (SHERAZ MANZOOR ALVI): DOB missing or unreadable — self-signup will fail for this employee
+  - OSL00047 (HAFIZ SAKHAWAT ALI): DOB missing or unreadable — self-signup will fail for this employee
+  - OSL00062 (ASIF NAYAB): DOB missing or unreadable — self-signup will fail for this employee
+  - OSL00071 (Tariq Javaid): DOB missing or unreadable — self-signup will fail for this employee
+  - OSL00083 (Muhammad Salahuddin): DOB missing or unreadable — self-signup will fail for this employee
+  - FAS00026 (Abu Saeed): DOB missing or unreadable — self-signup will fail for this employee
+  - FAS00032 (Muhammad Imran): DOB missing or unreadable — self-signup will fail for this employee
+  - FAS00035 (Muhammad Usman): DOB missing or unreadable — self-signup will fail for this employee
+  - FAS00120 (Junaid Ahmad Khan): DOB missing or unreadable — self-signup will fail for this employee
+  - FAS00273 (Muhammad Jawad): DOB missing or unreadable — self-signup will fail for this employee
+  - FAS00355 (Muhammad Rustam): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03292 (Abdullah Tariq): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03294 (Muhammad Ahmed Naveed Qazi): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03295 (Muhammad Taha): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03296 (Syed Sameet Shah Qadri): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03297 (Uzair Arshad): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03298 (Muhammad Saim): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03299 (Hafiza Zainab Touheed): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03300 (Arina Arshad): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03301 (Muhammad Usman): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03302 (Sheikh Muhammad Taha Nadeem): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03307 (Mehwish Akhtar): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03303 (Mohammad Akram): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03304 (Meerab Ahsan): DOB missing or unreadable — self-signup will fail for this employee
+  - FFL03337 (Abdul Rafay Amer): DOB missing or unreadable — self-signup will fail for this employee
+

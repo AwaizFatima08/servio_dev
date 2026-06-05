@@ -1,24 +1,38 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Servio",
+    "slug": "servio",
+    "scheme": "servio",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#EBF9F4"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "org.homilabs.servio"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+        "monochromeImage": "./assets/android-icon-monochrome.png",
+        "backgroundColor": "#EBF9F4"
+      },
+      "package": "org.homilabs.servio"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "36fa5931-2c0e-4113-a3ac-9672a3a8bea5"
+      }
+    },
+    "owner": "homi55"
   }
 }

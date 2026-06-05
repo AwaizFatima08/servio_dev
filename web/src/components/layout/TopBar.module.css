@@ -1,0 +1,204 @@
+/* TopBar.module.css */
+
+.topBar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 20px;
+  background: #042C1E;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.25);
+}
+
+/* ── Left ── */
+.left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 160px;
+}
+
+.menuBtn {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  line-height: 1;
+  transition: color 0.15s;
+  display: flex;
+  align-items: center;
+}
+.menuBtn:hover { color: #fff; }
+
+.brandName {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+/* ── Centre ── */
+.centre {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.mealPill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.mealOpen {
+  background: rgba(61,191,160,0.15);
+  color: #3DBFA0;
+  border: 1px solid rgba(61,191,160,0.3);
+}
+
+.mealClosed {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.55);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dotOpen {
+  background: #3DBFA0;
+  box-shadow: 0 0 0 2px rgba(61,191,160,0.3);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.dotClosed {
+  background: rgba(255,255,255,0.3);
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(61,191,160,0.3); }
+  50%       { box-shadow: 0 0 0 5px rgba(61,191,160,0.08); }
+}
+
+/* ── Right ── */
+.right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 160px;
+  justify-content: flex-end;
+}
+
+.iconWrap {
+  position: relative;
+}
+
+.iconBtn {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.75);
+  font-size: 20px;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  position: relative;
+  transition: color 0.15s, background 0.15s;
+}
+.iconBtn:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.08);
+}
+
+.logoutBtn:hover {
+  color: #ff6b6b;
+  background: rgba(255,107,107,0.1);
+}
+
+.goldDot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #D4960A;
+  border: 1.5px solid #042C1E;
+}
+
+/* ── Notifications panel ── */
+.notifPanel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 320px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(4,44,30,0.18);
+  border: 1px solid rgba(4,44,30,0.08);
+  overflow: hidden;
+  z-index: 200;
+}
+
+.notifHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: #042C1E;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.markAllBtn {
+  background: none;
+  border: none;
+  color: #3DBFA0;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  text-decoration: underline;
+}
+
+.notifEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 16px;
+  color: #888;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+}
+
+.notifFooter {
+  padding: 10px 16px;
+  background: #F2F8F5;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: #888;
+  text-align: center;
+  border-top: 1px solid #e8f4ef;
+}

@@ -10,6 +10,11 @@ const ts = () => FieldValue.serverTimestamp();
 
 const VALID_PREFIXES = Object.values(EMPLOYEE_PREFIXES);
 
+const UPDATABLE_FIELDS = [
+  'grade', 'designation', 'department', 'phoneNumber',
+  'houseNumber', 'residenceType', 'cnicLast4', 'dateOfBirth',
+];
+
 const addEmployee = async ({ officialEmployeeNumber, fullName, cnicLast4, dateOfBirth, employeeType, createdByUid }) => {
 
   const prefix = officialEmployeeNumber.replace(/[0-9]/g, '');
@@ -67,11 +72,10 @@ const addEmployee = async ({ officialEmployeeNumber, fullName, cnicLast4, dateOf
   };
 };
 
-const getEmployees = async ({ search, employeeType, isActive, limit = 50 }) => {
+const getEmployees = async ({ search, employeeType, isActive }) => {
 
   const snapshot = await db.collection(COLLECTIONS.EMPLOYEES)
     .where('tenantId', '==', 'ffl')
-    .limit(limit)
     .get();
 
   let employees = snapshot.docs.map(doc => _sanitize(doc.data()));
@@ -128,6 +132,41 @@ const setEmployeeStatus = async ({ officialEmployeeNumber, isActive, updatedByUi
   };
 };
 
+const updateEmployeeFields = async ({ officialEmployeeNumber, updates, updatedByUid }) => {
+
+  const doc = await db.collection(COLLECTIONS.EMPLOYEES).doc(officialEmployeeNumber).get();
+
+  if (!doc.exists) {
+    return { success: false, message: `Employee ${officialEmployeeNumber} not found` };
+  }
+
+  // Only allow whitelisted fields — never allow isActive, tenantId, etc.
+  const safeUpdates = {};
+  for (const field of UPDATABLE_FIELDS) {
+    if (updates[field] !== undefined) {
+      safeUpdates[field] = updates[field];
+    }
+  }
+
+  if (Object.keys(safeUpdates).length === 0) {
+    return { success: false, message: 'No valid fields to update' };
+  }
+
+  safeUpdates.updatedAt = ts();
+
+  await db.collection(COLLECTIONS.EMPLOYEES).doc(officialEmployeeNumber).update(safeUpdates);
+
+  // Return the updated record with admin fields visible
+  const updated = await db.collection(COLLECTIONS.EMPLOYEES).doc(officialEmployeeNumber).get();
+
+  return {
+    success: true,
+    message: `Employee ${officialEmployeeNumber} updated successfully`,
+    officialEmployeeNumber,
+    employee: _sanitizeAdmin(updated.data()),
+  };
+};
+
 const _toISO = (ts) => {
   if (!ts) return null;
   if (ts._seconds) return new Date(ts._seconds * 1000).toISOString();
@@ -135,6 +174,7 @@ const _toISO = (ts) => {
   return ts;
 };
 
+// Standard sanitize — strips sensitive fields for general use
 const _sanitize = (data) => {
   const { cnicLast4, dateOfBirth, failedAttemptCount, lastFailedAt, isThrottled, ...safe } = data;
   safe.createdAt = _toISO(safe.createdAt);
@@ -142,4 +182,12 @@ const _sanitize = (data) => {
   return safe;
 };
 
-module.exports = { addEmployee, getEmployees, getEmployee, setEmployeeStatus };
+// Admin sanitize — keeps cnicLast4 and dateOfBirth for admin edit panel
+const _sanitizeAdmin = (data) => {
+  const { failedAttemptCount, lastFailedAt, isThrottled, ...safe } = data;
+  safe.createdAt = _toISO(safe.createdAt);
+  safe.updatedAt = _toISO(safe.updatedAt);
+  return safe;
+};
+
+module.exports = { addEmployee, getEmployees, getEmployee, setEmployeeStatus, updateEmployeeFields };
