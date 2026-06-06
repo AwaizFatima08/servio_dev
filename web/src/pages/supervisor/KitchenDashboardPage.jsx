@@ -14,6 +14,12 @@ const MEAL_TABS = [
   { key: 'dinner',    label: 'Dinner',    window: '19:00 – 22:00' },
 ];
 
+function formatOptionKey(key) {
+  if (!key) return '';
+  if (key === 'alacarte') return 'Ala Carte';
+  return key.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function formatDate(d) {
   return d.toISOString().split('T')[0];
 }
@@ -219,7 +225,7 @@ export default function KitchenDashboardPage({ token }) {
               <tbody>
                 {progress.comboBreakdown.map((row, i) => (
                   <tr key={i}>
-                    <td className={styles.comboName}>{row.optionLabel ?? row.menuOptionKey}</td>
+                    <td className={styles.comboName}>{row.optionLabel || formatOptionKey(row.menuOptionKey)}</td>
                     <td className={styles.issued}>{row.issued}</td>
                     <td className={styles.pending}>{row.pending}</td>
                     <td className={styles.noshow}>{row.noShow}</td>

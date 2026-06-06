@@ -10,7 +10,7 @@ const verifyRole = require('../middleware/verifyRole');
 const { ROLES } = require('../constants');
 const { resolveDailyMenus } = require('./dailyMenuResolver');
 const { errorResponse } = require('../utils');
-const { createSelfBooking, createProxyBooking, cancelReservation, getIssuanceList, issueReservation, markNoShow } = require('./messReservationService');
+const { createSelfBooking, createProxyBooking, createWalkInBooking, cancelReservation, getIssuanceList, issueReservation, markNoShow, createAlaCarteBooking } = require('./messReservationService');
 
 const adminOnly = [verifyToken, verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN)];
 const anyAuthenticated = [verifyToken, verifyRole(
@@ -145,6 +145,7 @@ router.post('/reservations', [verifyToken, verifyRole(
       itemName,
       diningMode,
       selectionMode,
+      bookingSource: req.body.bookingSource || 'self',
     });
 
     return res.status(201).json({
@@ -328,6 +329,8 @@ router.post('/reservations/proxy', supervisorAndAbove, async (req, res) => {
   }
 });
 
+
+
 /**
  * PATCH /mess/reservations/:reservationId/cancel
  * Cancel a reservation
@@ -373,7 +376,6 @@ router.patch('/reservations/:reservationId/cancel', anyAuthenticated, async (req
 //
 // INSTRUCTIONS FOR HOMI:
 // ONE new route to ADD to your existing messRoutes.js file.
-// Paste it BEFORE the final line:  module.exports = router;
 // No changes needed to messReservationService.js — this route
 // queries Firestore directly (simple read, no business logic needed).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -442,6 +444,101 @@ router.get('/my-reservations', anyAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('GET my-reservations error:', error.message);
     return errorResponse(res, error.message, 500);
+  }
+});
+
+router.post('/reservations/alacarte', [verifyToken, verifyRole(
+  ROLES.EMPLOYEE,
+  ROLES.MESS_SUPERVISOR,
+  ROLES.MANAGER,
+  ROLES.ADMIN,
+  ROLES.SUPER_ADMIN
+)], async (req, res) => {
+  try {
+    const uid                   = req.user.uid;
+    const officialEmployeeNumber = req.officialEmployeeNumber;
+    const tenantId              = req.tenantId;
+    const createdByRole         = req.userRole;
+ 
+    const { reservationDate, diningMode, items, bookingSource, targetEmployeeNumber } = req.body;
+
+ 
+    // ── Validate required top-level fields ──
+    if (!reservationDate) {
+      return errorResponse(res, 'reservationDate is required.', 400);
+    }
+    if (!diningMode) {
+      return errorResponse(res, 'diningMode is required.', 400);
+    }
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return errorResponse(res, 'items array is required and must not be empty.', 400);
+    }
+ 
+    // ── Validate controlled values ──
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(reservationDate)) {
+      return errorResponse(res, 'Invalid reservationDate format. Use YYYY-MM-DD.', 400);
+    }
+    if (!['dine_in', 'takeaway'].includes(diningMode)) {
+      return errorResponse(res, 'Invalid diningMode. Use dine_in or takeaway.', 400);
+    }
+ 
+    // ── Validate each item in the array ──
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item.itemId) {
+        return errorResponse(res, `Item at index ${i} is missing itemId.`, 400);
+      }
+      if (!item.itemName) {
+        return errorResponse(res, `Item at index ${i} is missing itemName.`, 400);
+      }
+      if (item.quantity !== undefined) {
+        const qty = parseInt(item.quantity, 10);
+        if (isNaN(qty) || qty < 1 || qty > 20) {
+          return errorResponse(res, `Item "${item.itemName}" has invalid quantity. Must be 1–20.`, 400);
+        }
+        item.quantity = qty;  // normalise to integer
+      }
+    }
+ 
+    // Determine booking source — self if not specified or caller is employee
+    const resolvedSource = bookingSource || 'self';
+    const validSources = ['self', 'proxy', 'walk_in'];
+    if (!validSources.includes(resolvedSource)) {
+      return errorResponse(res, 'Invalid bookingSource.', 400);
+    }
+
+    // For proxy/walk-in, supervisor specifies targetEmployeeNumber in body
+    // For self, target is always the caller themselves
+    const resolvedTarget = resolvedSource === 'self'
+      ? officialEmployeeNumber
+      : targetEmployeeNumber;
+
+    if (resolvedSource !== 'self' && !resolvedTarget) {
+      return errorResponse(res, 'targetEmployeeNumber is required for proxy and walk-in bookings.', 400);
+    }
+
+    const booking = await createAlaCarteBooking({
+      uid,
+      officialEmployeeNumber,
+      targetEmployeeNumber: resolvedTarget,
+      targetEmployeeName: null,
+      tenantId,
+      reservationDate,
+      items,
+      diningMode,
+      bookingSource: resolvedSource,
+      createdByRole,
+      createdByEmployeeNumber: officialEmployeeNumber,
+    });
+ 
+    return res.status(201).json({
+      message: 'Ala carte booking created successfully.',
+      booking,
+    });
+ 
+  } catch (error) {
+    console.error('Ala carte booking error:', error.message);
+    return errorResponse(res, error.message, 400);
   }
 });
 

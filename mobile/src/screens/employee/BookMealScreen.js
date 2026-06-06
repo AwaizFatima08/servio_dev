@@ -29,6 +29,15 @@ function formatDate(date) {
   return `${y}-${m}-${d}`;
 }
 
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function formatDisplayDate(iso) {
+  const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const parts = iso.split('-');
+  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  return `${DAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
+}
+
 function buildDateRow() {
   const dates = [];
   const today = new Date();
@@ -40,9 +49,8 @@ function buildDateRow() {
   return dates;
 }
 
-const DATE_ROW   = buildDateRow();
-const DAY_LABELS  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DATE_ROW  = buildDateRow();
+const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
@@ -105,12 +113,12 @@ export default function BookMealScreen({ navigation }) {
       const modeLabel = diningMode === 'dine_in' ? 'Dine In' : 'Takeaway';
       Alert.alert(
         'Booked!',
-        `${payload.optionLabel} ×${quantity} for ${selectedDate} (${modeLabel}) confirmed.`,
+        `${payload.optionLabel} ×${quantity} for ${formatDisplayDate(selectedDate)} (${modeLabel}) confirmed.`,
         [{ text: 'OK' }]
       );
     } catch (err) {
       if (err?.response?.status === 409) {
-        Alert.alert('Already Booked', 'You already have a booking for this combo slot.', [{ text: 'OK' }]);
+        Alert.alert('Already Booked', 'You already have a booking for this meal slot.', [{ text: 'OK' }]);
       } else {
         Alert.alert('Error', err?.response?.data?.message || err.message || 'Booking failed.', [{ text: 'OK' }]);
       }
@@ -310,7 +318,7 @@ function BookingModal({
         <View style={styles.modalBox}>
 
           <Text style={styles.modalTitle}>Confirm Booking</Text>
-          <Text style={styles.modalMealLabel}>{mealLabel} · {selectedDate}</Text>
+          <Text style={styles.modalMealLabel}>{mealLabel} · {formatDisplayDate(selectedDate)}</Text>
           <Text style={styles.modalItemName}>{name}</Text>
 
           {/* Quantity selector */}
@@ -337,7 +345,7 @@ function BookingModal({
           </View>
 
           {/* Dining mode */}
-          <Text style={styles.modalSectionLabel}>Howare you dining?</Text>
+          <Text style={styles.modalSectionLabel}>How are you dining?</Text>
           <View style={styles.diningRow}>
             <TouchableOpacity
               style={[styles.diningBtn, diningMode === 'dine_in' && styles.diningBtnActive]}

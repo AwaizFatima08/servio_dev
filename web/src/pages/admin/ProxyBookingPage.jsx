@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getDailyMenu, createReservation, getEmployees } from '../../services/messService';
+import { getDailyMenu, createProxyReservation, createAlaCarteBooking, getEmployees } from '../../services/messService';
 import styles from './ProxyBookingPage.module.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -90,14 +90,25 @@ export default function ProxyBookingPage() {
   const [selectedMeal, setSelectedMeal] = useState('lunch');
 
   // Step 3 — menu
-  const [menu, setMenu]         = useState(null);
+  const [menu, setMenu]               = useState(null);
   const [menuLoading, setMenuLoading] = useState(false);
   const [menuError, setMenuError]     = useState('');
   const [selectedItem, setSelectedItem] = useState(null);
-
+ 
+  // Ala carte selections — breakfast only
+  // Map of { itemId: quantity }. quantity 0 = not selected.
+  const [alaCarteSelections, setAlaCarteSelections] = useState({});
+  const [alaCarteNames, setAlaCarteNames]           = useState({});
+ 
+  // Derived
+  const isBreakfast          = selectedMeal === 'breakfast';
+  const alaCarteItemCount    = Object.values(alaCarteSelections).filter(q => q > 0).length;
+  const hasAlaCarteSelection = alaCarteItemCount > 0;
+  const hasAnySelection      = !!selectedItem || hasAlaCarteSelection;
+ 
   // Step 4 — dining mode + submit
-  const [diningMode, setDiningMode] = useState('dine_in');
-  const [submitting, setSubmitting] = useState(false);
+  const [diningMode, setDiningMode]   = useState('dine_in');
+  const [submitting, setSubmitting]   = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(null);
 
@@ -161,44 +172,87 @@ export default function ProxyBookingPage() {
     if (step === 3) loadMenu();
   }, [step, loadMenu]);
 
+  // ── Ala carte helpers ─────────────────────────────────────────────────────
+ 
+  function handleUpdateAlaCarteItem(itemId, itemName, newQty) {
+    setAlaCarteSelections(prev => ({ ...prev, [itemId]: newQty }));
+    setAlaCarteNames(prev => ({ ...prev, [itemId]: itemName }));
+  }
+ 
   // ── Submit ────────────────────────────────────────────────────────────────
-
+ 
   async function handleSubmit() {
-    if (!selectedEmp || !selectedItem) return;
+    if (!selectedEmp || !hasAnySelection) return;
     setSubmitting(true);
     setSubmitError('');
-    try {
-      const token = await getToken();
-      const result = await createReservation({
-        reservationDate:  selectedDate,
-        mealType:         selectedMeal,
-        menuItemId:       selectedItem.menuItemId,
-        menuOptionKey:    selectedItem.menuOptionKey,
-        optionLabel:      selectedItem.optionLabel,
-        itemName:         selectedItem.name,
-        selectionMode:    selectedItem.selectionMode,
-        diningMode,
-        subjectType:      'self',
-        quantity:         1,
-        bookingSource:    'proxy',
-        targetEmployeeNumber: selectedEmp.officialEmployeeNumber,
-        cutoffWaived:     true,
-      }, token);
-      setSubmitSuccess({
-        employeeName: selectedEmp.fullName || selectedEmp.officialEmployeeNumber,
-        mealType:     selectedMeal,
-        date:         selectedDate,
-        item:         selectedItem.name,
-        reservationId: result?.reservationId,
-      });
-      setStep(4);
-    } catch (e) {
-      setSubmitError(e.message);
-    } finally {
-      setSubmitting(false);
+ 
+    const token = await getToken();
+    let comboResult = null;
+    let alaCarteResult = null;
+    const errors = [];
+ 
+    // Submit combo proxy if selected
+    if (selectedItem) {
+      try {
+        comboResult = await createProxyReservation({
+          reservationDate:      selectedDate,
+          mealType:             selectedMeal,
+          menuItemId:           selectedItem.menuItemId,
+          menuOptionKey:        selectedItem.menuOptionKey,
+          optionLabel:          selectedItem.optionLabel,
+          itemName:             selectedItem.name,
+          selectionMode:        selectedItem.selectionMode,
+          diningMode,
+          quantity:             1,
+          targetEmployeeNumber: selectedEmp.officialEmployeeNumber,
+        }, token);
+      } catch (e) {
+        errors.push(`Combo: ${e.message}`);
+      }
     }
+ 
+    // Submit ala carte proxy if any items selected (breakfast only)
+    if (hasAlaCarteSelection) {
+      const items = Object.entries(alaCarteSelections)
+        .filter(([, qty]) => qty > 0)
+        .map(([itemId, qty]) => ({
+          itemId,
+          itemName: alaCarteNames[itemId] || itemId,
+          quantity: qty,
+        }));
+      try {
+        alaCarteResult = await createAlaCarteBooking({
+          reservationDate:      selectedDate,
+          diningMode,
+          items,
+          bookingSource:        'proxy',
+          targetEmployeeNumber: selectedEmp.officialEmployeeNumber,
+        }, token);
+      } catch (e) {
+        errors.push(`Ala Carte: ${e.message}`);
+      }
+    }
+ 
+    setSubmitting(false);
+ 
+    // If everything failed show inline error
+    if (errors.length > 0 && !comboResult && !alaCarteResult) {
+      setSubmitError(errors.join(' | '));
+      return;
+    }
+ 
+    // At least one succeeded — move to success screen
+    setSubmitSuccess({
+      employeeName:  selectedEmp.fullName || selectedEmp.officialEmployeeNumber,
+      mealType:      selectedMeal,
+      date:          selectedDate,
+      comboItem:     selectedItem?.name || null,
+      alaCarteItems: alaCarteResult?.reservations || [],
+      errors,
+    });
+    setStep(4);
   }
-
+ 
   function resetAll() {
     setStep(1);
     setSelectedEmp(null);
@@ -207,6 +261,8 @@ export default function ProxyBookingPage() {
     setSelectedMeal('lunch');
     setMenu(null);
     setSelectedItem(null);
+    setAlaCarteSelections({});
+    setAlaCarteNames({});
     setDiningMode('dine_in');
     setSubmitSuccess(null);
     setSubmitError('');
@@ -401,21 +457,75 @@ export default function ProxyBookingPage() {
             )}
 
             {!menuLoading && !menuError && menu && (
-              <div className={styles.menuList}>
-                {buildItems(menu).map(item => (
-                  <button
-                    key={item.id}
-                    className={`${styles.menuItem} ${selectedItem?.id === item.id ? styles.menuItemActive : ''}`}
-                    onClick={() => setSelectedItem(item)}
-                  >
-                    <div className={styles.menuItemLeft}>
-                      <span className={styles.menuItemName}>{item.name}</span>
-                      {item.detail && <span className={styles.menuItemDetail}>{item.detail}</span>}
+              <>
+                {/* Combo section */}
+                <div className={styles.menuSectionLabel}>
+                  <i className="ti ti-box" /> Combo
+                </div>
+                <div className={styles.menuList}>
+                  {buildItems(menu).map(item => (
+                    <button
+                      key={item.id}
+                      className={`${styles.menuItem} ${selectedItem?.id === item.id ? styles.menuItemActive : ''}`}
+                      onClick={() => setSelectedItem(prev => prev?.id === item.id ? null : item)}
+                    >
+                      <div className={styles.menuItemLeft}>
+                        <span className={styles.menuItemName}>{item.name}</span>
+                        {item.detail && <span className={styles.menuItemDetail}>{item.detail}</span>}
+                      </div>
+                      <span className={styles.menuBadge}>{item.badge}</span>
+                    </button>
+                  ))}
+                </div>
+ 
+                {/* Ala Carte section — breakfast only */}
+                {isBreakfast && (menu.alaCarte || []).length > 0 && (
+                  <>
+                    <div className={styles.menuSectionLabel} style={{ marginTop: 12 }}>
+                      <i className="ti ti-salad" /> Ala Carte
+                      <span className={styles.menuSectionHint}>Set quantity to 0 to deselect</span>
                     </div>
-                    <span className={styles.menuBadge}>{item.badge}</span>
-                  </button>
-                ))}
-              </div>
+                    <div className={styles.menuList}>
+                      {(menu.alaCarte || []).map(item => {
+                        const current = alaCarteSelections[item.itemId] || 0;
+                        return (
+                          <div
+                            key={item.itemId}
+                            className={`${styles.menuItem} ${current > 0 ? styles.menuItemActive : ''}`}
+                          >
+                            <div className={styles.menuItemLeft}>
+                              <span className={styles.menuItemName}>{item.itemName}</span>
+                              <span className={styles.menuItemDetail}>{item.baseUnit}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span className={`${styles.menuBadge} ${styles.menuBadgeAC}`}>Ala Carte</span>
+                              <div className={styles.acQtyRow}>
+                                <button
+                                  type="button"
+                                  className={styles.qtyBtn}
+                                  disabled={current === 0}
+                                  onClick={() => handleUpdateAlaCarteItem(item.itemId, item.itemName, Math.max(0, current - 1))}
+                                >
+                                  <i className="ti ti-minus" />
+                                </button>
+                                <span className={styles.qtyValue}>{current}</span>
+                                <button
+                                  type="button"
+                                  className={styles.qtyBtn}
+                                  disabled={current >= 10}
+                                  onClick={() => handleUpdateAlaCarteItem(item.itemId, item.itemName, Math.min(10, current + 1))}
+                                >
+                                  <i className="ti ti-plus" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </>
             )}
 
             <div className={styles.fieldGroup} style={{ marginTop: 24 }}>
@@ -442,7 +552,7 @@ export default function ProxyBookingPage() {
               <button className={styles.btnSecondary} onClick={() => setStep(2)}>Back</button>
               <button
                 className={styles.btnPrimary}
-                disabled={!selectedItem || submitting}
+                disabled={!hasAnySelection || submitting}
                 onClick={handleSubmit}
               >
                 {submitting ? 'Booking…' : 'Confirm Booking'}
@@ -467,16 +577,30 @@ export default function ProxyBookingPage() {
               </div>
               <div className={styles.successRow}>
                 <span className={styles.successLabel}>Meal</span>
-                <span className={styles.successValue}>{MEAL_TABS.find(m => m.key === submitSuccess.mealType)?.label}</span>
+                <span className={styles.successValue}>
+                  {MEAL_TABS.find(m => m.key === submitSuccess.mealType)?.label}
+                </span>
               </div>
-              <div className={styles.successRow}>
-                <span className={styles.successLabel}>Item</span>
-                <span className={styles.successValue}>{submitSuccess.item}</span>
-              </div>
-              {submitSuccess.reservationId && (
+              {submitSuccess.comboItem && (
                 <div className={styles.successRow}>
-                  <span className={styles.successLabel}>Ref</span>
-                  <span className={styles.successId}>{submitSuccess.reservationId.slice(-8).toUpperCase()}</span>
+                  <span className={styles.successLabel}>Combo</span>
+                  <span className={styles.successValue}>{submitSuccess.comboItem}</span>
+                </div>
+              )}
+              {submitSuccess.alaCarteItems.length > 0 && (
+                <div className={styles.successRow}>
+                  <span className={styles.successLabel}>Ala Carte</span>
+                  <span className={styles.successValue}>
+                    {submitSuccess.alaCarteItems.length} item{submitSuccess.alaCarteItems.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
+              {submitSuccess.errors?.length > 0 && (
+                <div className={styles.successRow}>
+                  <span className={styles.successLabel} style={{ color: '#c0392b' }}>Partial</span>
+                  <span className={styles.successValue} style={{ color: '#c0392b' }}>
+                    {submitSuccess.errors.join(', ')}
+                  </span>
                 </div>
               )}
             </div>

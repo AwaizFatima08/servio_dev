@@ -334,13 +334,13 @@ export default function EmployeeHomeScreen({ navigation }) {
                           });
                         }}
                       >
-                        <Text style={styles.modalRsvpBtnText}>Attending</Text>
+                        <Text style={styles.modalRsvpBtnText}>Yes, I'll Attend</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={[styles.modalRsvpBtn, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#e57373', flex: 1 }]}
                         onPress={() => setBannerEvent(null)}
                       >
-                        <Text style={[styles.modalRsvpBtnText, { color: '#e57373' }]}>Later</Text>
+                        <Text style={[styles.modalRsvpBtnText, { color: '#e57373' }]}>No, I Won't Attend</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -413,7 +413,8 @@ const styles = StyleSheet.create({
   modalDesc:            { fontSize: 14, color: '#555', lineHeight: 20, marginBottom: 16 },
   modalRsvp:            { borderTopWidth: 1, borderTopColor: '#F0F0F0', paddingTop: 16, marginBottom: 8 },
   modalRsvpLabel:       { fontSize: 13, color: '#888', marginBottom: 10 },
-  modalRsvpBtn:         { backgroundColor: '#1A7A4A', borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+  modalRsvpRow:         { flexDirection: 'row', gap: 10 },
+  modalRsvpBtn:         { backgroundColor: '#1A7A4A', borderRadius: 10, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
   modalRsvpBtnText:     { fontSize: 14, fontWeight: '600', color: '#fff' },
   closeBtn:             { alignItems: 'center', paddingVertical: 12 },
   closeBtnText:         { fontSize: 14, color: '#aaa' },

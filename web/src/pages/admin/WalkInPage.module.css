@@ -255,4 +255,63 @@
   font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
   cursor: pointer; transition: background 0.15s;
 }
+.menuSectionLabel {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #0F6E56;
+  padding: 8px 0 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+ 
+.menuSectionHint {
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #aaa;
+  margin-left: 6px;
+}
+ 
+.menuBadgeAC {
+  background: #fff8e1;
+  color: #D4960A;
+  border: 1px solid #D4960A33;
+}
+ 
+.acQtyRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+ 
+.qtyBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #0F6E56;
+}
+ 
+.qtyBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+ 
+.qtyValue {
+  min-width: 20px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #042C1E;
+}
 .btnPrimary:hover { background: #0A5340; }

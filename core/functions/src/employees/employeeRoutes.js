@@ -11,7 +11,7 @@ const { successResponse, errorResponse, validateRequired } = require('../utils')
 const { ROLES } = require('../constants');
 
 const adminOnly = [verifyToken, verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN)];
-const searchRoles = [verifyToken, verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.MANAGER, ROLES.MESS_SUPERVISOR)];
+const searchRoles = [verifyToken, verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.MANAGER, ROLES.MESS_SUPERVISOR, ROLES.ACCOUNTS_SUPERVISOR)];
 
 // ─────────────────────────────────────────
 // POST /employees

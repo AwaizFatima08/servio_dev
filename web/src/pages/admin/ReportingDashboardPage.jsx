@@ -3,6 +3,7 @@
 // Flow 11: live headcount + admin alerts + weekly booking summary + feedback trends
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import {
   getDailyHeadcount,
   getAdminAlerts,
@@ -39,6 +40,8 @@ const TABS = [
 ];
 
 export default function ReportingDashboardPage() {
+  const { userProfile } = useAuth();
+  const userRole = userProfile?.role;
   const [activeTab, setActiveTab]       = useState('live');
   const [date, setDate]                 = useState(todayStr());
 
@@ -226,7 +229,10 @@ export default function ReportingDashboardPage() {
 
       {/* Tabs */}
       <div className={styles.tabs}>
-        {TABS.map(tab => (
+        {TABS.filter(tab => {
+          if (tab.key === 'alerts') return userRole === 'admin' || userRole === 'super_admin';
+          return true;
+        }).map(tab => (
           <button
             key={tab.key}
             className={`${styles.tab} ${activeTab === tab.key ? styles.tabActive : ''}`}

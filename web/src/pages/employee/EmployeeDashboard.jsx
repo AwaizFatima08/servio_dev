@@ -233,21 +233,21 @@ export default function EmployeeDashboard() {
       <div className={styles.statsRow}>
         <StatCard
           label="Today's Bookings"
-          value={loadingRes ? 'â' : activeCount}
+          value={loadingRes ? '...' : activeCount}
           sub={activeCount > 0 ? `${issuedCount} already issued` : 'None booked yet'}
           variant="default"
           icon="ti-calendar-check"
         />
         <StatCard
           label="Meals Issued"
-          value={loadingRes ? 'â' : issuedCount}
+          value={loadingRes ? '...' : issuedCount}
           sub="Served today"
           variant="dark"
           icon="ti-check"
         />
         <StatCard
           label="Cancelled"
-          value={loadingRes ? 'â' : cancelledCount}
+          value={loadingRes ? '...' : cancelledCount}
           sub={cancelledCount > 0 ? 'Not billed' : 'All good'}
           variant="gold"
           icon="ti-calendar-x"
@@ -312,9 +312,9 @@ export default function EmployeeDashboard() {
           </div>
           <div className={styles.timingsGrid}>
             {[
-              { meal: 'Breakfast', time: '06:00 - 09:00', cutoff: 'Book by 03:00', icon: 'ti-sunrise' },
-              { meal: 'Lunch',     time: '13:00 - 15:00', cutoff: 'Book by 10:00', icon: 'ti-sun' },
-              { meal: 'Dinner',    time: '19:00 - 22:00', cutoff: 'Book by 16:00', icon: 'ti-moon' },
+              { meal: 'Breakfast', time: '06:00 \u2013 09:00', cutoff: 'Book by 03:00', icon: 'ti-sunrise' },
+              { meal: 'Lunch',     time: '13:00 \u2013 15:00', cutoff: 'Book by 10:00', icon: 'ti-sun' },
+              { meal: 'Dinner',    time: '19:00 \u2013 22:00', cutoff: 'Book by 16:00', icon: 'ti-moon' },
             ].map(({ meal, time, cutoff, icon }) => (
               <div key={meal} className={styles.timingRow}>
                 <i className={`ti ${icon}`} style={{ color: '#3DBFA0', fontSize: 18, flexShrink: 0, width: 20 }} />
@@ -369,7 +369,7 @@ export default function EmployeeDashboard() {
                           <span className={styles.weekMealItems}>
                             {combos.length > 0
                               ? combos.map(c => c.comboName || c.displayLabel).join(' / ')
-                              : 'â'}
+                              : '\u2014'}
                           </span>
                         </div>
                       );

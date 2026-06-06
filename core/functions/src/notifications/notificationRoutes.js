@@ -17,6 +17,7 @@ const {
 const anyAuthenticated = [verifyToken, verifyRole(
   ROLES.EMPLOYEE,
   ROLES.MESS_SUPERVISOR,
+  ROLES.ACCOUNTS_SUPERVISOR,
   ROLES.MANAGER,
   ROLES.ADMIN,
   ROLES.SUPER_ADMIN

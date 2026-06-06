@@ -18,6 +18,30 @@ import EventAttendanceScreen from './EventAttendanceScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
+function BookMealStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="BookMealMain" component={BookMealScreen} />
+      <Stack.Screen name="WeeklyBooking" component={WeeklyBookingScreen} />
+    </Stack.Navigator>
+  );
+}
+
+function MoreStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="MoreMain" component={MoreScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="Feedback" component={FeedbackScreen} />
+      <Stack.Screen name="MyBill" component={MyBillScreen} />
+      <Stack.Screen name="Events" component={EventsScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="ContactUs" component={ContactUsScreen} />
+      <Stack.Screen name="EventAttendance" component={EventAttendanceScreen} />
+    </Stack.Navigator>
+  );
+}
+
 export default function EmployeeNavigator() {
   return (
     <Tab.Navigator
@@ -57,33 +81,21 @@ export default function EmployeeNavigator() {
         component={EmployeeHomeScreen}
         options={{ tabBarLabel: 'Home' }}
       />
-      <Tab.Screen name="BookMeal" options={{ tabBarLabel: 'Book Meal' }}>
-        {() => (
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="BookMealMain" component={BookMealScreen} />
-            <Stack.Screen name="WeeklyBooking" component={WeeklyBookingScreen} />
-          </Stack.Navigator>
-        )}
-      </Tab.Screen>
+      <Tab.Screen
+        name="BookMeal"
+        component={BookMealStack}
+        options={{ tabBarLabel: 'Book Meal' }}
+      />
       <Tab.Screen
         name="MyBookings"
         component={MyBookingsScreen}
         options={{ tabBarLabel: 'My Bookings' }}
       />
-      <Tab.Screen name="More" options={{ tabBarLabel: 'More' }}>
-        {() => (
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="MoreMain" component={MoreScreen} />
-            <Stack.Screen name="Notifications" component={NotificationsScreen} />
-            <Stack.Screen name="Feedback" component={FeedbackScreen} />
-            <Stack.Screen name="MyBill" component={MyBillScreen} />
-            <Stack.Screen name="Events" component={EventsScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="ContactUs" component={ContactUsScreen} />
-            <Stack.Screen name="EventAttendance" component={EventAttendanceScreen} />
-          </Stack.Navigator>
-        )}
-      </Tab.Screen>
+      <Tab.Screen
+        name="More"
+        component={MoreStack}
+        options={{ tabBarLabel: 'More' }}
+      />
     </Tab.Navigator>
   );
 }

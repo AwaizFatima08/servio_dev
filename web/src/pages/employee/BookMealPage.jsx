@@ -13,6 +13,7 @@ import {
   createWeeklyReservations,
   cancelReservation,
   getBookableWeek,
+  createAlaCarteBooking,
 } from '../../services/messService';
 import styles from './BookMealPage.module.css';
 
@@ -54,42 +55,129 @@ function DatePicker({ dates, selected, onSelect }) {
   );
 }
 
-function MenuPicker({ menu, menuLoading, menuError, selected, onSelect }) {
-  if (menuLoading) return <div className={styles.menuLoadingRow}><div className={styles.spinner} /><span>Loading menu&#8266;</span></div>;
+function MenuPicker({ menu, menuLoading, menuError, selectedCombo, onSelectCombo }) {
+  if (menuLoading) return (
+    <div className={styles.menuLoadingRow}>
+      <div className={styles.spinner} />
+      <span>Loading menu…</span>
+    </div>
+  );
   if (menuError) {
-    if (menuError === 'not_generated') return <div className={styles.menuNotReady}><i className="ti ti-clock-hour-4" style={{ fontSize: 18, color: '#D4960A' }} />Menu not available yet for this date</div>;
-    return <div className={styles.menuNotReady} style={{ color: '#c0392b' }}><i className="ti ti-alert-circle" />{menuError}</div>;
+    if (menuError === 'not_generated') return (
+      <div className={styles.menuNotReady}>
+        <i className="ti ti-clock-hour-4" style={{ fontSize: 18, color: '#D4960A' }} />
+        Menu not available yet for this date
+      </div>
+    );
+    return (
+      <div className={styles.menuNotReady} style={{ color: '#c0392b' }}>
+        <i className="ti ti-alert-circle" />{menuError}
+      </div>
+    );
   }
   if (!menu) return null;
-
-  const allItems = [
-    ...(menu.combos || []).map((c, i) => ({
-      id: `combo_${i + 1}`, name: c.comboName || c.displayLabel,
-      detail: c.constituents?.map(x => x.itemName).join(' · '),
-      badge: `Combo ${i + 1}`, type: 'combo', menuItemId: c.comboId,
-      menuOptionKey: `combo_${i + 1}`, optionLabel: c.displayLabel || `Combo ${i + 1}`, selectionMode: 'combo',
-    })),
-    // Ala carte removed: employees book combos only (decision locked 1 Jun 2026)
-  ];
-
-  if (!allItems.length) return <div className={styles.menuNotReady}><i className="ti ti-mood-empty" />No menu items for this meal</div>;
-
+ 
+  const combos = (menu.combos || []).map((c, i) => ({
+    id: `combo_${i + 1}`,
+    name: c.comboName || c.displayLabel,
+    detail: c.constituents?.map(x => x.itemName).join(' · '),
+    badge: `Combo ${i + 1}`,
+    menuItemId: c.comboId,
+    menuOptionKey: `combo_${i + 1}`,
+    optionLabel: c.displayLabel || `Combo ${i + 1}`,
+    selectionMode: 'combo',
+  }));
+ 
+  if (!combos.length) return (
+    <div className={styles.menuNotReady}>
+      <i className="ti ti-mood-empty" />No combo items for this meal
+    </div>
+  );
+ 
   return (
     <div className={styles.menuList}>
-      {allItems.map(item => {
-        const isSel = selected?.menuOptionKey === item.menuOptionKey && selected?.menuItemId === item.menuItemId;
+      {combos.map(item => {
+        const isSel = selectedCombo?.menuOptionKey === item.menuOptionKey;
         return (
-          <button key={item.id} className={`${styles.menuRow} ${isSel ? styles.menuRowSelected : ''}`}
-            onClick={() => onSelect({ menuItemId: item.menuItemId, menuOptionKey: item.menuOptionKey, optionLabel: item.optionLabel, itemName: item.name, selectionMode: item.selectionMode })}>
+          <button
+            key={item.id}
+            className={`${styles.menuRow} ${isSel ? styles.menuRowSelected : ''}`}
+            onClick={() => onSelectCombo({
+              menuItemId: item.menuItemId,
+              menuOptionKey: item.menuOptionKey,
+              optionLabel: item.optionLabel,
+              itemName: item.name,
+              selectionMode: item.selectionMode,
+            })}
+          >
             <div className={styles.menuRowLeft}>
               <span className={styles.menuRowName}>{item.name}</span>
               {item.detail && <span className={styles.menuRowDetail}>{item.detail}</span>}
             </div>
             <div className={styles.menuRowRight}>
-              <span className={`${styles.menuBadge} ${item.type === 'alacarte' ? styles.menuBadgeAC : ''}`}>{item.badge}</span>
+              <span className={styles.menuBadge}>{item.badge}</span>
               {isSel && <i className="ti ti-check" style={{ color: '#0F6E56', fontSize: 16 }} />}
             </div>
           </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AlaCartePicker({ menu, menuLoading, menuError, alaCarteSelections, onUpdateItem }) {
+  if (menuLoading) return (
+    <div className={styles.menuLoadingRow}>
+      <div className={styles.spinner} />
+      <span>Loading menu…</span>
+    </div>
+  );
+  if (menuError) return null;
+  if (!menu) return null;
+ 
+  const items = menu.alaCarte || [];
+  if (!items.length) return (
+    <div className={styles.menuNotReady}>
+      <i className="ti ti-mood-empty" />No ala carte items today
+    </div>
+  );
+ 
+  return (
+    <div className={styles.menuList}>
+      {items.map(item => {
+        const current = alaCarteSelections[item.itemId] || 0;
+        return (
+          <div
+            key={item.itemId}
+            className={`${styles.menuRow} ${current > 0 ? styles.menuRowSelected : ''}`}
+          >
+            <div className={styles.menuRowLeft}>
+              <span className={styles.menuRowName}>{item.itemName}</span>
+              <span className={styles.menuRowDetail}>{item.baseUnit}</span>
+            </div>
+            <div className={styles.menuRowRight}>
+              <span className={`${styles.menuBadge} ${styles.menuBadgeAC}`}>Ala Carte</span>
+              <div className={styles.acQtyRow}>
+                <button
+                  className={styles.qtyBtn}
+                  type="button"
+                  disabled={current === 0}
+                  onClick={() => onUpdateItem(item.itemId, item.itemName, Math.max(0, current - 1))}
+                >
+                  <i className="ti ti-minus" />
+                </button>
+                <span className={styles.qtyValue}>{current}</span>
+                <button
+                  className={styles.qtyBtn}
+                  type="button"
+                  disabled={current >= 10}
+                  onClick={() => onUpdateItem(item.itemId, item.itemName, Math.min(10, current + 1))}
+                >
+                  <i className="ti ti-plus" />
+                </button>
+              </div>
+            </div>
+          </div>
         );
       })}
     </div>
@@ -117,78 +205,155 @@ function SingleBookingFlow({ bookableWeek, onSwitchToWeekly }) {
   const [menu, setMenu]                         = useState(null);
   const [menuLoading, setMenuLoading]           = useState(false);
   const [menuError, setMenuError]               = useState(null);
-  const [selectedItem, setSelectedItem]         = useState(null);
+ 
+  // Combo selection — single item as before
+  const [selectedCombo, setSelectedCombo]       = useState(null);
+ 
+  // Ala carte selections — map of { itemId: quantity }
+  // A quantity of 0 means not selected.
+  const [alaCarteSelections, setAlaCarteSelections] = useState({});
+  // We also store itemName alongside so we can build the payload without re-reading the menu
+  const [alaCarteNames, setAlaCarteNames]           = useState({});
+ 
   const [diningMode, setDiningMode]             = useState(null);
-  const [quantity, setQuantity]                 = useState(1);
+  const [quantity, setQuantity]                 = useState(1);   // for combo quantity
   const [submitting, setSubmitting]             = useState(false);
   const [submitError, setSubmitError]           = useState(null);
   const [existingReservationId, setExistingReservationId] = useState(null);
   const [cancelling, setCancelling]             = useState(false);
-
+  const [bookingResult, setBookingResult]       = useState(null); // success summary
+ 
+  // Is breakfast selected? Controls whether ala carte section shows.
+  const isBreakfast = selectedMealType === 'breakfast';
+ 
+  // How many ala carte items are selected (quantity > 0)
+  const alaCarteItemCount = Object.values(alaCarteSelections).filter(q => q > 0).length;
+  const hasAlaCarteSelection = alaCarteItemCount > 0;
+ 
+  // Can proceed from step 3: combo selected OR at least one ala carte item selected
+  const canProceedFromMenu = !!selectedCombo || hasAlaCarteSelection;
+ 
   useEffect(() => {
     if (!selectedMealType || step !== 3) return;
     setMenuLoading(true); setMenuError(null); setMenu(null);
     getToken().then(token =>
       getDailyMenu(selectedDate, selectedMealType, token)
-        .then(data => { if (data === null) setMenuError('not_generated'); else setMenu(data); })
+        .then(data => {
+          if (data === null) setMenuError('not_generated');
+          else setMenu(data);
+        })
         .catch(err => setMenuError(err.message))
         .finally(() => setMenuLoading(false))
     );
   }, [selectedMealType, selectedDate, step, getToken]);
-
+ 
   const handleDateSelect = (date) => {
-    setSelectedDate(date); setSelectedMealType(null); setMenu(null);
-    setSelectedItem(null); setDiningMode(null); setQuantity(1);
-    setSubmitError(null); setExistingReservationId(null);
+    setSelectedDate(date);
+    setSelectedMealType(null);
+    setMenu(null);
+    setSelectedCombo(null);
+    setAlaCarteSelections({});
+    setAlaCarteNames({});
+    setDiningMode(null);
+    setQuantity(1);
+    setSubmitError(null);
+    setExistingReservationId(null);
+    setBookingResult(null);
   };
-
-  const buildPayload = () => ({
-    reservationDate: selectedDate, mealType: selectedMealType,
-    menuItemId: selectedItem.menuItemId, menuOptionKey: selectedItem.menuOptionKey,
-    optionLabel: selectedItem.optionLabel, itemName: selectedItem.itemName,
-    selectionMode: selectedItem.selectionMode, diningMode, subjectType: 'self', quantity,
+ 
+  const handleUpdateAlaCarteItem = (itemId, itemName, newQty) => {
+    setAlaCarteSelections(prev => ({ ...prev, [itemId]: newQty }));
+    setAlaCarteNames(prev => ({ ...prev, [itemId]: itemName }));
+  };
+ 
+  // Build combo payload (same as before)
+  const buildComboPayload = () => ({
+    reservationDate: selectedDate,
+    mealType: selectedMealType,
+    menuItemId: selectedCombo.menuItemId,
+    menuOptionKey: selectedCombo.menuOptionKey,
+    optionLabel: selectedCombo.optionLabel,
+    itemName: selectedCombo.itemName,
+    selectionMode: selectedCombo.selectionMode,
+    diningMode,
+    subjectType: 'self',
+    quantity,
   });
-
-  const handleSubmit = async () => {
-    setSubmitting(true); setSubmitError(null); setExistingReservationId(null);
-    try {
-      const token = await getToken();
-      await createReservation(buildPayload(), token);
-      setStep(5);
-    } catch (err) {
-      setSubmitError(err.message);
-      if (err.existingReservationId) setExistingReservationId(err.existingReservationId);
-    } finally {
-      setSubmitting(false);
-    }
+ 
+  // Build ala carte payload
+  const buildAlaCartePayload = () => {
+    const items = Object.entries(alaCarteSelections)
+      .filter(([, qty]) => qty > 0)
+      .map(([itemId, qty]) => ({
+        itemId,
+        itemName: alaCarteNames[itemId] || itemId,
+        quantity: qty,
+      }));
+    return {
+      reservationDate: selectedDate,
+      diningMode,
+      items,
+    };
   };
-
+ 
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+    setExistingReservationId(null);
+ 
+    const token = await getToken();
+    const results = { combo: null, alacarte: null, errors: [] };
+ 
+    // Submit combo if selected
+    if (selectedCombo) {
+      try {
+        results.combo = await createReservation(buildComboPayload(), token);
+      } catch (err) {
+        results.errors.push({ section: 'Combo', message: err.message });
+        if (err.existingReservationId) setExistingReservationId(err.existingReservationId);
+      }
+    }
+ 
+    // Submit ala carte if any items selected
+    if (hasAlaCarteSelection) {
+      try {
+        results.alacarte = await createAlaCarteBooking(buildAlaCartePayload(), token);
+      } catch (err) {
+        results.errors.push({ section: 'Ala Carte', message: err.message });
+      }
+    }
+ 
+    setSubmitting(false);
+ 
+    // If both failed, show error
+    if (results.errors.length > 0 && !results.combo && !results.alacarte) {
+      setSubmitError(results.errors.map(e => `${e.section}: ${e.message}`).join(' | '));
+      return;
+    }
+ 
+    // At least one succeeded — go to success screen
+    setBookingResult(results);
+    setStep(5);
+  };
+ 
   const handleCancelExisting = async () => {
     if (!existingReservationId) return;
-    setCancelling(true); setSubmitError(null);
+    setCancelling(true);
+    setSubmitError(null);
     try {
       const token = await getToken();
       await cancelReservation(existingReservationId, 'employee_request', token);
       setExistingReservationId(null);
-      setSubmitting(true);
-      try {
-        await createReservation(buildPayload(), token);
-        setStep(5);
-      } catch (err2) {
-        setSubmitError(err2.message);
-        if (err2.existingReservationId) setExistingReservationId(err2.existingReservationId);
-      } finally {
-        setSubmitting(false);
-      }
+      await handleSubmit();
     } catch (err) {
       setSubmitError(err.message);
     } finally {
       setCancelling(false);
     }
   };
-
+ 
   const STEPS = ['Date', 'Meal', 'Menu', 'Mode', 'Done'];
-
+ 
   return (
     <div className={styles.flowWrap}>
       {step < 5 && (
@@ -207,119 +372,286 @@ function SingleBookingFlow({ bookableWeek, onSwitchToWeekly }) {
           })}
         </div>
       )}
-
+ 
       <div className={styles.card}>
+ 
+        {/* ── STEP 1: Date ── */}
         {step === 1 && (
           <div className={styles.stepPane}>
-            <div className={styles.stepHeader}><h2 className={styles.stepTitle}>Which day?</h2><p className={styles.stepSub}>Choose a date within the 7-day booking window.</p></div>
+            <div className={styles.stepHeader}>
+              <h2 className={styles.stepTitle}>Which day?</h2>
+              <p className={styles.stepSub}>Choose a date within the 7-day booking window.</p>
+            </div>
             <DatePicker dates={bookableWeek} selected={selectedDate} onSelect={handleDateSelect} />
             <div className={styles.stepActions}>
-              <button className={styles.weeklyModeLink} onClick={onSwitchToWeekly}><i className="ti ti-calendar-week" /> Switch to Weekly Booking</button>
-              <button className={styles.continueBtn} onClick={() => setStep(2)}>Continue <i className="ti ti-arrow-right" /></button>
+              <button className={styles.weeklyModeLink} onClick={onSwitchToWeekly}>
+                <i className="ti ti-calendar-week" /> Switch to Weekly Booking
+              </button>
+              <button className={styles.continueBtn} onClick={() => setStep(2)}>
+                Continue <i className="ti ti-arrow-right" />
+              </button>
             </div>
           </div>
         )}
-
+ 
+        {/* ── STEP 2: Meal type ── */}
         {step === 2 && (
           <div className={styles.stepPane}>
-            <div className={styles.stepHeader}><h2 className={styles.stepTitle}>{formatDateDisplay(selectedDate)} — Which meal?</h2><p className={styles.stepSub}>Select the meal you want to book.</p></div>
+            <div className={styles.stepHeader}>
+              <h2 className={styles.stepTitle}>{formatDateDisplay(selectedDate)} — Which meal?</h2>
+              <p className={styles.stepSub}>Select the meal you want to book.</p>
+            </div>
             <div className={styles.mealGrid}>
               {MEAL_TYPES.map(meal => (
-                <button key={meal.code} className={styles.mealCard} onClick={() => { setSelectedMealType(meal.code); setStep(3); }}>
+                <button
+                  key={meal.code}
+                  className={styles.mealCard}
+                  onClick={() => { setSelectedMealType(meal.code); setStep(3); }}
+                >
                   <i className={`ti ${meal.icon} ${styles.mealIcon}`} />
-                  <div className={styles.mealCardBody}><span className={styles.mealLabel}>{meal.label}</span><span className={styles.mealTime}>{meal.time}</span></div>
+                  <div className={styles.mealCardBody}>
+                    <span className={styles.mealLabel}>{meal.label}</span>
+                    <span className={styles.mealTime}>{meal.time}</span>
+                  </div>
                 </button>
               ))}
             </div>
-            <div className={styles.stepActions}><button className={styles.backBtn} onClick={() => setStep(1)}><i className="ti ti-arrow-left" /> Back</button></div>
+            <div className={styles.stepActions}>
+              <button className={styles.backBtn} onClick={() => setStep(1)}>
+                <i className="ti ti-arrow-left" /> Back
+              </button>
+            </div>
           </div>
         )}
-
+ 
+        {/* ── STEP 3: Menu selection ── */}
         {step === 3 && (
           <div className={styles.stepPane}>
             <div className={styles.stepHeader}>
-              <h2 className={styles.stepTitle}>{MEAL_TYPES.find(m => m.code === selectedMealType)?.label} — Choose item</h2>
+              <h2 className={styles.stepTitle}>
+                {MEAL_TYPES.find(m => m.code === selectedMealType)?.label} — Choose item
+              </h2>
               <p className={styles.stepSub}>{formatDateDisplay(selectedDate)}</p>
             </div>
-            <MenuPicker menu={menu} menuLoading={menuLoading} menuError={menuError} selected={selectedItem} onSelect={setSelectedItem} />
+ 
+            {/* Combo section — always shown for all meal types */}
+            <div className={styles.sectionLabel}>
+              <i className="ti ti-box" /> Combo
+            </div>
+            <MenuPicker
+              menu={menu}
+              menuLoading={menuLoading}
+              menuError={menuError}
+              selectedCombo={selectedCombo}
+              onSelectCombo={setSelectedCombo}
+            />
+ 
+            {/* Ala Carte section — breakfast only */}
+            {isBreakfast && (
+              <>
+                <div className={styles.sectionLabel} style={{ marginTop: 16 }}>
+                  <i className="ti ti-salad" /> Ala Carte
+                  <span className={styles.sectionHint}>Set quantity to 0 to deselect</span>
+                </div>
+                <AlaCartePicker
+                  menu={menu}
+                  menuLoading={menuLoading}
+                  menuError={menuError}
+                  alaCarteSelections={alaCarteSelections}
+                  onUpdateItem={handleUpdateAlaCarteItem}
+                />
+              </>
+            )}
+ 
             <div className={styles.stepActions}>
-              <button className={styles.backBtn} onClick={() => { setStep(2); setSelectedItem(null); }}><i className="ti ti-arrow-left" /> Back</button>
-              <button className={styles.continueBtn} disabled={!selectedItem || menuError === 'not_generated'} onClick={() => setStep(4)}>Continue <i className="ti ti-arrow-right" /></button>
+              <button
+                className={styles.backBtn}
+                onClick={() => {
+                  setStep(2);
+                  setSelectedCombo(null);
+                  setAlaCarteSelections({});
+                  setAlaCarteNames({});
+                }}
+              >
+                <i className="ti ti-arrow-left" /> Back
+              </button>
+              <button
+                className={styles.continueBtn}
+                disabled={!canProceedFromMenu || menuError === 'not_generated'}
+                onClick={() => setStep(4)}
+              >
+                Continue <i className="ti ti-arrow-right" />
+              </button>
             </div>
           </div>
         )}
-
+ 
+        {/* ── STEP 4: Dining mode ── */}
         {step === 4 && (
           <div className={styles.stepPane}>
             <div className={styles.stepHeader}>
               <h2 className={styles.stepTitle}>How will you dine?</h2>
-              <p className={styles.stepSub}>{formatDateDisplay(selectedDate)} · {MEAL_TYPES.find(m => m.code === selectedMealType)?.label} · <strong>{selectedItem?.itemName}</strong></p>
+              <p className={styles.stepSub}>
+                {formatDateDisplay(selectedDate)} · {MEAL_TYPES.find(m => m.code === selectedMealType)?.label}
+                {selectedCombo && <> · <strong>{selectedCombo.itemName}</strong></>}
+                {hasAlaCarteSelection && <> · <strong>{alaCarteItemCount} ala carte item{alaCarteItemCount > 1 ? 's' : ''}</strong></>}
+              </p>
             </div>
+ 
             <div className={styles.diningGrid}>
               {[
-                { code: 'dine_in',  label: 'Dine In',   note: 'Eat at the mess',  icon: 'ti-armchair'     },
-                { code: 'takeaway', label: 'Takeaway',  note: 'Take it with you', icon: 'ti-shopping-bag' },
+                { code: 'dine_in',  label: 'Dine In',  note: 'Eat at the mess',  icon: 'ti-armchair'     },
+                { code: 'takeaway', label: 'Takeaway', note: 'Take it with you', icon: 'ti-shopping-bag' },
               ].map(opt => (
-                <button key={opt.code} className={`${styles.diningCard} ${diningMode === opt.code ? styles.diningSelected : ''}`} onClick={() => setDiningMode(opt.code)}>
+                <button
+                  key={opt.code}
+                  className={`${styles.diningCard} ${diningMode === opt.code ? styles.diningSelected : ''}`}
+                  onClick={() => setDiningMode(opt.code)}
+                >
                   <i className={`ti ${opt.icon}`} style={{ fontSize: 32, color: diningMode === opt.code ? '#0F6E56' : '#bbb' }} />
                   <span className={styles.diningLabel}>{opt.label}</span>
                   <span className={styles.diningNote}>{opt.note}</span>
                 </button>
               ))}
             </div>
-            <QuantitySelector value={quantity} onChange={setQuantity} />
+ 
+            {/* Quantity selector for combo only */}
+            {selectedCombo && (
+              <QuantitySelector value={quantity} onChange={setQuantity} />
+            )}
+ 
             {submitError && (
               <div className={styles.errorBox}>
                 <i className="ti ti-alert-circle" /> {submitError}
                 {existingReservationId && (
-                  <button className={styles.cancelExistingBtn} onClick={handleCancelExisting} disabled={cancelling || submitting}>
+                  <button
+                    className={styles.cancelExistingBtn}
+                    onClick={handleCancelExisting}
+                    disabled={cancelling || submitting}
+                  >
                     {cancelling ? 'Cancelling…' : 'Cancel existing & book this instead'}
                   </button>
                 )}
               </div>
             )}
+ 
             <div className={styles.stepActions}>
-              <button className={styles.backBtn} onClick={() => { setStep(3); setDiningMode(null); setSubmitError(null); setExistingReservationId(null); }} disabled={submitting || cancelling}>
+              <button
+                className={styles.backBtn}
+                onClick={() => { setStep(3); setDiningMode(null); setSubmitError(null); setExistingReservationId(null); }}
+                disabled={submitting || cancelling}
+              >
                 <i className="ti ti-arrow-left" /> Back
               </button>
-              <button className={styles.confirmBtn} disabled={!diningMode || submitting || cancelling} onClick={handleSubmit}>
-                {submitting ? <><div className={styles.spinnerSmall} /> Confirming&#8262;</> : <><i className="ti ti-check" /> Confirm Booking</>}
+              <button
+                className={styles.confirmBtn}
+                disabled={!diningMode || submitting || cancelling}
+                onClick={handleSubmit}
+              >
+                {submitting
+                  ? <><div className={styles.spinnerSmall} /> Confirming…</>
+                  : <><i className="ti ti-check" /> Confirm Booking</>
+                }
               </button>
             </div>
           </div>
         )}
-
-        {step === 5 && <SingleSuccess date={selectedDate} mealType={selectedMealType} item={selectedItem} diningMode={diningMode} quantity={quantity} />}
+ 
+        {/* ── STEP 5: Success ── */}
+        {step === 5 && bookingResult && (
+          <SingleSuccess
+            date={selectedDate}
+            mealType={selectedMealType}
+            comboItem={selectedCombo}
+            diningMode={diningMode}
+            comboQuantity={quantity}
+            alaCarteResult={bookingResult.alacarte}
+            alaCarteSelections={alaCarteSelections}
+            alaCarteNames={alaCarteNames}
+            errors={bookingResult.errors}
+          />
+        )}
       </div>
     </div>
   );
 }
 
-function SingleSuccess({ date, mealType, item, diningMode, quantity }) {
+function SingleSuccess({ date, mealType, comboItem, diningMode, comboQuantity, alaCarteResult, alaCarteSelections, alaCarteNames, errors }) {
   const navigate = useNavigate();
   const mealLabel = MEAL_TYPES.find(m => m.code === mealType)?.label || '';
+  const hasCombo = !!comboItem;
+  const alaCarteItems = alaCarteResult?.reservations || [];
+  const hasErrors = errors && errors.length > 0;
+ 
   return (
     <div className={styles.stepPane}>
       <div className={styles.successBox}>
-        <div className={styles.successIcon}><i className="ti ti-circle-check" /></div>
-        <h2 className={styles.successTitle}>Booking Confirmed</h2>
-        <p className={styles.successIntro}>Your reservation has been saved.</p>
-        <div className={styles.summaryCard}>
-          {[
-            { label: 'Date', value: formatDateDisplay(date) },
-            { label: 'Meal', value: mealLabel },
-            { label: 'Item', value: item?.itemName },
-            { label: 'Mode', value: diningMode === 'dine_in' ? 'Dine In' : 'Takeaway' },
-            { label: 'Quantity', value: quantity },
-          ].map(({ label, value }) => (
-            <div key={label} className={styles.summaryRow}>
-              <span className={styles.summaryKey}>{label}</span>
-              <span className={styles.summaryVal}>{value}</span>
-            </div>
-          ))}
+        <div className={`${styles.successIcon} ${hasErrors && !hasCombo && !alaCarteItems.length ? styles.successIconFail : ''}`}>
+          <i className={`ti ${hasErrors && !hasCombo && !alaCarteItems.length ? 'ti-circle-x' : 'ti-circle-check'}`} />
         </div>
-        <p className={styles.billingNote}><i className="ti ti-info-circle" style={{ color: '#D4960A' }} />Rate applied next day. Billed monthly to your account.</p>
-        <button className={styles.doneBtn} onClick={() => navigate('/dashboard')}>Back to Home</button>
+        <h2 className={styles.successTitle}>
+          {hasErrors && !hasCombo && !alaCarteItems.length ? 'Booking Failed' : 'Booking Confirmed'}
+        </h2>
+        <p className={styles.successIntro}>
+          {hasErrors && !hasCombo && !alaCarteItems.length
+            ? 'Your booking could not be completed.'
+            : 'Your reservation has been saved.'}
+        </p>
+ 
+        <div className={styles.summaryCard}>
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryKey}>Date</span>
+            <span className={styles.summaryVal}>{formatDateDisplay(date)}</span>
+          </div>
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryKey}>Meal</span>
+            <span className={styles.summaryVal}>{mealLabel}</span>
+          </div>
+          <div className={styles.summaryRow}>
+            <span className={styles.summaryKey}>Mode</span>
+            <span className={styles.summaryVal}>{diningMode === 'dine_in' ? 'Dine In' : 'Takeaway'}</span>
+          </div>
+ 
+          {/* Combo row */}
+          {hasCombo && (
+            <div className={styles.summaryRow}>
+              <span className={styles.summaryKey}>Combo</span>
+              <span className={styles.summaryVal}>{comboItem.itemName} × {comboQuantity}</span>
+            </div>
+          )}
+ 
+          {/* Ala carte rows */}
+          {alaCarteItems.length > 0 && (
+            <>
+              <div className={styles.summaryRow}>
+                <span className={styles.summaryKey}>Ala Carte</span>
+                <span className={styles.summaryVal}>{alaCarteItems.length} item{alaCarteItems.length > 1 ? 's' : ''}</span>
+              </div>
+              {alaCarteItems.map((r, i) => (
+                <div key={i} className={styles.summaryRow} style={{ paddingLeft: 12 }}>
+                  <span className={styles.summaryKey} style={{ color: '#888' }}>↳ {r.itemName}</span>
+                  <span className={styles.summaryVal}>× {r.quantity}</span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+ 
+        {/* Partial errors */}
+        {hasErrors && (hasCombo || alaCarteItems.length > 0) && (
+          <div className={styles.errorBox} style={{ marginTop: 8 }}>
+            <i className="ti ti-alert-circle" />
+            {errors.map((e, i) => <div key={i}>{e.section}: {e.message}</div>)}
+          </div>
+        )}
+ 
+        <p className={styles.billingNote}>
+          <i className="ti ti-info-circle" style={{ color: '#D4960A' }} />
+          Rate applied next day. Billed monthly to your account.
+        </p>
+        <button className={styles.doneBtn} onClick={() => navigate('/dashboard')}>
+          Back to Home
+        </button>
       </div>
     </div>
   );
@@ -360,7 +692,7 @@ function WeekSlot({ date, meal, slot, onToggle, onItemSelect, onDiningSelect }) 
           {menuState === 'error'       && <div className={styles.slotUnavailable}>Error loading menu</div>}
           {menuState === 'ready' && menuData && (
             <>
-              <MenuPicker menu={menuData} menuLoading={false} menuError={null} selected={slot.item} onSelect={onItemSelect} />
+              <MenuPicker menu={menuData} menuLoading={false} menuError={null} selectedCombo={slot.item} onSelectCombo={onItemSelect} />
               <div className={styles.slotDiningRow}>
                 {[{ code: 'dine_in', label: 'Dine In' }, { code: 'takeaway', label: 'Takeaway' }].map(opt => (
                   <button key={opt.code} className={`${styles.slotDiningBtn} ${slot.diningMode === opt.code ? styles.slotDiningBtnActive : ''}`} onClick={() => onDiningSelect(opt.code)}>{opt.label}</button>

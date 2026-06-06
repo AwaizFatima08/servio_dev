@@ -10,6 +10,12 @@ const MEAL_TYPES = ['breakfast', 'lunch', 'dinner'];
 const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' };
 const MEAL_WINDOWS = { breakfast: '06:00 – 09:00', lunch: '13:00 – 15:00', dinner: '19:00 – 22:00' };
 
+function formatOptionKey(key) {
+  if (!key) return '';
+  if (key === 'alacarte') return 'Ala Carte';
+  return key.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
 const todayStr = () => new Date().toISOString().split('T')[0];
 const maxDateStr = () => {
   const d = new Date();
@@ -228,7 +234,7 @@ export default function KitchenDashboardPage() {
                   <div key={combo.menuOptionKey} className={styles.tableRow}>
                     <span className={styles.comboName}>
                       <strong>{combo.itemName || combo.menuOptionKey}</strong>
-                      <small>{combo.menuOptionKey}</small>
+                      <small>{combo.optionLabel || formatOptionKey(combo.menuOptionKey)}</small>
                     </span>
                     <span className={styles.cellBooked}>{combo.totalBooked}</span>
                     <span>{combo.selfCount}</span>

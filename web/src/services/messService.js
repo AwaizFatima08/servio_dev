@@ -47,7 +47,16 @@ export async function getReservationsForDate(date, token) {
 export async function getTodayReservations(token) {
   const pkt   = new Date(new Date().getTime() + 5 * 60 * 60 * 1000);
   const today = `${pkt.getUTCFullYear()}-${String(pkt.getUTCMonth() + 1).padStart(2, '0')}-${String(pkt.getUTCDate()).padStart(2, '0')}`;
-  return getReservationsForDate(today, token);
+  const month = today.slice(0, 7); // YYYY-MM
+  const res = await fetch(
+    `${BASE_URL}/mess/my-reservations?month=${month}&status=active`,
+    { headers: authHeader(token) }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to load reservations');
+  // Filter to today only — my-reservations returns full month
+  const all = data.reservations || [];
+  return all.filter(r => r.reservationDate === today);
 }
 
 // ── createReservation ──
@@ -177,4 +186,49 @@ export async function getEmployees(search, token) {
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed to load employees');
   return data.data?.employees || data.employees || [];
+}
+
+// ── createWalkInReservation ──
+// POST /mess/reservations/walk-in
+// Used by WalkInPage — employee subject only
+export async function createWalkInReservation(payload, token) {
+  const res = await fetch(`${BASE_URL}/mess/reservations/walk-in`, {
+    method: 'POST',
+    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Walk-in failed');
+  return data.reservation;
+}
+
+// ── createProxyReservation ──
+// POST /mess/reservations/proxy
+// Used by ProxyBookingPage
+export async function createProxyReservation(payload, token) {
+  const res = await fetch(`${BASE_URL}/mess/reservations/proxy`, {
+    method: 'POST',
+    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Proxy booking failed');
+  return data.reservation;
+}
+
+// ── createAlaCarteBooking ──
+// POST /mess/reservations/alacarte
+export async function createAlaCarteBooking(payload, token) {
+  // payload: { reservationDate, diningMode, items: [{ itemId, itemName, quantity }] }
+  const res = await fetch(`${BASE_URL}/mess/reservations/alacarte`, {
+    method: 'POST',
+    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const error = new Error(data.message || 'Ala carte booking failed.');
+    throw error;
+  }
+  return data.booking;
 }

@@ -41,6 +41,14 @@ function buildWeek() {
   return days;
 }
 
+const MEAL_DISPLAY = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' };
+
+function formatDisplayDate(iso) {
+  const parts = iso.split('-');
+  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  return `${DAY_LABELS[d.getDay()]}, ${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
+}
+
 const WEEK = buildWeek();
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -156,8 +164,11 @@ export default function WeeklyBookingScreen({ navigation }) {
           });
           results.success++;
         } catch (err) {
-          const msg = err?.response?.data?.message || err.message || 'Failed';
-          results.failed.push(`${s.date} ${s.mealKey}: ${msg}`);
+          const status = err?.response?.status;
+          const friendlyMsg = status === 409
+            ? 'Already booked — cancel existing booking first'
+            : (err?.response?.data?.message || err.message || 'Failed');
+          results.failed.push(`${MEAL_DISPLAY[s.mealKey]} · ${formatDisplayDate(s.date)}: ${friendlyMsg}`);
         }
       })
     );

@@ -97,7 +97,7 @@ export default function AdminHomeScreen() {
               <React.Fragment key={meal}>
                 <View style={styles.hcItem}>
                   <Text style={styles.hcVal}>
-                    {hc?.[meal]?.total ?? '—'}
+                    {hc?.[meal]?.total ?? 0}
                   </Text>
                   <Text style={styles.hcLabel}>{meal.charAt(0).toUpperCase() + meal.slice(1)}</Text>
                   {hc?.[meal] && (

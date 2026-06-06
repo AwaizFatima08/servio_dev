@@ -28,6 +28,13 @@ function monthLabel(ym) {
   return `${MONTHS[m-1]} ${y}`;
 }
 
+function formatDisplayDate(iso) {
+  const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const parts = iso.split('-');
+  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  return `${DAY_NAMES[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
 export default function ManagerHomeScreen() {
   const { user, logout } = useAuth();
   const [data, setData]         = useState(null);
@@ -100,12 +107,12 @@ export default function ManagerHomeScreen() {
         >
 
           {/* Today headcount */}
-          <Text style={styles.sectionTitle}>Today · {today}</Text>
+          <Text style={styles.sectionTitle}>Today · {formatDisplayDate(today)}</Text>
           <View style={styles.headcountCard}>
             {['breakfast', 'lunch', 'dinner'].map((meal, idx, arr) => (
               <React.Fragment key={meal}>
                 <View style={styles.hcItem}>
-                  <Text style={styles.hcVal}>{hc?.[meal]?.total ?? '—'}</Text>
+                  <Text style={styles.hcVal}>{hc?.[meal]?.total ?? 0}</Text>
                   <Text style={styles.hcLabel}>{MEAL_LABELS[meal]}</Text>
                   <View style={styles.hcProgress}>
                     <Text style={styles.hcIssued}>
@@ -175,7 +182,7 @@ export default function ManagerHomeScreen() {
                   </View>
                   <View style={styles.eventBody}>
                     <Text style={styles.eventTitle} numberOfLines={1}>{evt.title}</Text>
-                    <Text style={styles.eventDate}>{evt.eventDate}</Text>
+                    <Text style={styles.eventDate}>{formatDisplayDate(evt.eventDate)}</Text>
                   </View>
                   <Text style={[styles.eventStatText, { color: '#1A7A4A', fontWeight: '700' }]}>
                     {evt.grandTotalAttendees || 0} attending
