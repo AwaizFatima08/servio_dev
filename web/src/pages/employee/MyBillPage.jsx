@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getEmployeeStatement } from '../../services/billingService';
+import { getMyStatement } from '../../services/billingService';
 import styles from './MyBillPage.module.css';
 
 function currentMonth() {
@@ -27,7 +27,7 @@ export default function MyBillPage() {
     setLoading(true);
     setError('');
     try {
-      const result = await getEmployeeStatement(empNumber, month);
+      const result = await getMyStatement(month);
       setData(result);
     } catch (e) {
       setError(e.message);
@@ -38,11 +38,11 @@ export default function MyBillPage() {
 
   useEffect(() => { fetchBill(); }, [fetchBill]);
 
-  const lineItems    = data?.lineItems ?? [];
-  const total        = data?.summary?.totalAmount ?? 0;
-  const confirmed    = data?.summary?.confirmedAmount ?? 0;
-  const pendingCount = data?.summary?.pendingRateCount ?? 0;
-  const issuedCount  = data?.summary?.employeeCharges ?? 0;
+  const lineItems    = data?.reservations ?? [];
+  const total        = data?.totalAmount ?? 0;
+  const confirmed    = data?.totalAmount ?? 0;
+  const pendingCount = data?.pendingRateCount ?? 0;
+  const issuedCount  = data?.issuedCount ?? 0;
 
   return (
     <div className={styles.page}>

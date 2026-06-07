@@ -264,6 +264,83 @@ router.patch('/reservations/:reservationId/no-show', supervisorAndAbove, async (
  * Supervisor/Manager/Admin books on behalf of an employee
  * No cutoff restriction
  */
+router.post('/reservations/walk-in', supervisorAndAbove, async (req, res) => {
+  try {
+    const uid                     = req.user.uid;
+    const createdByRole           = req.userRole;
+    const createdByEmployeeNumber = req.officialEmployeeNumber;
+    const tenantId                = req.tenantId;
+ 
+    const {
+      targetEmployeeNumber,
+      reservationDate,
+      mealType,
+      menuItemId,
+      menuOptionKey,
+      optionLabel,
+      itemName,
+      diningMode,
+      selectionMode,
+      quantity,
+    } = req.body;
+ 
+    const required = [
+      'targetEmployeeNumber',
+      'reservationDate',
+      'mealType',
+      'menuItemId',
+      'menuOptionKey',
+      'optionLabel',
+      'itemName',
+      'diningMode',
+      'selectionMode',
+    ];
+    const missing = required.filter(f => !req.body[f]);
+    if (missing.length > 0) {
+      return errorResponse(res, `Missing required fields: ${missing.join(', ')}`, 400);
+    }
+ 
+    if (!['breakfast', 'lunch', 'dinner'].includes(mealType)) {
+      return errorResponse(res, 'Invalid mealType.', 400);
+    }
+    if (!['dine_in', 'takeaway'].includes(diningMode)) {
+      return errorResponse(res, 'Invalid diningMode.', 400);
+    }
+    if (!['combo', 'alacarte'].includes(selectionMode)) {
+      return errorResponse(res, 'Invalid selectionMode.', 400);
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(reservationDate)) {
+      return errorResponse(res, 'Invalid reservationDate format. Use YYYY-MM-DD.', 400);
+    }
+ 
+    const result = await createWalkInBooking({
+      uid,
+      createdByRole,
+      createdByEmployeeNumber,
+      tenantId,
+      targetEmployeeNumber,
+      reservationDate,
+      mealType,
+      menuItemId,
+      menuOptionKey,
+      optionLabel,
+      itemName,
+      diningMode,
+      selectionMode,
+      quantity: quantity || 1,
+    });
+ 
+    return res.status(201).json({
+      message: 'Walk-in reservation created and issued.',
+      reservation: result,
+    });
+ 
+  } catch (error) {
+    console.error('Walk-in booking error:', error.message);
+    return errorResponse(res, error.message, 400);
+  }
+});
+
 router.post('/reservations/proxy', supervisorAndAbove, async (req, res) => {
   try {
     const uid = req.user.uid;

@@ -1121,11 +1121,11 @@ async function createAlaCarteBooking({
   }
  
   // ── 8. Send one combined notification per session ──
-  // Only for self-booking: notify the employee directly.
-  // For proxy/walk-in: F2 will wire up the target employee notification.
+  const dateLabel = formatDateForNotification(reservationDate);
+  const itemCount = items.length;
+ 
   if (bookingSource === 'self') {
-    const dateLabel = formatDateForNotification(reservationDate);
-    const itemCount = items.length;
+    // Notify the booking employee directly
     const notificationBody = itemCount === 1
       ? `Your Breakfast ala carte booking (${items[0].itemName}) for ${dateLabel} has been confirmed.`
       : `Your Breakfast ala carte booking — ${itemCount} items — for ${dateLabel} has been confirmed.`;
@@ -1142,10 +1142,47 @@ async function createAlaCarteBooking({
       targetType: NOTIFICATION_TARGET_TYPES.SINGLE_USER,
       targetUserUids: [uid],
       contextType: 'reservation',
-      contextId: createdReservations[0].reservationId,  // link to first item
+      contextId: createdReservations[0].reservationId,
     }).catch(err => console.error('[Notification] alacarte booking_confirmed failed:', err));
-  }
  
+  } else if (bookingSource === 'proxy' || bookingSource === 'walk_in') {
+    // Notify the TARGET employee — the person the meal was booked for
+    // Look up target employee's uid from users collection
+    const targetUserSnap = await db
+      .collection(COLLECTIONS.USERS)
+      .where('tenantId', '==', tenantId)
+      .where('officialEmployeeNumber', '==', targetEmployeeNumber)
+      .limit(1)
+      .get();
+ 
+    if (!targetUserSnap.empty) {
+      const targetUid = targetUserSnap.docs[0].data().uid;
+ 
+      const notificationBody = bookingSource === 'proxy'
+        ? (itemCount === 1
+            ? `A Breakfast ala carte booking (${items[0].itemName}) for ${dateLabel} was made for you by the supervisor.`
+            : `A Breakfast ala carte booking — ${itemCount} items — for ${dateLabel} was made for you by the supervisor.`)
+        : (itemCount === 1
+            ? `Your Breakfast ala carte (${items[0].itemName}) for ${dateLabel} has been recorded as a walk-in and issued.`
+            : `Your Breakfast ala carte — ${itemCount} items — for ${dateLabel} has been recorded as a walk-in and issued.`);
+ 
+      createNotification({
+        tenantId,
+        createdByUid: uid,
+        createdByName: null,
+        notificationLayer: NOTIFICATION_LAYERS.INFORMATIONAL,
+        notificationType: 'booking_confirmed',
+        triggerSource: bookingSource === 'proxy' ? 'proxy_booking_alacarte' : 'walk_in_alacarte',
+        title: 'Ala Carte Booked',
+        body: notificationBody,
+        targetType: NOTIFICATION_TARGET_TYPES.SINGLE_USER,
+        targetUserUids: [targetUid],
+        contextType: 'reservation',
+        contextId: createdReservations[0].reservationId,
+      }).catch(err => console.error(`[Notification] alacarte ${bookingSource} failed:`, err));
+    }
+  }
+
   return {
     bookingGroupId,
     reservationDate,

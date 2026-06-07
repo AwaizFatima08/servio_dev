@@ -61,3 +61,16 @@ export const getPendingBilling = async (date) => {
   if (!res.ok) throw new Error(data.message || 'Failed to load pending billing');
   return data.data;
 };
+
+// ── GET /billing/my-statement?month=YYYY-MM ───────────────────────────────
+// Employee reads their own monthly bill.
+// Any authenticated role permitted — employee reads own data only.
+export const getMyStatement = async (month) => {
+  const token = await getToken();
+  const res = await fetch(`${BASE_URL}/billing/my-statement?month=${month}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to load billing statement');
+  return data.data;
+};
