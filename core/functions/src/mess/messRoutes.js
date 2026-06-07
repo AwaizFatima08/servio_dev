@@ -908,4 +908,74 @@ router.get('/reservations/official-guest-pending', adminOnly, async (req, res) =
     return errorResponse(res, error.message, 500);
   }
 });
+
+/**
+ * GET /mess/reservation-settings
+ * Returns the tenant's reservationSettings document.
+ * Admin only — used by the Booking Policy widget on AppSettingsPage.
+ */
+router.get('/reservation-settings', adminOnly, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const doc = await db.collection('reservationSettings').doc(tenantId).get();
+    if (!doc.exists) return errorResponse(res, 'Reservation settings not found.', 404);
+    return res.status(200).json({ settings: doc.data() });
+  } catch (error) {
+    console.error('GET reservation-settings error:', error.message);
+    return errorResponse(res, error.message, 500);
+  }
+});
+
+/**
+ * PATCH /mess/reservation-settings
+ * Admin updates whitelisted fields in reservationSettings.
+ * Whitelisted: cutoffHoursBeforeMeal, bookingWindowDays, maxGuestQuantityPerBooking.
+ * Admin only.
+ * Body: { cutoffHoursBeforeMeal?: number, bookingWindowDays?: number, maxGuestQuantityPerBooking?: number }
+ */
+router.patch('/reservation-settings', adminOnly, async (req, res) => {
+  try {
+    const tenantId      = req.tenantId;
+    const updatedByUid  = req.user.uid;
+    const updates       = req.body;
+
+    const ALLOWED = ['cutoffHoursBeforeMeal', 'bookingWindowDays', 'maxGuestQuantityPerBooking'];
+
+    if (!updates || Object.keys(updates).length === 0) {
+      return errorResponse(res, 'No update fields provided.', 400);
+    }
+
+    const unknown = Object.keys(updates).filter(k => !ALLOWED.includes(k));
+    if (unknown.length > 0) {
+      return errorResponse(res, `Unknown or protected fields: ${unknown.join(', ')}`, 400);
+    }
+
+    // Validate numeric values
+    for (const key of Object.keys(updates)) {
+      const val = parseInt(updates[key], 10);
+      if (isNaN(val) || val < 1) {
+        return errorResponse(res, `${key} must be a positive integer.`, 400);
+      }
+      updates[key] = val;
+    }
+
+    const doc = await db.collection('reservationSettings').doc(tenantId).get();
+    if (!doc.exists) return errorResponse(res, 'Reservation settings not found.', 404);
+
+    await db.collection('reservationSettings').doc(tenantId).update({
+      ...updates,
+      updatedAt: new Date(),
+    });
+
+    return res.status(200).json({
+      message: 'Reservation settings updated successfully.',
+      updatedFields: Object.keys(updates),
+    });
+
+  } catch (error) {
+    console.error('PATCH reservation-settings error:', error.message);
+    return errorResponse(res, error.message, 400);
+  }
+});
+
 module.exports = router;

@@ -159,3 +159,12 @@
   color: #6b7280;
   font-size: 14px;
 }
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}

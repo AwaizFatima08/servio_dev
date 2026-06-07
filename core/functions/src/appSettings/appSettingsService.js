@@ -35,8 +35,6 @@ const UPDATABLE_FIELDS = [
   'managerPhone',
   'supportEmail',
   'supportPhone',
-  // F7: booking cutoff now editable via App Settings
-  'cutoffHoursBeforeMeal',
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

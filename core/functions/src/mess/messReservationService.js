@@ -89,22 +89,13 @@ async function createSelfBooking({
 
   // Walk-in bookings bypass cutoff entirely — supervisor is physically present
   if (bookingSource !== 'walk_in' && reservationDate === todayStr) {
-    // F7: read cutoff from appSettings first, fall back to reservationSettings
-    let cutoffHours = settings.cutoffHoursBeforeMeal;
-    const appSettingsDoc = await db.collection(COLLECTIONS.APP_SETTINGS).doc(tenantId).get();
-    if (appSettingsDoc.exists) {
-      const appSettings = appSettingsDoc.data();
-      if (typeof appSettings.cutoffHoursBeforeMeal === 'number') {
-        cutoffHours = appSettings.cutoffHoursBeforeMeal;
-      }
-    }
     const cutoffBreached = isCutoffBreached(
       mealTypeData.serviceWindowStart,
-      cutoffHours
+      settings.cutoffHoursBeforeMeal
     );
     if (cutoffBreached) {
       throw new Error(
-        `Booking cutoff has passed for ${mealType}. Cutoff is ${cutoffHours} hours before meal start.`
+        `Booking cutoff has passed for ${mealType}. Cutoff is ${settings.cutoffHoursBeforeMeal} hours before meal start.`
       );
     }
   }
@@ -803,18 +794,9 @@ async function cancelReservation({
 
     const todayStr = pktDateStr(new Date());
     if (data.reservationDate === todayStr) {
-      // F7: read cutoff from appSettings first, fall back to reservationSettings
-      let cutoffHours = settings.cutoffHoursBeforeMeal;
-      const appSettingsDoc = await db.collection(COLLECTIONS.APP_SETTINGS).doc(tenantId).get();
-      if (appSettingsDoc.exists) {
-        const appSettings = appSettingsDoc.data();
-        if (typeof appSettings.cutoffHoursBeforeMeal === 'number') {
-          cutoffHours = appSettings.cutoffHoursBeforeMeal;
-        }
-      }
       const cutoffBreached = isCutoffBreached(
         mealTypeData.serviceWindowStart,
-        cutoffHours
+        settings.cutoffHoursBeforeMeal
       );
       if (cutoffBreached) {
         throw new Error('Cancellation cutoff has passed. Contact supervisor to cancel.');

@@ -108,6 +108,49 @@ router.get('/:eventId/attendance/responses', managerAndAbove, async (req, res) =
   }
 });
 
+// GET /events/active
+// Returns published events where eventDate >= today (PKT).
+// Used by employee home screen event banner (F5). Any authenticated user.
+router.get('/active', anyAuthenticated, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+
+    // Today in PKT (UTC+5)
+    const pktNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
+    const todayPkt = `${pktNow.getFullYear()}-${String(pktNow.getMonth() + 1).padStart(2, '0')}-${String(pktNow.getDate()).padStart(2, '0')}`;
+
+    const { getFirestore } = require('firebase-admin/firestore');
+    const db = getFirestore('servio-dev');
+
+    const snap = await db
+      .collection('events')
+      .where('tenantId', '==', tenantId)
+      .where('status', '==', 'published')
+      .where('eventDate', '>=', todayPkt)
+      .orderBy('eventDate', 'asc')
+      .limit(10)
+      .get();
+
+    const events = snap.docs.map(d => {
+      const ev = d.data();
+      return {
+        eventId:             ev.eventId,
+        title:               ev.title,
+        eventDate:           ev.eventDate,
+        eventType:           ev.eventType,
+        requiresAttendance:  ev.requiresAttendance,
+        responseCutoffAt:    ev.responseCutoffAt,
+        venue:               ev.venue || null,
+      };
+    });
+
+    return res.status(200).json({ count: events.length, events });
+  } catch (error) {
+    console.error('GET /events/active error:', error.message);
+    return errorResponse(res, error.message, 500);
+  }
+});
+
 // GET /events/:eventId
 router.get('/:eventId', anyAuthenticated, async (req, res) => {
   try {
