@@ -218,4 +218,68 @@ async function getMyFeedback({ tenantId, officialEmployeeNumber, month }) {
 module.exports = {
   submitFeedback, getFeedbackForReservation, getFeedbackSummary,
   getEligibleReservations, getMyFeedback,
+  getAdminFeedbackList, reviewFeedback,
 };
+
+// ── getAdminFeedbackList
+// Admin reads all feedback, filterable by date, mealType, status, feedbackArea
+// Returns individual submissions with employee name (hidden if isAnonymous)
+async function getAdminFeedbackList({ tenantId, date, mealType, status, feedbackArea }) {
+  let query = db.collection(COLLECTIONS.MEAL_FEEDBACK)
+    .where('tenantId', '==', tenantId);
+
+  if (date)         query = query.where('reservationDate', '==', date);
+  if (mealType)     query = query.where('mealType', '==', mealType);
+  if (status)       query = query.where('status', '==', status);
+  if (feedbackArea) query = query.where('feedbackArea', '==', feedbackArea);
+
+  const snap = await query.orderBy('submittedAt', 'desc').get();
+
+  return snap.docs.map(doc => {
+    const d = doc.data();
+    return {
+      feedbackId:      d.feedbackId,
+      reservationId:   d.reservationId,
+      reservationDate: d.reservationDate,
+      mealType:        d.mealType,
+      itemName:        d.itemName,
+      menuOptionKey:   d.menuOptionKey,
+      feedbackArea:    d.feedbackArea,
+      rating:          d.rating,
+      // Mask employee identity if anonymous — number still stored for audit
+      employeeNumber:  d.isAnonymous ? null : d.employeeNumber,
+      employeeName:    d.isAnonymous ? 'Anonymous' : d.employeeName,
+      isAnonymous:     d.isAnonymous,
+      status:          d.status,
+      reviewedByUid:   d.reviewedByUid,
+      reviewedAt:      d.reviewedAt,
+      submittedAt:     d.submittedAt,
+    };
+  });
+}
+
+// ── reviewFeedback
+// Admin marks a feedback submission as reviewed or resolved
+async function reviewFeedback({ tenantId, feedbackId, newStatus, reviewedByUid }) {
+  const VALID_STATUSES = ['reviewed', 'resolved'];
+  if (!VALID_STATUSES.includes(newStatus)) {
+    throw new Error(`Invalid status. Use: ${VALID_STATUSES.join(', ')}`);
+  }
+
+  const ref = db.collection(COLLECTIONS.MEAL_FEEDBACK).doc(feedbackId);
+  const doc = await ref.get();
+
+  if (!doc.exists) throw new Error('Feedback record not found.');
+  const data = doc.data();
+  if (data.tenantId !== tenantId) throw new Error('Tenant mismatch.');
+  if (data.status === newStatus) throw new Error(`Feedback is already marked as ${newStatus}.`);
+
+  await ref.update({
+    status:        newStatus,
+    reviewedByUid,
+    reviewedAt:    new Date(),
+    updatedAt:     new Date(),
+  });
+
+  return { feedbackId, status: newStatus };
+}

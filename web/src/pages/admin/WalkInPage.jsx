@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getDailyMenu, createWalkInReservation, createAlaCarteBooking, getEmployees } from '../../services/messService';
+import { getDailyMenu, createWalkInReservation, createAlaCarteBooking, getEmployees, getActiveMenuItems, createSpecialMealWalkIn, createOfficialGuestWalkIn } from '../../services/messService';
 import styles from './WalkInPage.module.css';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -89,15 +89,33 @@ export default function WalkInPage() {
   // Map of { itemId: quantity }. quantity 0 = not selected.
   const [alaCarteSelections, setAlaCarteSelections] = useState({});
   const [alaCarteNames, setAlaCarteNames]           = useState({});
+
+  // Special meal — lunch/dinner only, supervisor toggle
+  const [isSpecialMeal, setIsSpecialMeal]             = useState(false);
+  const [allMenuItems, setAllMenuItems]               = useState([]);
+  const [menuItemsLoading, setMenuItemsLoading]       = useState(false);
+  const [menuItemsLoaded, setMenuItemsLoaded]         = useState(false);
+  const [specialSearch, setSpecialSearch]             = useState('');
+  const [specialSelected, setSpecialSelected]         = useState([]); // [{ itemId, itemName, baseUnit, foodTypeCode, quantity }]
  
   // Derived
-  const isBreakfast         = selectedMeal === 'breakfast';
-  const alaCarteItemCount   = Object.values(alaCarteSelections).filter(q => q > 0).length;
+  const isBreakfast          = selectedMeal === 'breakfast';
+  const isLunchOrDinner      = selectedMeal === 'lunch' || selectedMeal === 'dinner';
+  const alaCarteItemCount    = Object.values(alaCarteSelections).filter(q => q > 0).length;
   const hasAlaCarteSelection = alaCarteItemCount > 0;
-  const hasAnySelection     = !!selectedItem || hasAlaCarteSelection;
+  const hasSpecialSelection  = specialSelected.length > 0;
+  const hasAnySelection      = !!selectedItem || hasAlaCarteSelection || hasSpecialSelection;
  
   // Dining mode
   const [diningMode, setDiningMode] = useState('dine_in');
+
+  // Subject tab — 'employee' | 'official_guest'
+  const [subjectTab, setSubjectTab] = useState('employee');
+
+  // Official guest fields
+  const [guestName, setGuestName]                         = useState('');
+  const [sponsoringEmpNumber, setSponsoringEmpNumber]     = useState('');
+  const [sponsoringEmpError, setSponsoringEmpError]       = useState('');
  
   // Submit
   const [submitting, setSubmitting]       = useState(false);
@@ -161,18 +179,76 @@ export default function WalkInPage() {
 
   useEffect(() => { loadMenu(); }, [loadMenu]);
 
+  // Reset special meal state when meal type changes
+  useEffect(() => {
+    setIsSpecialMeal(false);
+    setSpecialSearch('');
+    setSpecialSelected([]);
+  }, [selectedMeal]);
+
+  // Load full menu item catalogue when special meal toggle is turned on
+  useEffect(() => {
+    if (!isSpecialMeal || menuItemsLoaded) return;
+    async function loadItems() {
+      setMenuItemsLoading(true);
+      try {
+        const token = await getToken();
+        const items = await getActiveMenuItems(token);
+        setAllMenuItems(items);
+        setMenuItemsLoaded(true);
+      } catch (e) {
+        console.error('Failed to load menu items:', e.message);
+      } finally {
+        setMenuItemsLoading(false);
+      }
+    }
+    loadItems();
+  }, [isSpecialMeal, menuItemsLoaded, getToken]);
+
 // ── Ala carte helpers ─────────────────────────────────────────────────────
  
   function handleUpdateAlaCarteItem(itemId, itemName, newQty) {
     setAlaCarteSelections(prev => ({ ...prev, [itemId]: newQty }));
     setAlaCarteNames(prev => ({ ...prev, [itemId]: itemName }));
   }
+
+  // ── Special meal helpers ───────────────────────────────────────────────────
+
+  // Filtered results from catalogue based on search text
+  const specialSearchResults = specialSearch.length >= 1
+    ? allMenuItems.filter(item =>
+        item.itemName.toLowerCase().includes(specialSearch.toLowerCase()) &&
+        !specialSelected.some(s => s.itemId === item.itemId)
+      ).slice(0, 10)
+    : [];
+
+  function addSpecialItem(item) {
+    setSpecialSelected(prev => [...prev, { ...item, quantity: 1 }]);
+    setSpecialSearch('');
+  }
+
+  function removeSpecialItem(itemId) {
+    setSpecialSelected(prev => prev.filter(s => s.itemId !== itemId));
+  }
+
+  function updateSpecialItemQty(itemId, newQty) {
+    setSpecialSelected(prev =>
+      prev.map(s => s.itemId === itemId ? { ...s, quantity: newQty } : s)
+    );
+  }
  
   // ── Validation ────────────────────────────────────────────────────────────
  
   function canSubmit() {
-    if (!selectedEmp) return false;
-    if (!hasAnySelection) return false;
+    if (subjectTab === 'employee') {
+      if (!selectedEmp) return false;
+      if (!hasAnySelection) return false;
+    } else {
+      // official_guest tab
+      if (!guestName.trim()) return false;
+      if (!sponsoringEmpNumber.trim()) return false;
+      if (!hasAnySelection) return false;
+    }
     return true;
   }
  
@@ -182,12 +258,73 @@ export default function WalkInPage() {
     if (!canSubmit()) return;
     setSubmitting(true);
     setSubmitError('');
- 
+    setSponsoringEmpError('');
+
     const token = await getToken();
+
+    // ── Official Guest path ──
+    if (subjectTab === 'official_guest') {
+      try {
+        // Build comboItem if selected
+        const comboPayload = selectedItem ? {
+          menuItemId:    selectedItem.menuItemId,
+          menuOptionKey: selectedItem.menuOptionKey,
+          optionLabel:   selectedItem.optionLabel,
+          itemName:      selectedItem.name,
+          selectionMode: selectedItem.selectionMode,
+        } : null;
+
+        // Build items array — ala carte (BF) or special catalogue (lunch/dinner)
+        let itemsPayload = [];
+        if (hasAlaCarteSelection) {
+          itemsPayload = Object.entries(alaCarteSelections)
+            .filter(([, qty]) => qty > 0)
+            .map(([itemId, qty]) => ({
+              itemId,
+              itemName: alaCarteNames[itemId] || itemId,
+              quantity: qty,
+            }));
+        } else if (hasSpecialSelection) {
+          itemsPayload = specialSelected;
+        }
+
+        const result = await createOfficialGuestWalkIn({
+          guestName:               guestName.trim(),
+          sponsoringEmployeeNumber: sponsoringEmpNumber.trim(),
+          reservationDate:         selectedDate,
+          mealType:                selectedMeal,
+          diningMode,
+          comboItem:               comboPayload,
+          items:                   itemsPayload,
+        }, token);
+
+        setSubmitting(false);
+        setSubmitSuccess({
+          isOfficialGuest:  true,
+          guestName:        guestName.trim(),
+          sponsoringEmpNum: sponsoringEmpNumber.trim(),
+          mealType:         selectedMeal,
+          date:             selectedDate,
+          itemCount:        result.itemCount,
+          errors:           [],
+        });
+      } catch (e) {
+        setSubmitting(false);
+        if (e.message.includes('Sponsoring employee')) {
+          setSponsoringEmpError(e.message);
+        } else {
+          setSubmitError(e.message);
+        }
+      }
+      return;
+    }
+
+    // ── Employee path ──
     let comboResult = null;
     let alaCarteResult = null;
+    let specialResult = null;
     const errors = [];
- 
+
     // Submit combo walk-in if selected
     if (selectedItem) {
       try {
@@ -207,7 +344,7 @@ export default function WalkInPage() {
         errors.push(`Combo: ${e.message}`);
       }
     }
- 
+
     // Submit ala carte walk-in if any items selected (breakfast only)
     if (hasAlaCarteSelection) {
       const items = Object.entries(alaCarteSelections)
@@ -219,7 +356,7 @@ export default function WalkInPage() {
         }));
       try {
         alaCarteResult = await createAlaCarteBooking({
-          reservationDate: selectedDate,
+          reservationDate:       selectedDate,
           diningMode,
           items,
           bookingSource:         'walk_in',
@@ -229,22 +366,37 @@ export default function WalkInPage() {
         errors.push(`Ala Carte: ${e.message}`);
       }
     }
- 
+
+    // Submit special meal walk-in if items selected (lunch/dinner only)
+    if (hasSpecialSelection) {
+      try {
+        specialResult = await createSpecialMealWalkIn({
+          targetEmployeeNumber: selectedEmp.officialEmployeeNumber,
+          reservationDate:      selectedDate,
+          mealType:             selectedMeal,
+          diningMode,
+          items:                specialSelected,
+        }, token);
+      } catch (e) {
+        errors.push(`Special Meal: ${e.message}`);
+      }
+    }
+
     setSubmitting(false);
- 
-    // If everything failed, show error inline
-    if (errors.length > 0 && !comboResult && !alaCarteResult) {
+
+    if (errors.length > 0 && !comboResult && !alaCarteResult && !specialResult) {
       setSubmitError(errors.join(' | '));
       return;
     }
- 
-    // At least one succeeded
+
     setSubmitSuccess({
-      employeeName:   selectedEmp.fullName || selectedEmp.officialEmployeeNumber,
-      mealType:       selectedMeal,
-      date:           selectedDate,
-      comboItem:      selectedItem?.name || null,
-      alaCarteItems:  alaCarteResult?.reservations || [],
+      isOfficialGuest:  false,
+      employeeName:     selectedEmp.fullName || selectedEmp.officialEmployeeNumber,
+      mealType:         selectedMeal,
+      date:             selectedDate,
+      comboItem:        selectedItem?.name || null,
+      alaCarteItems:    alaCarteResult?.reservations || [],
+      specialItems:     specialResult?.reservations || [],
       errors,
     });
   }
@@ -252,11 +404,18 @@ export default function WalkInPage() {
   function resetAll() {
     setSelectedDate(todayPkt());
     setSelectedMeal(defaultMeal());
+    setSubjectTab('employee');
     setSelectedEmp(null);
     setEmpSearch('');
     setSelectedItem(null);
     setAlaCarteSelections({});
     setAlaCarteNames({});
+    setIsSpecialMeal(false);
+    setSpecialSearch('');
+    setSpecialSelected([]);
+    setGuestName('');
+    setSponsoringEmpNumber('');
+    setSponsoringEmpError('');
     setDiningMode('dine_in');
     setSubmitSuccess(null);
     setSubmitError('');
@@ -295,41 +454,84 @@ export default function WalkInPage() {
             <h2 className={styles.successTitle}>Walk-in Issued</h2>
             <p className={styles.successNote}>Booking created and marked as issued in one step.</p>
             <div className={styles.successDetails}>
-              <div className={styles.successRow}>
-                <span className={styles.successLabel}>Employee</span>
-                <span className={styles.successValue}>{submitSuccess.employeeName}</span>
-              </div>
-              <div className={styles.successRow}>
-                <span className={styles.successLabel}>Date</span>
-                <span className={styles.successValue}>{formatDateLabel(submitSuccess.date)}</span>
-              </div>
-              <div className={styles.successRow}>
-                <span className={styles.successLabel}>Meal</span>
-                <span className={styles.successValue}>
-                  {MEAL_TABS.find(m => m.key === submitSuccess.mealType)?.label}
-                </span>
-              </div>
-              {submitSuccess.comboItem && (
-                <div className={styles.successRow}>
-                  <span className={styles.successLabel}>Combo</span>
-                  <span className={styles.successValue}>{submitSuccess.comboItem}</span>
-                </div>
-              )}
-              {submitSuccess.alaCarteItems.length > 0 && (
-                <div className={styles.successRow}>
-                  <span className={styles.successLabel}>Ala Carte</span>
-                  <span className={styles.successValue}>
-                    {submitSuccess.alaCarteItems.length} item{submitSuccess.alaCarteItems.length > 1 ? 's' : ''}
-                  </span>
-                </div>
-              )}
-              {submitSuccess.errors?.length > 0 && (
-                <div className={styles.successRow}>
-                  <span className={styles.successLabel} style={{ color: '#c0392b' }}>Partial</span>
-                  <span className={styles.successValue} style={{ color: '#c0392b' }}>
-                    {submitSuccess.errors.join(', ')}
-                  </span>
-                </div>
+              {submitSuccess.isOfficialGuest ? (
+                <>
+                  <div className={styles.successRow}>
+                    <span className={styles.successLabel}>Guest</span>
+                    <span className={styles.successValue}>{submitSuccess.guestName}</span>
+                  </div>
+                  <div className={styles.successRow}>
+                    <span className={styles.successLabel}>Sponsored by</span>
+                    <span className={styles.successValue}>{submitSuccess.sponsoringEmpNum}</span>
+                  </div>
+                  <div className={styles.successRow}>
+                    <span className={styles.successLabel}>Date</span>
+                    <span className={styles.successValue}>{formatDateLabel(submitSuccess.date)}</span>
+                  </div>
+                  <div className={styles.successRow}>
+                    <span className={styles.successLabel}>Meal</span>
+                    <span className={styles.successValue}>
+                      {MEAL_TABS.find(m => m.key === submitSuccess.mealType)?.label}
+                    </span>
+                  </div>
+                  <div className={styles.successRow}>
+                    <span className={styles.successLabel}>Items</span>
+                    <span className={styles.successValue}>{submitSuccess.itemCount}</span>
+                  </div>
+                  <div className={styles.successRow}>
+                    <span className={styles.successLabel}>Billing</span>
+                    <span className={`${styles.successValue} ${styles.successPending}`}>
+                      Pending admin approval
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className={styles.successRow}>
+                    <span className={styles.successLabel}>Employee</span>
+                    <span className={styles.successValue}>{submitSuccess.employeeName}</span>
+                  </div>
+                  <div className={styles.successRow}>
+                    <span className={styles.successLabel}>Date</span>
+                    <span className={styles.successValue}>{formatDateLabel(submitSuccess.date)}</span>
+                  </div>
+                  <div className={styles.successRow}>
+                    <span className={styles.successLabel}>Meal</span>
+                    <span className={styles.successValue}>
+                      {MEAL_TABS.find(m => m.key === submitSuccess.mealType)?.label}
+                    </span>
+                  </div>
+                  {submitSuccess.comboItem && (
+                    <div className={styles.successRow}>
+                      <span className={styles.successLabel}>Combo</span>
+                      <span className={styles.successValue}>{submitSuccess.comboItem}</span>
+                    </div>
+                  )}
+                  {submitSuccess.alaCarteItems.length > 0 && (
+                    <div className={styles.successRow}>
+                      <span className={styles.successLabel}>Ala Carte</span>
+                      <span className={styles.successValue}>
+                        {submitSuccess.alaCarteItems.length} item{submitSuccess.alaCarteItems.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  )}
+                  {submitSuccess.specialItems?.length > 0 && (
+                    <div className={styles.successRow}>
+                      <span className={styles.successLabel}>Special Meal</span>
+                      <span className={styles.successValue}>
+                        {submitSuccess.specialItems.length} item{submitSuccess.specialItems.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  )}
+                  {submitSuccess.errors?.length > 0 && (
+                    <div className={styles.successRow}>
+                      <span className={styles.successLabel} style={{ color: '#c0392b' }}>Partial</span>
+                      <span className={styles.successValue} style={{ color: '#c0392b' }}>
+                        {submitSuccess.errors.join(', ')}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
             <div className={styles.successActions}>
@@ -360,6 +562,33 @@ export default function WalkInPage() {
 
       <div className={styles.card}>
         <div className={styles.formBody}>
+
+          {/* Subject tab — Employee / Official Guest */}
+          <div className={styles.fieldGroup}>
+            <div className={styles.subjectTabRow}>
+              <button
+                className={`${styles.subjectTab} ${subjectTab === 'employee' ? styles.subjectTabActive : ''}`}
+                onClick={() => {
+                  setSubjectTab('employee');
+                  setGuestName('');
+                  setSponsoringEmpNumber('');
+                  setSponsoringEmpError('');
+                }}
+              >
+                <i className="ti ti-user" /> Employee
+              </button>
+              <button
+                className={`${styles.subjectTab} ${subjectTab === 'official_guest' ? styles.subjectTabActive : ''}`}
+                onClick={() => {
+                  setSubjectTab('official_guest');
+                  setSelectedEmp(null);
+                  setEmpSearch('');
+                }}
+              >
+                <i className="ti ti-briefcase" /> Official Guest
+              </button>
+            </div>
+          </div>
 
           {/* Date */}
           <div className={styles.fieldGroup}>
@@ -394,7 +623,8 @@ export default function WalkInPage() {
             </div>
           </div>
 
-          {/* Employee */}
+          {/* Employee search — employee tab only */}
+          {subjectTab === 'employee' && (
           <div className={styles.fieldGroup}>
             <label className={styles.fieldLabel}>Employee</label>
             <div className={styles.searchWrap} ref={searchRef}>
@@ -450,6 +680,37 @@ export default function WalkInPage() {
               </div>
             )}
           </div>
+          )}
+
+          {/* Official Guest fields — official_guest tab only */}
+          {subjectTab === 'official_guest' && (
+          <div className={styles.fieldGroup}>
+            <label className={styles.fieldLabel}>Guest Name</label>
+            <input
+              type="text"
+              className={styles.ogTextField}
+              placeholder="Full name of guest…"
+              value={guestName}
+              onChange={e => setGuestName(e.target.value)}
+            />
+            <label className={styles.fieldLabel} style={{ marginTop: 12 }}>
+              Sponsoring Employee Number
+            </label>
+            <input
+              type="text"
+              className={`${styles.ogTextField} ${sponsoringEmpError ? styles.ogTextFieldError : ''}`}
+              placeholder="e.g. FFL00100"
+              value={sponsoringEmpNumber}
+              onChange={e => { setSponsoringEmpNumber(e.target.value); setSponsoringEmpError(''); }}
+            />
+            {sponsoringEmpError && (
+              <div className={styles.ogFieldError}>{sponsoringEmpError}</div>
+            )}
+            <div className={styles.ogFieldHint}>
+              Enter the employee number of the person hosting or responsible for this guest.
+            </div>
+          </div>
+          )}
 
           {/* Menu */}
           <div className={styles.fieldGroup}>
@@ -545,6 +806,124 @@ export default function WalkInPage() {
               </>
             )}
           </div>
+
+          {/* Special Meal toggle — lunch/dinner only */}
+          {isLunchOrDinner && (
+            <div className={styles.fieldGroup}>
+              <div className={styles.specialToggleRow}>
+                <label className={styles.specialToggleLabel}>
+                  <input
+                    type="checkbox"
+                    checked={isSpecialMeal}
+                    onChange={e => {
+                      setIsSpecialMeal(e.target.checked);
+                      if (!e.target.checked) {
+                        setSpecialSearch('');
+                        setSpecialSelected([]);
+                      }
+                    }}
+                    className={styles.specialToggleCheckbox}
+                  />
+                  <span className={styles.specialToggleText}>
+                    <strong>Special Meal</strong>
+                    <span className={styles.specialToggleHint}>
+                      Tick if employee has a requirement not covered by today's menu
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              {isSpecialMeal && (
+                <div className={styles.specialSection}>
+                  <div className={styles.menuSectionLabel}>
+                    <i className="ti ti-tool-kitchen-2" /> Select Items from Catalogue
+                  </div>
+
+                  {menuItemsLoading && (
+                    <div className={styles.menuLoading}>
+                      <div className={styles.spinnerSm} />
+                      <span>Loading catalogue…</span>
+                    </div>
+                  )}
+
+                  {!menuItemsLoading && menuItemsLoaded && (
+                    <>
+                      <div className={styles.specialSearchWrap}>
+                        <i className="ti ti-search" />
+                        <input
+                          type="text"
+                          className={styles.specialSearchInput}
+                          placeholder="Type item name to search…"
+                          value={specialSearch}
+                          onChange={e => setSpecialSearch(e.target.value)}
+                        />
+                        {specialSearch && (
+                          <button className={styles.clearBtn} onClick={() => setSpecialSearch('')}>
+                            <i className="ti ti-x" />
+                          </button>
+                        )}
+                      </div>
+
+                      {specialSearchResults.length > 0 && (
+                        <div className={styles.specialDropdown}>
+                          {specialSearchResults.map(item => (
+                            <button
+                              key={item.itemId}
+                              className={styles.specialDropdownItem}
+                              onClick={() => addSpecialItem(item)}
+                            >
+                              <span className={styles.specialDropdownName}>{item.itemName}</span>
+                              <span className={styles.specialDropdownUnit}>{item.baseUnit}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {specialSelected.length > 0 && (
+                        <div className={styles.specialSelectedList}>
+                          {specialSelected.map(item => (
+                            <div key={item.itemId} className={styles.specialSelectedItem}>
+                              <div className={styles.specialSelectedLeft}>
+                                <span className={styles.specialSelectedName}>{item.itemName}</span>
+                                <span className={styles.specialSelectedUnit}>{item.baseUnit}</span>
+                              </div>
+                              <div className={styles.specialSelectedRight}>
+                                <div className={styles.acQtyRow}>
+                                  <button
+                                    type="button"
+                                    className={styles.qtyBtn}
+                                    disabled={item.quantity <= 1}
+                                    onClick={() => updateSpecialItemQty(item.itemId, item.quantity - 1)}
+                                  >
+                                    <i className="ti ti-minus" />
+                                  </button>
+                                  <span className={styles.qtyValue}>{item.quantity}</span>
+                                  <button
+                                    type="button"
+                                    className={styles.qtyBtn}
+                                    disabled={item.quantity >= 10}
+                                    onClick={() => updateSpecialItemQty(item.itemId, item.quantity + 1)}
+                                  >
+                                    <i className="ti ti-plus" />
+                                  </button>
+                                </div>
+                                <button
+                                  className={styles.specialRemoveBtn}
+                                  onClick={() => removeSpecialItem(item.itemId)}
+                                >
+                                  <i className="ti ti-trash" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Dining mode */}
           <div className={styles.fieldGroup}>

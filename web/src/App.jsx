@@ -32,6 +32,7 @@ import WalkInPage             from './pages/admin/WalkInPage';
 // ── Accounts pages ──
 import RateEntryPage       from './pages/accounts/RateEntryPage';
 import BillingDashboardPage from './pages/accounts/BillingDashboardPage';
+import AccountsDashboard   from './pages/accounts/AccountsDashboard';
 
 // ── Admin / Manager pages ──
 import EmployeeMasterPage     from './pages/admin/EmployeeMasterPage';
@@ -42,6 +43,7 @@ import EventManagementPage    from './pages/admin/EventManagementPage';
 import ReportingDashboardPage from './pages/admin/ReportingDashboardPage';
 import NotificationCentrePage from './pages/admin/NotificationCentrePage';
 import AppSettingsPage        from './pages/admin/AppSettingsPage';
+import FeedbackDashboardPage  from './pages/admin/FeedbackDashboardPage';
 
 // ── Shared pages (all roles) ──
 import ContactUsPage from './pages/shared/ContactUsPage';
@@ -93,6 +95,8 @@ function RoleDashboard() {
   switch (role) {
     case 'employee':
       return <EmployeeDashboard />;
+    case 'accounts_supervisor':
+      return <AccountsDashboard />;
     default:
       return <ComingSoon title={`${role.replace(/_/g, ' ')} Dashboard`} />;
   }
@@ -187,7 +191,8 @@ export default function App() {
             <Route path="/notifications-centre" element={<WithToken Page={NotificationCentrePage} />} />
 
             {/* ── Admin-only: App Settings ── */}
-            <Route path="/settings"   element={<WithToken Page={AppSettingsPage} />} />
+            <Route path="/settings"        element={<WithToken Page={AppSettingsPage} />} />
+            <Route path="/feedback-admin"  element={<WithToken Page={FeedbackDashboardPage} />} />
 
             {/* ── Shared: Contact Us (all roles) ── */}
             <Route path="/contact"    element={<WithToken Page={ContactUsPage} />} />

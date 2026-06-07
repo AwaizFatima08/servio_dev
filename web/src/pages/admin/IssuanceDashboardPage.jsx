@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { getIssuanceList, issueReservation, markNoShow } from '../../services/messService';
+import { getIssuanceList, issueReservation, markNoShow, getPendingOfficialGuestApprovals, approveOfficialGuestMeal, rejectOfficialGuestMeal } from '../../services/messService';
 import { formatTsTime } from '../../utils/dateUtils';
 import styles from './IssuanceDashboardPage.module.css';
 
@@ -63,12 +63,15 @@ function StatusBadge({ issueStatus }) {
 export default function IssuanceDashboardPage() {
   const { getToken } = useAuth();
 
+  // Page mode — 'issuance' | 'approvals'
+  const [pageMode, setPageMode] = useState('issuance');
+
   // Controls
   const [date, setDate]           = useState(todayStr());
   const [mealType, setMealType]   = useState(defaultMealType());
   const [search, setSearch]       = useState('');
 
-  // Data
+  // Issuance data
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState('');
@@ -76,6 +79,16 @@ export default function IssuanceDashboardPage() {
   // Per-row action state: { [reservationId]: 'issuing' | 'marking' | null }
   const [rowLoading, setRowLoading] = useState({});
   const [rowError, setRowError]     = useState({});
+
+  // Approvals data
+  const [approvals, setApprovals]         = useState([]);
+  const [approvalsLoading, setApprovalsLoading] = useState(false);
+  const [approvalsError, setApprovalsError]     = useState('');
+  const [approvalRowLoading, setApprovalRowLoading] = useState({});
+  const [approvalRowError, setApprovalRowError]     = useState({});
+  // Reject modal state
+  const [rejectTarget, setRejectTarget]   = useState(null); // reservationId
+  const [rejectNote, setRejectNote]       = useState('');
 
   // ── Load list ─────────────────────────────────────────────────────────────
   const loadList = useCallback(async () => {
@@ -135,6 +148,60 @@ export default function IssuanceDashboardPage() {
     }
   }
 
+  // ── Approvals ─────────────────────────────────────────────────────────────
+
+  const loadApprovals = useCallback(async () => {
+    setApprovalsLoading(true);
+    setApprovalsError('');
+    setApprovalRowError({});
+    try {
+      const token = await getToken();
+      const data = await getPendingOfficialGuestApprovals(token);
+      setApprovals(data);
+    } catch (e) {
+      setApprovalsError(e.message);
+      setApprovals([]);
+    } finally {
+      setApprovalsLoading(false);
+    }
+  }, [getToken]);
+
+  useEffect(() => {
+    if (pageMode === 'approvals') loadApprovals();
+  }, [pageMode, loadApprovals]);
+
+  async function handleApprove(reservationId) {
+    setApprovalRowLoading(r => ({ ...r, [reservationId]: 'approving' }));
+    setApprovalRowError(r => ({ ...r, [reservationId]: '' }));
+    try {
+      const token = await getToken();
+      await approveOfficialGuestMeal(reservationId, token);
+      setApprovals(rs => rs.filter(r => r.reservationId !== reservationId));
+    } catch (e) {
+      setApprovalRowError(r => ({ ...r, [reservationId]: e.message }));
+    } finally {
+      setApprovalRowLoading(r => ({ ...r, [reservationId]: null }));
+    }
+  }
+
+  async function handleReject() {
+    if (!rejectTarget) return;
+    const reservationId = rejectTarget;
+    setApprovalRowLoading(r => ({ ...r, [reservationId]: 'rejecting' }));
+    setApprovalRowError(r => ({ ...r, [reservationId]: '' }));
+    setRejectTarget(null);
+    setRejectNote('');
+    try {
+      const token = await getToken();
+      await rejectOfficialGuestMeal(reservationId, rejectNote, token);
+      setApprovals(rs => rs.filter(r => r.reservationId !== reservationId));
+    } catch (e) {
+      setApprovalRowError(r => ({ ...r, [reservationId]: e.message }));
+    } finally {
+      setApprovalRowLoading(r => ({ ...r, [reservationId]: null }));
+    }
+  }
+
   // ── Derived counts ────────────────────────────────────────────────────────
   const total    = reservations.length;
   const pending  = reservations.filter(r => r.issueStatus === 'pending').length;
@@ -163,11 +230,33 @@ export default function IssuanceDashboardPage() {
           <h1 className={styles.pageTitle}>Issuance Dashboard</h1>
           <p className={styles.pageSubtitle}>Mark meal reservations as issued or no-show</p>
         </div>
-        <button className={styles.btnRefresh} onClick={loadList} disabled={loading}>
-          <i className={`ti ti-refresh ${loading ? styles.spinning : ''}`} />
+        <button className={styles.btnRefresh} onClick={pageMode === 'issuance' ? loadList : loadApprovals} disabled={loading || approvalsLoading}>
+          <i className={`ti ti-refresh ${(loading || approvalsLoading) ? styles.spinning : ''}`} />
           Refresh
         </button>
       </div>
+
+      {/* Page mode toggle */}
+      <div className={styles.pageModeRow}>
+        <button
+          className={`${styles.pageModeBtn} ${pageMode === 'issuance' ? styles.pageModeBtnActive : ''}`}
+          onClick={() => setPageMode('issuance')}
+        >
+          <i className="ti ti-clipboard-list" /> Issuance
+        </button>
+        <button
+          className={`${styles.pageModeBtn} ${pageMode === 'approvals' ? styles.pageModeBtnActive : ''}`}
+          onClick={() => setPageMode('approvals')}
+        >
+          <i className="ti ti-user-check" /> Official Guest Approvals
+          {approvals.length > 0 && (
+            <span className={styles.approvalBadge}>{approvals.length}</span>
+          )}
+        </button>
+      </div>
+
+      {/* ── ISSUANCE MODE ── */}
+      {pageMode === 'issuance' && (<>
 
       {/* Controls */}
       <div className={styles.controls}>
@@ -370,6 +459,129 @@ export default function IssuanceDashboardPage() {
           <p>No results for "{search}"</p>
         </div>
       )}
+      </>)}
+
+      {/* ── APPROVALS MODE ── */}
+      {pageMode === 'approvals' && (
+        <>
+          {approvalsLoading && (
+            <div className={styles.loadingState}>
+              <i className="ti ti-loader-2" />
+              <p>Loading pending approvals…</p>
+            </div>
+          )}
+
+          {approvalsError && <p className={styles.errorText}>{approvalsError}</p>}
+
+          {!approvalsLoading && !approvalsError && approvals.length === 0 && (
+            <div className={styles.emptyState}>
+              <i className="ti ti-circle-check" />
+              <p>No pending official guest meal approvals.</p>
+            </div>
+          )}
+
+          {!approvalsLoading && approvals.length > 0 && (
+            <div className={styles.list}>
+              <div className={styles.listHeader}>
+                <span className={styles.colEmployee}>Guest</span>
+                <span className={styles.colItem}>Item</span>
+                <span className={styles.colType}>Meal</span>
+                <span className={styles.colMode}>Date</span>
+                <span className={styles.colActions}>Actions</span>
+              </div>
+
+              {approvals.map(r => {
+                const actionState = approvalRowLoading[r.reservationId];
+                return (
+                  <div key={r.reservationId} className={styles.row}>
+                    <div className={styles.colEmployee}>
+                      <span className={styles.empName}>{r.guestName || 'Guest'}</span>
+                      <span className={styles.empMeta}>
+                        Sponsored by {r.sponsoringEmployeeNumber}
+                      </span>
+                    </div>
+                    <div className={styles.colItem}>
+                      <span className={styles.itemName}>{r.itemName}</span>
+                      <span className={styles.optionLabel}>{r.optionLabel}</span>
+                    </div>
+                    <div className={styles.colType}>
+                      <span className={styles.subjectChip}>
+                        {MEAL_LABELS[r.mealType] || r.mealType}
+                      </span>
+                    </div>
+                    <div className={styles.colMode}>
+                      <span>{r.reservationDate}</span>
+                    </div>
+                    <div className={styles.colActions}>
+                      {approvalRowError[r.reservationId] && (
+                        <span className={styles.rowError} title={approvalRowError[r.reservationId]}>
+                          <i className="ti ti-alert-circle" />
+                        </span>
+                      )}
+                      <button
+                        className={styles.btnIssue}
+                        onClick={() => handleApprove(r.reservationId)}
+                        disabled={!!actionState}
+                        title="Approve billing"
+                      >
+                        {actionState === 'approving'
+                          ? <i className={`ti ti-loader-2 ${styles.spinning}`} />
+                          : <><i className="ti ti-check" /> Approve</>
+                        }
+                      </button>
+                      <button
+                        className={styles.btnNoShow}
+                        onClick={() => { setRejectTarget(r.reservationId); setRejectNote(''); }}
+                        disabled={!!actionState}
+                        title="Reject billing"
+                      >
+                        {actionState === 'rejecting'
+                          ? <i className={`ti ti-loader-2 ${styles.spinning}`} />
+                          : <i className="ti ti-x" />
+                        }
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Reject confirmation modal */}
+          {rejectTarget && (
+            <div className={styles.modalOverlay}>
+              <div className={styles.modal}>
+                <h3 className={styles.modalTitle}>Reject Official Guest Meal</h3>
+                <p className={styles.modalBody}>
+                  Accounts Supervisor will follow up with the sponsoring employee manually.
+                </p>
+                <textarea
+                  className={styles.modalTextarea}
+                  placeholder="Note (optional) — reason for rejection…"
+                  value={rejectNote}
+                  onChange={e => setRejectNote(e.target.value)}
+                  rows={3}
+                />
+                <div className={styles.modalActions}>
+                  <button
+                    className={styles.btnNoShow}
+                    onClick={handleReject}
+                  >
+                    Confirm Reject
+                  </button>
+                  <button
+                    className={styles.btnRefresh}
+                    onClick={() => { setRejectTarget(null); setRejectNote(''); }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
     </div>
   );
 }

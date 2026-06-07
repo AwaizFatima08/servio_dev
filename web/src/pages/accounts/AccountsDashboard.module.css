@@ -1,0 +1,187 @@
+/* AccountsDashboard.module.css */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+  max-width: 900px;
+  font-family: 'DM Sans', sans-serif;
+  color: #042C1E;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.greeting {
+  font-family: 'Playfair Display', serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #042C1E;
+  margin: 0 0 4px;
+}
+
+.dateText {
+  font-size: 13px;
+  color: #6B8F7E;
+  margin: 0;
+}
+
+.rolePill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 14px;
+  background: #EBF9F4;
+  border: 1px solid #3DBFA0;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0F6E56;
+  white-space: nowrap;
+}
+
+.errorBanner {
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.monthLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6B8F7E;
+}
+
+.cardsRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 700px) {
+  .cardsRow { grid-template-columns: 1fr; }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 20px;
+  background: #fff;
+  border: 1px solid #E0F0EA;
+  border-radius: 12px;
+}
+
+.card_dark  { background: #042C1E; border-color: #042C1E; }
+.card_gold  { background: #FFF8EC; border-color: #F5D98A; }
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.cardLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6B8F7E;
+}
+
+.card_dark .cardLabel { color: #3DBFA0; }
+.card_gold .cardLabel { color: #B07D10; }
+
+.cardIcon {
+  font-size: 18px;
+  color: #C6F0E5;
+}
+
+.card_dark .cardIcon { color: #3DBFA0; }
+.card_gold .cardIcon { color: #D4960A; }
+
+.cardValue {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #042C1E;
+  line-height: 1.1;
+}
+
+.card_dark .cardValue { color: #fff; }
+.card_gold .cardValue { color: #B07D10; }
+
+.cardSub {
+  font-size: 12px;
+  color: #6B8F7E;
+  margin-top: 2px;
+}
+
+.card_dark .cardSub { color: #6B8F7E; }
+.card_gold .cardSub { color: #B07D10; opacity: 0.8; }
+
+.actionsSection { margin-top: 4px; }
+
+.actionsTitle {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6B8F7E;
+  margin: 0 0 12px;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.actionBtn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 20px;
+  background: #fff;
+  border: 1.5px solid #C6F0E5;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #042C1E;
+  min-width: 160px;
+  flex: 1;
+  transition: all 0.15s;
+}
+
+.actionBtn:hover {
+  border-color: #0F6E56;
+  background: #EBF9F4;
+}
+
+.actionBtn i {
+  font-size: 22px;
+  color: #0F6E56;
+  margin-bottom: 4px;
+}
+
+.actionBtn span:first-of-type {
+  font-size: 14px;
+  font-weight: 600;
+  color: #042C1E;
+}
+
+.actionSub {
+  font-size: 12px;
+  color: #6B8F7E;
+}

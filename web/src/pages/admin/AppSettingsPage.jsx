@@ -32,6 +32,7 @@ export default function AppSettingsPage() {
         billingCycleDay:           s.billingCycleDay           ?? 1,
         throttleAttemptLimit:      s.throttleAttemptLimit      ?? 5,
         throttleWindowMinutes:     s.throttleWindowMinutes     ?? 60,
+        cutoffHoursBeforeMeal:     s.cutoffHoursBeforeMeal     ?? 3,
       });
     } catch (e) {
       setError(e.message);
@@ -109,6 +110,8 @@ export default function AppSettingsPage() {
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>System Settings</h2>
         <div className={styles.fieldGrid}>
+          <Field label="Booking Cutoff Before Meal (hours)" value={form.cutoffHoursBeforeMeal} editMode={editMode} type="number"
+            onChange={v => handleChange('cutoffHoursBeforeMeal', parseInt(v))} />
           <Field label="Feedback Window — Meals (hours)"    value={form.mealFeedbackWindowHours}  editMode={editMode} type="number"
             onChange={v => handleChange('mealFeedbackWindowHours',  parseInt(v))} />
           <Field label="Feedback Window — Events (hours)"   value={form.eventFeedbackWindowHours} editMode={editMode} type="number"

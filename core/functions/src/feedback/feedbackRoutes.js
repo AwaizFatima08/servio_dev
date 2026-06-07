@@ -9,6 +9,7 @@ const { errorResponse } = require('../utils');
 const {
   submitFeedback, getFeedbackForReservation, getFeedbackSummary,
   getEligibleReservations, getMyFeedback,
+  getAdminFeedbackList, reviewFeedback,
 } = require('./feedbackService');
 
 const anyAuthenticated = [verifyToken, verifyRole(
@@ -100,4 +101,65 @@ router.get('/summary', supervisorAndAbove, async (req, res) => {
   }
 });
 
+const adminOnly = [verifyToken, verifyRole(
+  ROLES.ADMIN,
+  ROLES.SUPER_ADMIN
+)];
+
+/**
+ * GET /feedback/admin
+ * Admin reads all feedback submissions.
+ * Query params: date (YYYY-MM-DD), mealType, status (open|reviewed|resolved), feedbackArea
+ * Admin only.
+ */
+router.get('/admin', adminOnly, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const { date, mealType, status, feedbackArea } = req.query;
+
+    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return errorResponse(res, 'Invalid date format. Use YYYY-MM-DD.', 400);
+    }
+    if (mealType && !['breakfast', 'lunch', 'dinner'].includes(mealType)) {
+      return errorResponse(res, 'Invalid mealType.', 400);
+    }
+    if (status && !['open', 'reviewed', 'resolved'].includes(status)) {
+      return errorResponse(res, 'Invalid status. Use open, reviewed, or resolved.', 400);
+    }
+    if (feedbackArea && !['quality','quantity','ambience','rate','service','overall'].includes(feedbackArea)) {
+      return errorResponse(res, 'Invalid feedbackArea.', 400);
+    }
+
+    const feedback = await getAdminFeedbackList({ tenantId, date, mealType, status, feedbackArea });
+    return res.status(200).json({ count: feedback.length, feedback });
+
+  } catch (error) {
+    console.error('GET /feedback/admin error:', error.message);
+    return errorResponse(res, error.message, 500);
+  }
+});
+
+/**
+ * PATCH /feedback/:feedbackId/review
+ * Admin marks a feedback submission as reviewed or resolved.
+ * Body: { status: 'reviewed' | 'resolved' }
+ * Admin only.
+ */
+router.patch('/:feedbackId/review', adminOnly, async (req, res) => {
+  try {
+    const tenantId     = req.tenantId;
+    const reviewedByUid = req.user.uid;
+    const { feedbackId } = req.params;
+    const { status }   = req.body;
+
+    if (!status) return errorResponse(res, 'status is required.', 400);
+
+    const result = await reviewFeedback({ tenantId, feedbackId, newStatus: status, reviewedByUid });
+    return res.status(200).json({ message: `Feedback marked as ${status}.`, result });
+
+  } catch (error) {
+    console.error('PATCH feedback/review error:', error.message);
+    return errorResponse(res, error.message, 400);
+  }
+});
 module.exports = router;

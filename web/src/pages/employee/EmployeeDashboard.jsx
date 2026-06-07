@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getTodayReservations, cancelReservation, getDailyMenu } from '../../services/messService';
+import { getActiveEvents } from '../../services/eventService';
 import styles from './EmployeeDashboard.module.css';
 
 // ââ Helpers ââ
@@ -143,6 +144,9 @@ export default function EmployeeDashboard() {
   const [weekMenuLoading, setWeekMenuLoading] = useState(false);
   const [weekMenuExpanded, setWeekMenuExpanded] = useState(false);
 
+  // F5: pending events requiring attendance response
+  const [pendingEvents, setPendingEvents] = useState([]);
+
   // Bug 18b fix: prefer displayName; strip trailing dot (e.g. 'Dr.') to avoid double-dot in greeting
   const rawName   = userProfile?.displayName?.trim() || userProfile?.employee?.fullName?.trim() || 'there';
   const firstName = rawName.endsWith('.') ? rawName.slice(0, -1) : rawName;
@@ -151,10 +155,19 @@ export default function EmployeeDashboard() {
     try {
       setLoadingRes(true);
       const token = await getToken();
-      const data = await getTodayReservations(token);
-      setReservations(data);
+      const [resData, evtData] = await Promise.all([
+        getTodayReservations(token),
+        getActiveEvents(token).catch(() => []),
+      ]);
+      setReservations(resData);
+      // F5: keep events that require attendance and are today or upcoming
+      const todayStr = pktDateStr(new Date());
+      const upcoming = (evtData || [])
+        .filter(e => e.requiresAttendance && e.eventDate >= todayStr)
+        .sort((a, b) => a.eventDate.localeCompare(b.eventDate));
+      setPendingEvents(upcoming);
     } catch (err) {
-      console.error('Failed to load reservations:', err);
+      console.error('Failed to load dashboard data:', err);
     } finally {
       setLoadingRes(false);
     }
@@ -228,6 +241,19 @@ export default function EmployeeDashboard() {
         </div>
         <span className={styles.rolePill}>Employee</span>
       </div>
+
+      {/* F5: Event banner */}
+      {pendingEvents.length > 0 && (
+        <a href="/notifications" className={styles.eventBanner}>
+          <i className="ti ti-calendar-event" />
+          <span className={styles.eventBannerText}>
+            {pendingEvents.length === 1
+              ? `Event requiring your response: ${pendingEvents[0].title}`
+              : `${pendingEvents.length} events requiring your response`}
+          </span>
+          <i className="ti ti-chevron-right" />
+        </a>
+      )}
 
       {/* ââ Stat cards ââ */}
       <div className={styles.statsRow}>

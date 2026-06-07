@@ -232,3 +232,85 @@ export async function createAlaCarteBooking(payload, token) {
   }
   return data.booking;
 }
+
+// ── getActiveMenuItems ──
+// GET /mess/menu-items/active
+// Returns full active menuItems catalogue for special meal selection.
+export async function getActiveMenuItems(token) {
+  const res = await fetch(`${BASE_URL}/mess/menu-items/active`, {
+    headers: authHeader(token),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to load menu items');
+  return data.items || [];
+}
+
+// ── createSpecialMealWalkIn ──
+// POST /mess/reservations/special-meal
+// Supervisor walk-in special meal for lunch or dinner.
+export async function createSpecialMealWalkIn(payload, token) {
+  // payload: { targetEmployeeNumber, reservationDate, mealType, diningMode,
+  //            items: [{ itemId, itemName, baseUnit, foodTypeCode, quantity }] }
+  const res = await fetch(`${BASE_URL}/mess/reservations/special-meal`, {
+    method: 'POST',
+    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Special meal walk-in failed.');
+  return data.booking;
+}
+// ── createOfficialGuestWalkIn ──
+// POST /mess/reservations/official-guest-walkin
+// Supervisor walk-in for an official guest (no system account).
+export async function createOfficialGuestWalkIn(payload, token) {
+  // payload: { guestName, sponsoringEmployeeNumber, reservationDate, mealType,
+  //            diningMode, comboItem, items }
+  const res = await fetch(`${BASE_URL}/mess/reservations/official-guest-walkin`, {
+    method: 'POST',
+    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Official guest walk-in failed.');
+  return data.booking;
+}
+
+// ── getPendingOfficialGuestApprovals ──
+// GET /mess/reservations/official-guest-pending
+// Admin: fetch all pending official guest billing approvals.
+export async function getPendingOfficialGuestApprovals(token, date) {
+  const params = new URLSearchParams();
+  if (date) params.set('date', date);
+  const url = `${BASE_URL}/mess/reservations/official-guest-pending${params.toString() ? '?' + params.toString() : ''}`;
+  const res = await fetch(url, { headers: authHeader(token) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to load pending approvals.');
+  return data.reservations || [];
+}
+
+// ── approveOfficialGuestMeal ──
+// PATCH /mess/reservations/:reservationId/approve-official-guest
+export async function approveOfficialGuestMeal(reservationId, token) {
+  const res = await fetch(`${BASE_URL}/mess/reservations/${reservationId}/approve-official-guest`, {
+    method: 'PATCH',
+    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Approval failed.');
+  return data.result;
+}
+
+// ── rejectOfficialGuestMeal ──
+// PATCH /mess/reservations/:reservationId/reject-official-guest
+export async function rejectOfficialGuestMeal(reservationId, approvalNote, token) {
+  const res = await fetch(`${BASE_URL}/mess/reservations/${reservationId}/reject-official-guest`, {
+    method: 'PATCH',
+    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ approvalNote }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Rejection failed.');
+  return data.result;
+}

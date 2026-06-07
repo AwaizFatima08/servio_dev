@@ -89,13 +89,22 @@ async function createSelfBooking({
 
   // Walk-in bookings bypass cutoff entirely — supervisor is physically present
   if (bookingSource !== 'walk_in' && reservationDate === todayStr) {
+    // F7: read cutoff from appSettings first, fall back to reservationSettings
+    let cutoffHours = settings.cutoffHoursBeforeMeal;
+    const appSettingsDoc = await db.collection(COLLECTIONS.APP_SETTINGS).doc(tenantId).get();
+    if (appSettingsDoc.exists) {
+      const appSettings = appSettingsDoc.data();
+      if (typeof appSettings.cutoffHoursBeforeMeal === 'number') {
+        cutoffHours = appSettings.cutoffHoursBeforeMeal;
+      }
+    }
     const cutoffBreached = isCutoffBreached(
       mealTypeData.serviceWindowStart,
-      settings.cutoffHoursBeforeMeal
+      cutoffHours
     );
     if (cutoffBreached) {
       throw new Error(
-        `Booking cutoff has passed for ${mealType}. Cutoff is ${settings.cutoffHoursBeforeMeal} hours before meal start.`
+        `Booking cutoff has passed for ${mealType}. Cutoff is ${cutoffHours} hours before meal start.`
       );
     }
   }
@@ -159,7 +168,7 @@ async function createSelfBooking({
   } : null;
 
   // --- 8. Build rateTargetKey ---
-  const rateTargetKey = `${reservationDate}_${mealType}_${menuOptionKey}`;
+  const rateTargetKey = `${reservationDate}_${mealType}_${menuItemId}`;
 
   // --- 9. Build bookingGroupId ---
   const bookingGroupId = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc().id;
@@ -385,7 +394,7 @@ async function createProxyBooking({
   } : null;
 
   // --- 8. Build rateTargetKey ---
-  const rateTargetKey = `${reservationDate}_${mealType}_${menuOptionKey}`;
+  const rateTargetKey = `${reservationDate}_${mealType}_${menuItemId}`;
 
   // --- 9. Build bookingGroupId ---
   const bookingGroupId = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc().id;
@@ -616,7 +625,7 @@ async function createWalkInBooking({
   } : null;
 
   // --- 8. Build rateTargetKey ---
-  const rateTargetKey = `${reservationDate}_${mealType}_${menuOptionKey}`;
+  const rateTargetKey = `${reservationDate}_${mealType}_${menuItemId}`;
 
   // --- 9. Build bookingGroupId ---
   const bookingGroupId = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc().id;
@@ -794,9 +803,18 @@ async function cancelReservation({
 
     const todayStr = pktDateStr(new Date());
     if (data.reservationDate === todayStr) {
+      // F7: read cutoff from appSettings first, fall back to reservationSettings
+      let cutoffHours = settings.cutoffHoursBeforeMeal;
+      const appSettingsDoc = await db.collection(COLLECTIONS.APP_SETTINGS).doc(tenantId).get();
+      if (appSettingsDoc.exists) {
+        const appSettings = appSettingsDoc.data();
+        if (typeof appSettings.cutoffHoursBeforeMeal === 'number') {
+          cutoffHours = appSettings.cutoffHoursBeforeMeal;
+        }
+      }
       const cutoffBreached = isCutoffBreached(
         mealTypeData.serviceWindowStart,
-        settings.cutoffHoursBeforeMeal
+        cutoffHours
       );
       if (cutoffBreached) {
         throw new Error('Cancellation cutoff has passed. Contact supervisor to cancel.');
@@ -1040,8 +1058,8 @@ async function createAlaCarteBooking({
     const quantity = item.quantity || 1;
  
     // rateTargetKey: stable, item-specific, unique per day
-    // Format: {date}_breakfast_alacarte_{itemId}
-    const rateTargetKey = `${reservationDate}_breakfast_alacarte_${item.itemId}`;
+// Format: {date}_{mealType}_{itemId}  — universal format for all booking types
+    const rateTargetKey = `${reservationDate}_breakfast_${item.itemId}`;
  
     const reservationRef = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc();
     const reservationId = reservationRef.id;
@@ -1195,4 +1213,562 @@ async function createAlaCarteBooking({
   };
 }
 
-module.exports = { createSelfBooking, createProxyBooking, createWalkInBooking, cancelReservation, getIssuanceList, issueReservation, markNoShow, createAlaCarteBooking };
+// ── createSpecialMealWalkIn ──
+// Supervisor walk-in for lunch/dinner using any active menuItem.
+// Used when employee has a special food requirement not covered by daily menu.
+// One document per item, shared bookingGroupId. issueStatus: 'issued' immediately.
+async function createSpecialMealWalkIn({
+  uid,
+  createdByRole,
+  createdByEmployeeNumber,
+  tenantId,
+  targetEmployeeNumber,
+  reservationDate,
+  mealType,
+  items,           // [{ itemId, itemName, baseUnit, foodTypeCode, quantity }]
+  diningMode,
+}) {
+
+  // ── 1. Validate mealType — special meal is lunch/dinner only ──
+  if (!['lunch', 'dinner'].includes(mealType)) {
+    throw new Error('Special meal walk-in is only available for lunch and dinner.');
+  }
+
+  // ── 2. Validate date — walk-in is today only ──
+  const todayStr = pktDateStr(new Date());
+  if (reservationDate !== todayStr) {
+    throw new Error('Walk-in bookings can only be made for today.');
+  }
+
+  // ── 3. Validate items array ──
+  if (!items || items.length === 0) {
+    throw new Error('At least one item is required for a special meal.');
+  }
+
+  // ── 4. Validate meal type config ──
+  const mealTypeDoc = await db
+    .collection(COLLECTIONS.MEAL_TYPES)
+    .doc(mealType)
+    .get();
+  if (!mealTypeDoc.exists) {
+    throw new Error(`Meal type not found: ${mealType}`);
+  }
+  const mealTypeData = mealTypeDoc.data();
+  if (!mealTypeData.isActive || !mealTypeData.isBookable) {
+    throw new Error(`Meal type ${mealType} is not available for booking.`);
+  }
+
+  // ── 5. Validate target employee ──
+  const targetEmployeeDoc = await db
+    .collection(COLLECTIONS.EMPLOYEES)
+    .doc(targetEmployeeNumber)
+    .get();
+  if (!targetEmployeeDoc.exists) {
+    throw new Error(`Employee not found: ${targetEmployeeNumber}`);
+  }
+  const targetEmployee = targetEmployeeDoc.data();
+  if (targetEmployee.tenantId !== tenantId) {
+    throw new Error('Employee does not belong to this tenant.');
+  }
+  if (!targetEmployee.isActive) {
+    throw new Error(`Employee ${targetEmployeeNumber} is inactive.`);
+  }
+
+  // ── 6. Validate each item exists in menuItems and is active ──
+  for (const item of items) {
+    const itemDoc = await db
+      .collection(COLLECTIONS.MENU_ITEMS)
+      .doc(item.itemId)
+      .get();
+    if (!itemDoc.exists) {
+      throw new Error(`Menu item not found: ${item.itemName} (${item.itemId})`);
+    }
+    const itemData = itemDoc.data();
+    if (itemData.tenantId !== tenantId) {
+      throw new Error(`Item ${item.itemName} does not belong to this tenant.`);
+    }
+    if (!itemData.isActive) {
+      throw new Error(`Item ${item.itemName} is not currently active.`);
+    }
+  }
+
+  // ── 7. Generate one shared bookingGroupId for the session ──
+  const bookingGroupId = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc().id;
+
+  // ── 8. Write one reservation document per item ──
+  const createdReservations = [];
+
+  for (const item of items) {
+    const quantity = item.quantity || 1;
+    const rateTargetKey = `${reservationDate}_${mealType}_${item.itemId}`;
+
+    const reservationRef = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc();
+    const reservationId = reservationRef.id;
+
+    const reservationDoc = {
+      reservationId,
+      bookingGroupId,
+      tenantId,
+      createdByUid: uid,
+      createdByRole,
+      createdByEmployeeNumber,
+      bookingSource: 'walk_in',
+      subjectType: 'self',
+      employeeNumber: targetEmployeeNumber,
+      employeeName: targetEmployee.fullName,
+      guestName: null,
+      quantity,
+      reservationDate,
+      mealType,
+      menuItemId: item.itemId,
+      itemName: item.itemName,
+      menuOptionKey: 'special',
+      optionLabel: 'Special Meal',
+      diningMode,
+      selectionMode: 'special',
+      billingDestination: 'employee_account',
+      costCentreCode: null,
+      rateTargetKey,
+      unitRate: null,
+      amount: null,
+      rateStatus: 'pending',
+      rateAppliedAt: null,
+      reservationStatus: 'active',
+      issueStatus: 'issued',
+      feedbackStatus: 'pending',
+      cutoffWaived: true,
+      overrideReason: null,
+      overrideByUid: null,
+      proxyOverrideUsed: false,
+      isSpecialMeal: true,
+      allowAnyMenuItem: true,
+      issuedAt: new Date(),
+      issuedByUid: uid,
+      issuedByRole: createdByRole,
+      cancelledAt: null,
+      cancelledByUid: null,
+      cancelledByRole: null,
+      cancellationReason: null,
+      cancellationNote: null,
+      feedbackSubmittedAt: null,
+      menuSnapshot: {
+        itemId: item.itemId,
+        itemName: item.itemName,
+        baseUnit: item.baseUnit || null,
+        foodTypeCode: item.foodTypeCode || null,
+      },
+      isVisible: true,
+      remarks: null,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    await reservationRef.set(reservationDoc);
+
+    createdReservations.push({
+      reservationId,
+      itemId: item.itemId,
+      itemName: item.itemName,
+      quantity,
+      rateTargetKey,
+    });
+  }
+
+  // ── 9. Send one combined notification to target employee ──
+  const dateLabel = formatDateForNotification(reservationDate);
+  const itemCount = items.length;
+
+  const targetUserSnap = await db
+    .collection(COLLECTIONS.USERS)
+    .where('tenantId', '==', tenantId)
+    .where('officialEmployeeNumber', '==', targetEmployeeNumber)
+    .limit(1)
+    .get();
+
+  if (!targetUserSnap.empty) {
+    const targetUid = targetUserSnap.docs[0].data().uid;
+    const mealLabel = mealType.charAt(0).toUpperCase() + mealType.slice(1);
+
+    createNotification({
+      tenantId,
+      createdByUid: uid,
+      createdByName: null,
+      notificationLayer: NOTIFICATION_LAYERS.INFORMATIONAL,
+      notificationType: 'booking_confirmed',
+      triggerSource: 'special_meal_walk_in',
+      title: 'Special Meal Booked',
+      body: itemCount === 1
+        ? `A customised ${mealLabel} (${items[0].itemName}) has been booked for you as per your request for ${dateLabel}.`
+        : `A customised ${mealLabel} — ${itemCount} items — has been booked for you as per your request for ${dateLabel}.`,
+      targetType: NOTIFICATION_TARGET_TYPES.SINGLE_USER,
+      targetUserUids: [targetUid],
+      contextType: 'reservation',
+      contextId: createdReservations[0].reservationId,
+    }).catch(err => console.error('[Notification] special_meal_walk_in failed:', err));
+  }
+
+  return {
+    bookingGroupId,
+    reservationDate,
+    mealType,
+    diningMode,
+    bookingSource: 'walk_in',
+    bookedFor: targetEmployeeNumber,
+    itemCount: createdReservations.length,
+    reservations: createdReservations,
+  };
+}
+
+// ── createOfficialGuestWalkIn ──
+// Supervisor walk-in for an official guest (no system account).
+// Handles all meal types:
+//   breakfast → combo + ala carte items from dailyMenus
+//   lunch/dinner → any active menuItems (full catalogue)
+// issueStatus: 'issued' immediately. approvalStatus: 'pending_approval'.
+// Admin receives notification. No notification to sponsoring employee.
+async function createOfficialGuestWalkIn({
+  uid,
+  createdByRole,
+  createdByEmployeeNumber,
+  tenantId,
+  guestName,
+  sponsoringEmployeeNumber,
+  reservationDate,
+  mealType,
+  diningMode,
+  // For breakfast combo — single item
+  comboItem,       // { menuItemId, menuOptionKey, optionLabel, itemName, selectionMode } | null
+  // For breakfast ala carte + lunch/dinner full catalogue — array of items
+  items,           // [{ itemId, itemName, baseUnit, foodTypeCode, quantity }] | []
+}) {
+
+  // ── 1. Validate date — walk-in is today only ──
+  const todayStr = pktDateStr(new Date());
+  if (reservationDate !== todayStr) {
+    throw new Error('Walk-in bookings can only be made for today.');
+  }
+
+  // ── 2. Validate meal type ──
+  if (!['breakfast', 'lunch', 'dinner'].includes(mealType)) {
+    throw new Error('Invalid mealType.');
+  }
+
+  // ── 3. Must have at least one selection ──
+  const hasCombo = !!comboItem;
+  const hasItems = items && items.length > 0;
+  if (!hasCombo && !hasItems) {
+    throw new Error('At least one meal item must be selected.');
+  }
+
+  // ── 4. Validate meal type config ──
+  const mealTypeDoc = await db.collection(COLLECTIONS.MEAL_TYPES).doc(mealType).get();
+  if (!mealTypeDoc.exists) throw new Error(`Meal type not found: ${mealType}`);
+  const mealTypeData = mealTypeDoc.data();
+  if (!mealTypeData.isActive || !mealTypeData.isBookable) {
+    throw new Error(`Meal type ${mealType} is not available for booking.`);
+  }
+
+  // ── 5. Validate sponsoring employee exists ──
+  const sponsorDoc = await db.collection(COLLECTIONS.EMPLOYEES).doc(sponsoringEmployeeNumber).get();
+  if (!sponsorDoc.exists) {
+    throw new Error(`Sponsoring employee not found: ${sponsoringEmployeeNumber}`);
+  }
+  const sponsorData = sponsorDoc.data();
+  if (sponsorData.tenantId !== tenantId) {
+    throw new Error('Sponsoring employee does not belong to this tenant.');
+  }
+  if (!sponsorData.isActive) {
+    throw new Error(`Sponsoring employee ${sponsoringEmployeeNumber} is inactive.`);
+  }
+  const sponsoringEmployeeName = sponsorData.fullName;
+
+  // ── 6. For breakfast combo — validate against dailyMenus ──
+  let comboMenuSnapshot = null;
+  if (hasCombo && mealType === 'breakfast') {
+    const dailyMenuDocId = `${tenantId}_${reservationDate}_${mealType}`;
+    const dailyMenuDoc = await db.collection(COLLECTIONS.DAILY_MENUS).doc(dailyMenuDocId).get();
+    if (!dailyMenuDoc.exists) {
+      throw new Error(`No breakfast menu available for ${reservationDate}.`);
+    }
+    const dailyMenu = dailyMenuDoc.data();
+    const selectedCombo = dailyMenu.combos?.find(c => c.menuOptionKey === comboItem.menuOptionKey);
+    if (!selectedCombo) {
+      throw new Error(`Selected combo ${comboItem.menuOptionKey} not found in today's menu.`);
+    }
+    comboMenuSnapshot = {
+      comboId:      selectedCombo.comboId,
+      comboName:    selectedCombo.comboName,
+      displayLabel: selectedCombo.displayLabel,
+      menuOptionKey: selectedCombo.menuOptionKey,
+    };
+  }
+
+  // ── 7. For lunch/dinner full catalogue items — validate each item is active ──
+  if (hasItems && mealType !== 'breakfast') {
+    for (const item of items) {
+      const itemDoc = await db.collection(COLLECTIONS.MENU_ITEMS).doc(item.itemId).get();
+      if (!itemDoc.exists) throw new Error(`Menu item not found: ${item.itemName} (${item.itemId})`);
+      const itemData = itemDoc.data();
+      if (itemData.tenantId !== tenantId) throw new Error(`Item ${item.itemName} does not belong to this tenant.`);
+      if (!itemData.isActive) throw new Error(`Item ${item.itemName} is not currently active.`);
+    }
+  }
+
+  // ── 8. For breakfast ala carte items — validate against dailyMenus.alaCarte ──
+  let alaCarteMap = {};
+  if (hasItems && mealType === 'breakfast') {
+    const dailyMenuDocId = `${tenantId}_${reservationDate}_${mealType}`;
+    const dailyMenuDoc = await db.collection(COLLECTIONS.DAILY_MENUS).doc(dailyMenuDocId).get();
+    if (!dailyMenuDoc.exists) throw new Error(`No breakfast menu available for ${reservationDate}.`);
+    const dailyMenu = dailyMenuDoc.data();
+    for (const mi of (dailyMenu.alaCarte || [])) {
+      alaCarteMap[mi.itemId] = mi;
+    }
+    for (const item of items) {
+      if (!alaCarteMap[item.itemId]) {
+        throw new Error(`Item "${item.itemName}" is not available in today's breakfast ala carte menu.`);
+      }
+    }
+  }
+
+  // ── 9. Find admin uid for notification ──
+  const adminSnap = await db
+    .collection(COLLECTIONS.USERS)
+    .where('tenantId', '==', tenantId)
+    .where('role', 'in', ['admin', 'super_admin'])
+    .limit(1)
+    .get();
+  const adminUid = adminSnap.empty ? null : adminSnap.docs[0].data().uid;
+
+  // ── 10. Generate shared bookingGroupId ──
+  const bookingGroupId = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc().id;
+  const createdReservations = [];
+
+  // ── 11a. Write combo reservation (breakfast only) ──
+  if (hasCombo) {
+    const rateTargetKey = `${reservationDate}_${mealType}_${comboItem.menuItemId}`;
+    const reservationRef = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc();
+    const reservationId = reservationRef.id;
+
+    await reservationRef.set({
+      reservationId,
+      bookingGroupId,
+      tenantId,
+      createdByUid: uid,
+      createdByRole,
+      createdByEmployeeNumber,
+      bookingSource: 'official_guest_walkin',
+      subjectType: 'official_guest',
+      employeeNumber: sponsoringEmployeeNumber,
+      employeeName: sponsoringEmployeeName,
+      guestName,
+      sponsoringEmployeeNumber,
+      sponsoringEmployeeName,
+      quantity: 1,
+      reservationDate,
+      mealType,
+      menuItemId: comboItem.menuItemId,
+      itemName: comboItem.itemName,
+      menuOptionKey: comboItem.menuOptionKey,
+      optionLabel: comboItem.optionLabel,
+      diningMode,
+      selectionMode: comboItem.selectionMode || 'combo',
+      billingDestination: 'official_account',
+      costCentreCode: null,
+      rateTargetKey,
+      unitRate: null,
+      amount: null,
+      rateStatus: 'pending',
+      rateAppliedAt: null,
+      reservationStatus: 'active',
+      issueStatus: 'issued',
+      feedbackStatus: 'not_applicable',
+      cutoffWaived: true,
+      overrideReason: null,
+      overrideByUid: null,
+      proxyOverrideUsed: false,
+      isSpecialMeal: false,
+      allowAnyMenuItem: false,
+      approvalStatus: 'pending_approval',
+      approvedByUid: null,
+      approvedAt: null,
+      rejectedByUid: null,
+      rejectedAt: null,
+      approvalNote: null,
+      issuedAt: new Date(),
+      issuedByUid: uid,
+      issuedByRole: createdByRole,
+      cancelledAt: null,
+      cancelledByUid: null,
+      cancelledByRole: null,
+      cancellationReason: null,
+      cancellationNote: null,
+      feedbackSubmittedAt: null,
+      menuSnapshot: comboMenuSnapshot,
+      isVisible: true,
+      remarks: null,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    createdReservations.push({ reservationId, itemName: comboItem.itemName, rateTargetKey });
+  }
+
+  // ── 11b. Write per-item reservations (ala carte BF or full catalogue lunch/dinner) ──
+  if (hasItems) {
+    for (const item of items) {
+      const quantity = item.quantity || 1;
+      const rateTargetKey = `${reservationDate}_${mealType}_${item.itemId}`;
+      const reservationRef = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc();
+      const reservationId = reservationRef.id;
+
+      const isAlacarte = mealType === 'breakfast';
+
+      await reservationRef.set({
+        reservationId,
+        bookingGroupId,
+        tenantId,
+        createdByUid: uid,
+        createdByRole,
+        createdByEmployeeNumber,
+        bookingSource: 'official_guest_walkin',
+        subjectType: 'official_guest',
+        employeeNumber: sponsoringEmployeeNumber,
+        employeeName: sponsoringEmployeeName,
+        guestName,
+        sponsoringEmployeeNumber,
+        sponsoringEmployeeName,
+        quantity,
+        reservationDate,
+        mealType,
+        menuItemId: item.itemId,
+        itemName: item.itemName,
+        menuOptionKey: isAlacarte ? 'alacarte' : 'special',
+        optionLabel: isAlacarte ? 'Ala Carte' : 'Special Meal',
+        diningMode,
+        selectionMode: isAlacarte ? 'alacarte' : 'special',
+        billingDestination: 'official_account',
+        costCentreCode: null,
+        rateTargetKey,
+        unitRate: null,
+        amount: null,
+        rateStatus: 'pending',
+        rateAppliedAt: null,
+        reservationStatus: 'active',
+        issueStatus: 'issued',
+        feedbackStatus: 'not_applicable',
+        cutoffWaived: true,
+        overrideReason: null,
+        overrideByUid: null,
+        proxyOverrideUsed: false,
+        isSpecialMeal: mealType !== 'breakfast',
+        allowAnyMenuItem: mealType !== 'breakfast',
+        approvalStatus: 'pending_approval',
+        approvedByUid: null,
+        approvedAt: null,
+        rejectedByUid: null,
+        rejectedAt: null,
+        approvalNote: null,
+        issuedAt: new Date(),
+        issuedByUid: uid,
+        issuedByRole: createdByRole,
+        cancelledAt: null,
+        cancelledByUid: null,
+        cancelledByRole: null,
+        cancellationReason: null,
+        cancellationNote: null,
+        feedbackSubmittedAt: null,
+        menuSnapshot: {
+          itemId: item.itemId,
+          itemName: item.itemName,
+          baseUnit: item.baseUnit || null,
+          foodTypeCode: item.foodTypeCode || null,
+        },
+        isVisible: true,
+        remarks: null,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      createdReservations.push({ reservationId, itemName: item.itemName, quantity, rateTargetKey });
+    }
+  }
+
+  // ── 12. Notify admin ──
+  if (adminUid) {
+    const mealLabel = mealType.charAt(0).toUpperCase() + mealType.slice(1);
+    createNotification({
+      tenantId,
+      createdByUid: uid,
+      createdByName: null,
+      notificationLayer: NOTIFICATION_LAYERS.ALERT,
+      notificationType: 'official_guest_meal_pending_approval',
+      triggerSource: 'official_guest_walkin',
+      title: 'Official Guest Meal — Approval Required',
+      body: `${mealLabel} booked for guest "${guestName}" sponsored by ${sponsoringEmployeeNumber}. Booked by supervisor. Billing approval required.`,
+      targetType: NOTIFICATION_TARGET_TYPES.SINGLE_USER,
+      targetUserUids: [adminUid],
+      contextType: 'reservation',
+      contextId: createdReservations[0].reservationId,
+    }).catch(err => console.error('[Notification] official_guest_meal_pending_approval failed:', err));
+  }
+
+  return {
+    bookingGroupId,
+    reservationDate,
+    mealType,
+    diningMode,
+    bookingSource: 'official_guest_walkin',
+    guestName,
+    sponsoringEmployeeNumber,
+    itemCount: createdReservations.length,
+    reservations: createdReservations,
+  };
+}
+
+// ── approveOfficialGuestMeal ──
+// Admin approves billing for an official guest reservation.
+async function approveOfficialGuestMeal({ reservationId, tenantId, approvedByUid }) {
+  const ref = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc(reservationId);
+  const doc = await ref.get();
+
+  if (!doc.exists) throw new Error('Reservation not found.');
+  const data = doc.data();
+  if (data.tenantId !== tenantId) throw new Error('Tenant mismatch.');
+  if (data.subjectType !== 'official_guest') throw new Error('This reservation is not an official guest record.');
+  if (data.approvalStatus !== 'pending_approval') throw new Error(`Cannot approve — current status is ${data.approvalStatus}.`);
+
+  await ref.update({
+    approvalStatus: 'approved',
+    approvedByUid,
+    approvedAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  return { reservationId, approvalStatus: 'approved' };
+}
+
+// ── rejectOfficialGuestMeal ──
+// Admin rejects billing for an official guest reservation.
+async function rejectOfficialGuestMeal({ reservationId, tenantId, rejectedByUid, approvalNote }) {
+  const ref = db.collection(COLLECTIONS.MESS_RESERVATIONS).doc(reservationId);
+  const doc = await ref.get();
+
+  if (!doc.exists) throw new Error('Reservation not found.');
+  const data = doc.data();
+  if (data.tenantId !== tenantId) throw new Error('Tenant mismatch.');
+  if (data.subjectType !== 'official_guest') throw new Error('This reservation is not an official guest record.');
+  if (data.approvalStatus !== 'pending_approval') throw new Error(`Cannot reject — current status is ${data.approvalStatus}.`);
+
+  await ref.update({
+    approvalStatus: 'rejected',
+    rejectedByUid,
+    rejectedAt: new Date(),
+    approvalNote: approvalNote || null,
+    updatedAt: new Date(),
+  });
+
+  return { reservationId, approvalStatus: 'rejected' };
+}
+
+module.exports = { createSelfBooking, createProxyBooking, createWalkInBooking, cancelReservation, getIssuanceList, issueReservation, markNoShow, createAlaCarteBooking, createSpecialMealWalkIn, createOfficialGuestWalkIn, approveOfficialGuestMeal, rejectOfficialGuestMeal };

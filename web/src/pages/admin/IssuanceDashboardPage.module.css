@@ -406,3 +406,101 @@
   .colType,
   .colMode { display: none; }
 }
+
+.pageModeRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid var(--color-border, #e5e7eb);
+  padding-bottom: 0;
+}
+ 
+.pageModeBtn {
+  padding: 8px 18px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted, #6b7280);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.15s, border-color 0.15s;
+}
+ 
+.pageModeBtn:hover {
+  color: var(--color-mid, #0F6E56);
+}
+ 
+.pageModeBtnActive {
+  color: var(--color-mid, #0F6E56);
+  border-bottom-color: var(--color-mid, #0F6E56);
+}
+ 
+.approvalBadge {
+  background: #c0392b;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 7px;
+  margin-left: 2px;
+}
+ 
+/* Reject modal */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+ 
+.modal {
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+ 
+.modalTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-dark, #042C1E);
+  margin: 0 0 8px;
+}
+ 
+.modalBody {
+  font-size: 14px;
+  color: var(--color-text-muted, #6b7280);
+  margin: 0 0 12px;
+}
+ 
+.modalTextarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  font-size: 14px;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+}
+ 
+.modalTextarea:focus {
+  border-color: var(--color-mid, #0F6E56);
+}
+ 
+.modalActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  justify-content: flex-end;
+}

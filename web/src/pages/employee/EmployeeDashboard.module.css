@@ -556,3 +556,42 @@
 @media (max-width: 600px) {
   .weekGrid { grid-template-columns: repeat(2, 1fr); }
 }
+
+.eventBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #042C1E;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s;
+  cursor: pointer;
+}
+ 
+.eventBanner:hover {
+  background: #0A5340;
+}
+ 
+.eventBanner i:first-child {
+  font-size: 18px;
+  color: #3DBFA0;
+  flex-shrink: 0;
+}
+ 
+.eventBanner i:last-child {
+  font-size: 14px;
+  color: #3DBFA0;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+ 
+.eventBannerText {
+  flex: 1;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+}

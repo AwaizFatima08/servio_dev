@@ -315,3 +315,242 @@
   color: #042C1E;
 }
 .btnPrimary:hover { background: #0A5340; }
+
+/* ── F4 Special Meal additions ─────────────────────────────────────── */
+
+.specialToggleRow {
+  margin-top: 4px;
+}
+
+.specialToggleLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.specialToggleCheckbox {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-mid);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.specialToggleText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.specialToggleHint {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  font-weight: 400;
+}
+
+.specialSection {
+  margin-top: 12px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--color-surface-alt, #f9fafb);
+}
+
+.specialSearchWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+
+.specialSearchWrap i {
+  color: var(--color-text-muted, #9ca3af);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.specialSearchInput {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  background: transparent;
+  color: var(--color-text, #111827);
+}
+
+.specialDropdown {
+  background: #fff;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.specialDropdownItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 9px 12px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-border, #f3f4f6);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.specialDropdownItem:last-child {
+  border-bottom: none;
+}
+
+.specialDropdownItem:hover {
+  background: var(--color-pale-mint, #EBF9F4);
+}
+
+.specialDropdownName {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text, #111827);
+}
+
+.specialDropdownUnit {
+  font-size: 11px;
+  color: var(--color-text-muted, #9ca3af);
+}
+
+.specialSelectedList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.specialSelectedItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--color-mid, #0F6E56);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.specialSelectedLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.specialSelectedName {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-dark, #042C1E);
+}
+
+.specialSelectedUnit {
+  font-size: 11px;
+  color: var(--color-text-muted, #9ca3af);
+}
+
+.specialSelectedRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.specialRemoveBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #c0392b;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s;
+}
+
+.specialRemoveBtn:hover {
+  background: #fef2f2;
+}
+
+.subjectTabRow {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid var(--color-border, #e5e7eb);
+  padding-bottom: 0;
+  margin-bottom: 4px;
+}
+ 
+.subjectTab {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-muted, #6b7280);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.15s, border-color 0.15s;
+}
+ 
+.subjectTab:hover {
+  color: var(--color-mid, #0F6E56);
+}
+ 
+.subjectTabActive {
+  color: var(--color-mid, #0F6E56);
+  border-bottom-color: var(--color-mid, #0F6E56);
+}
+ 
+/* Official guest text fields */
+.ogTextField {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--color-text, #111827);
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+ 
+.ogTextField:focus {
+  border-color: var(--color-mid, #0F6E56);
+}
+ 
+.ogTextFieldError {
+  border-color: #c0392b;
+}
+ 
+.ogFieldError {
+  font-size: 12px;
+  color: #c0392b;
+  margin-top: 4px;
+}
+ 
+.ogFieldHint {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  margin-top: 6px;
+}
+ 
+/* Success screen — pending billing note */
+.successPending {
+  color: var(--color-gold, #D4960A);
+  font-weight: 600;
+}

@@ -10,7 +10,7 @@ const verifyRole = require('../middleware/verifyRole');
 const { ROLES } = require('../constants');
 const { resolveDailyMenus } = require('./dailyMenuResolver');
 const { errorResponse } = require('../utils');
-const { createSelfBooking, createProxyBooking, createWalkInBooking, cancelReservation, getIssuanceList, issueReservation, markNoShow, createAlaCarteBooking } = require('./messReservationService');
+const { createSelfBooking, createProxyBooking, createWalkInBooking, cancelReservation, getIssuanceList, issueReservation, markNoShow, createAlaCarteBooking, createSpecialMealWalkIn, createOfficialGuestWalkIn, approveOfficialGuestMeal, rejectOfficialGuestMeal } = require('./messReservationService');
 
 const adminOnly = [verifyToken, verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN)];
 const anyAuthenticated = [verifyToken, verifyRole(
@@ -619,4 +619,293 @@ router.post('/reservations/alacarte', [verifyToken, verifyRole(
   }
 });
 
+
+/**
+ * GET /mess/menu-items/active
+ * Returns all active menuItems for the tenant.
+ * Used by WalkInPage special meal item search.
+ * Supervisor and above only.
+ */
+router.get('/menu-items/active', supervisorAndAbove, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+
+    const snap = await db
+      .collection('menuItems')
+      .where('tenantId', '==', tenantId)
+      .where('isActive', '==', true)
+      .orderBy('itemName', 'asc')
+      .get();
+
+    const items = snap.docs.map(doc => {
+      const d = doc.data();
+      return {
+        itemId:       d.itemId,
+        itemName:     d.itemName,
+        baseUnit:     d.baseUnit,
+        foodTypeCode: d.foodTypeCode,
+        sortOrder:    d.sortOrder || 0,
+      };
+    });
+
+    return res.status(200).json({ count: items.length, items });
+
+  } catch (error) {
+    console.error('GET menu-items/active error:', error.message);
+    return errorResponse(res, error.message, 500);
+  }
+});
+
+
+/**
+ * POST /mess/reservations/special-meal
+ * Supervisor walk-in special meal for lunch or dinner.
+ * Allows selection of any active menuItem — not restricted to daily menu.
+ * Supervisor and above only.
+ * Body: { targetEmployeeNumber, reservationDate, mealType, diningMode,
+ *         items: [{ itemId, itemName, baseUnit, foodTypeCode, quantity }] }
+ */
+router.post('/reservations/special-meal', supervisorAndAbove, async (req, res) => {
+  try {
+    const uid                     = req.user.uid;
+    const createdByRole           = req.userRole;
+    const createdByEmployeeNumber = req.officialEmployeeNumber;
+    const tenantId                = req.tenantId;
+
+    const { targetEmployeeNumber, reservationDate, mealType, diningMode, items } = req.body;
+
+    // Validate required fields
+    if (!targetEmployeeNumber) return errorResponse(res, 'targetEmployeeNumber is required.', 400);
+    if (!reservationDate)      return errorResponse(res, 'reservationDate is required.', 400);
+    if (!mealType)             return errorResponse(res, 'mealType is required.', 400);
+    if (!diningMode)           return errorResponse(res, 'diningMode is required.', 400);
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return errorResponse(res, 'items array is required and must not be empty.', 400);
+    }
+
+    // Validate controlled values
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(reservationDate)) {
+      return errorResponse(res, 'Invalid reservationDate format. Use YYYY-MM-DD.', 400);
+    }
+    if (!['lunch', 'dinner'].includes(mealType)) {
+      return errorResponse(res, 'Special meal walk-in is only available for lunch and dinner.', 400);
+    }
+    if (!['dine_in', 'takeaway'].includes(diningMode)) {
+      return errorResponse(res, 'Invalid diningMode. Use dine_in or takeaway.', 400);
+    }
+
+    // Validate each item
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item.itemId)   return errorResponse(res, `Item at index ${i} is missing itemId.`, 400);
+      if (!item.itemName) return errorResponse(res, `Item at index ${i} is missing itemName.`, 400);
+      if (item.quantity !== undefined) {
+        const qty = parseInt(item.quantity, 10);
+        if (isNaN(qty) || qty < 1 || qty > 10) {
+          return errorResponse(res, `Item "${item.itemName}" has invalid quantity. Must be 1-10.`, 400);
+        }
+        item.quantity = qty;
+      }
+    }
+
+    const booking = await createSpecialMealWalkIn({
+      uid,
+      createdByRole,
+      createdByEmployeeNumber,
+      tenantId,
+      targetEmployeeNumber,
+      reservationDate,
+      mealType,
+      items,
+      diningMode,
+    });
+
+    return res.status(201).json({
+      message: 'Special meal walk-in recorded and issued successfully.',
+      booking,
+    });
+
+  } catch (error) {
+    console.error('Special meal walk-in error:', error.message);
+    return errorResponse(res, error.message, 400);
+  }
+});
+
+/**
+ * POST /mess/reservations/official-guest-walkin
+ * Supervisor walk-in for an official guest (no system account).
+ * Handles all meal types — breakfast combo+alacarte, lunch/dinner full catalogue.
+ * issueStatus: issued immediately. approvalStatus: pending_approval.
+ * Supervisor and above only.
+ */
+router.post('/reservations/official-guest-walkin', supervisorAndAbove, async (req, res) => {
+  try {
+    const uid                     = req.user.uid;
+    const createdByRole           = req.userRole;
+    const createdByEmployeeNumber = req.officialEmployeeNumber;
+    const tenantId                = req.tenantId;
+
+    const {
+      guestName,
+      sponsoringEmployeeNumber,
+      reservationDate,
+      mealType,
+      diningMode,
+      comboItem,
+      items,
+    } = req.body;
+
+    // Validate required fields
+    if (!guestName || !guestName.trim()) return errorResponse(res, 'guestName is required.', 400);
+    if (!sponsoringEmployeeNumber) return errorResponse(res, 'sponsoringEmployeeNumber is required.', 400);
+    if (!reservationDate) return errorResponse(res, 'reservationDate is required.', 400);
+    if (!mealType) return errorResponse(res, 'mealType is required.', 400);
+    if (!diningMode) return errorResponse(res, 'diningMode is required.', 400);
+
+    // Validate controlled values
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(reservationDate)) {
+      return errorResponse(res, 'Invalid reservationDate format. Use YYYY-MM-DD.', 400);
+    }
+    if (!['breakfast', 'lunch', 'dinner'].includes(mealType)) {
+      return errorResponse(res, 'Invalid mealType.', 400);
+    }
+    if (!['dine_in', 'takeaway'].includes(diningMode)) {
+      return errorResponse(res, 'Invalid diningMode.', 400);
+    }
+
+    // Must have at least one item
+    const hasCombo = !!comboItem;
+    const hasItems = Array.isArray(items) && items.length > 0;
+    if (!hasCombo && !hasItems) {
+      return errorResponse(res, 'At least one meal item (combo or individual) must be selected.', 400);
+    }
+
+    // Validate items array if present
+    if (hasItems) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (!item.itemId)   return errorResponse(res, `Item at index ${i} is missing itemId.`, 400);
+        if (!item.itemName) return errorResponse(res, `Item at index ${i} is missing itemName.`, 400);
+        if (item.quantity !== undefined) {
+          const qty = parseInt(item.quantity, 10);
+          if (isNaN(qty) || qty < 1 || qty > 10) {
+            return errorResponse(res, `Item "${item.itemName}" has invalid quantity. Must be 1-10.`, 400);
+          }
+          item.quantity = qty;
+        }
+      }
+    }
+
+    const booking = await createOfficialGuestWalkIn({
+      uid,
+      createdByRole,
+      createdByEmployeeNumber,
+      tenantId,
+      guestName: guestName.trim(),
+      sponsoringEmployeeNumber,
+      reservationDate,
+      mealType,
+      diningMode,
+      comboItem: comboItem || null,
+      items: items || [],
+    });
+
+    return res.status(201).json({
+      message: 'Official guest walk-in recorded and issued successfully.',
+      booking,
+    });
+
+  } catch (error) {
+    console.error('Official guest walk-in error:', error.message);
+    return errorResponse(res, error.message, 400);
+  }
+});
+
+
+/**
+ * PATCH /mess/reservations/:reservationId/approve-official-guest
+ * Admin approves billing for an official guest reservation.
+ * Admin only.
+ */
+router.patch('/reservations/:reservationId/approve-official-guest', adminOnly, async (req, res) => {
+  try {
+    const tenantId      = req.tenantId;
+    const approvedByUid = req.user.uid;
+    const { reservationId } = req.params;
+
+    const result = await approveOfficialGuestMeal({ reservationId, tenantId, approvedByUid });
+
+    return res.status(200).json({
+      message: 'Official guest meal approved.',
+      result,
+    });
+
+  } catch (error) {
+    console.error('Approve official guest error:', error.message);
+    return errorResponse(res, error.message, 400);
+  }
+});
+
+
+/**
+ * PATCH /mess/reservations/:reservationId/reject-official-guest
+ * Admin rejects billing for an official guest reservation.
+ * Admin only.
+ * Body: { approvalNote? }
+ */
+router.patch('/reservations/:reservationId/reject-official-guest', adminOnly, async (req, res) => {
+  try {
+    const tenantId      = req.tenantId;
+    const rejectedByUid = req.user.uid;
+    const { reservationId } = req.params;
+    const { approvalNote } = req.body;
+
+    const result = await rejectOfficialGuestMeal({ reservationId, tenantId, rejectedByUid, approvalNote });
+
+    return res.status(200).json({
+      message: 'Official guest meal rejected.',
+      result,
+    });
+
+  } catch (error) {
+    console.error('Reject official guest error:', error.message);
+    return errorResponse(res, error.message, 400);
+  }
+});
+
+
+/**
+ * GET /mess/reservations/official-guest-pending
+ * Returns all official guest reservations with approvalStatus: pending_approval.
+ * Admin only.
+ * Query: ?date=YYYY-MM-DD (optional — omit to get all pending)
+ */
+router.get('/reservations/official-guest-pending', adminOnly, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const { date } = req.query;
+
+    let query = db
+      .collection('messReservations')
+      .where('tenantId', '==', tenantId)
+      .where('subjectType', '==', 'official_guest')
+      .where('approvalStatus', '==', 'pending_approval');
+
+    if (date) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return errorResponse(res, 'Invalid date format. Use YYYY-MM-DD.', 400);
+      }
+      query = query.where('reservationDate', '==', date);
+    }
+
+    const snap = await query.orderBy('createdAt', 'desc').get();
+    const reservations = snap.docs.map(d => d.data());
+
+    return res.status(200).json({ count: reservations.length, reservations });
+
+  } catch (error) {
+    console.error('GET official-guest-pending error:', error.message);
+    return errorResponse(res, error.message, 500);
+  }
+});
 module.exports = router;
