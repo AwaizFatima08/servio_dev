@@ -263,7 +263,11 @@ function EmployeeEventsView() {
     try {
       const token = await getToken();
       const data = await getEvents({ status: 'published', limit: 50 }, token);
-      setEvents(data || []);
+      // Show only today and upcoming events on employee screen
+      const pkt = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Karachi' }));
+      const todayStr = `${pkt.getFullYear()}-${String(pkt.getMonth() + 1).padStart(2, '0')}-${String(pkt.getDate()).padStart(2, '0')}`;
+      const upcoming = (data || []).filter(e => e.eventDate >= todayStr);
+      setEvents(upcoming);
     } catch (e) { setListError(e.message); }
     finally { setListLoading(false); }
   }, [getToken]);

@@ -1,5 +1,6 @@
 // core/functions/src/events/eventRoutes.js
 // COMPLETE REPLACEMENT — adds getAttendanceResponses endpoint for report download
+// FIX: /active route moved before /:eventId to prevent Express route interception
 
 const express = require('express');
 const router = express.Router();
@@ -68,49 +69,10 @@ router.get('/', anyAuthenticated, async (req, res) => {
   }
 });
 
-// GET /events/:eventId/attendance/my-response  — MUST be before /:eventId
-router.get('/:eventId/attendance/my-response', anyAuthenticated, async (req, res) => {
-  try {
-    const tenantId = req.tenantId;
-    const officialEmployeeNumber = req.officialEmployeeNumber;
-    const { eventId } = req.params;
-    const response = await getMyAttendanceResponse({ tenantId, eventId, officialEmployeeNumber });
-    return res.status(200).json({ response });
-  } catch (error) {
-    console.error('Get my attendance response error:', error.message);
-    return errorResponse(res, error.message, 404);
-  }
-});
-
-// GET /events/:eventId/attendance/summary — manager and above
-router.get('/:eventId/attendance/summary', managerAndAbove, async (req, res) => {
-  try {
-    const tenantId = req.tenantId;
-    const { eventId } = req.params;
-    const summary = await getAttendanceSummary({ tenantId, eventId });
-    return res.status(200).json({ summary });
-  } catch (error) {
-    console.error('Get attendance summary error:', error.message);
-    return errorResponse(res, error.message, 500);
-  }
-});
-
-// GET /events/:eventId/attendance/responses — employee-wise detail, manager and above
-router.get('/:eventId/attendance/responses', managerAndAbove, async (req, res) => {
-  try {
-    const tenantId = req.tenantId;
-    const { eventId } = req.params;
-    const responses = await getAttendanceResponses({ tenantId, eventId });
-    return res.status(200).json({ count: responses.length, responses });
-  } catch (error) {
-    console.error('Get attendance responses error:', error.message);
-    return errorResponse(res, error.message, 500);
-  }
-});
-
 // GET /events/active
 // Returns published events where eventDate >= today (PKT).
 // Used by employee home screen event banner (F5). Any authenticated user.
+// IMPORTANT: Must appear before GET /events/:eventId to avoid route interception.
 router.get('/active', anyAuthenticated, async (req, res) => {
   try {
     const tenantId = req.tenantId;
@@ -147,6 +109,46 @@ router.get('/active', anyAuthenticated, async (req, res) => {
     return res.status(200).json({ count: events.length, events });
   } catch (error) {
     console.error('GET /events/active error:', error.message);
+    return errorResponse(res, error.message, 500);
+  }
+});
+
+// GET /events/:eventId/attendance/my-response  — MUST be before /:eventId
+router.get('/:eventId/attendance/my-response', anyAuthenticated, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const officialEmployeeNumber = req.officialEmployeeNumber;
+    const { eventId } = req.params;
+    const response = await getMyAttendanceResponse({ tenantId, eventId, officialEmployeeNumber });
+    return res.status(200).json({ response });
+  } catch (error) {
+    console.error('Get my attendance response error:', error.message);
+    return errorResponse(res, error.message, 404);
+  }
+});
+
+// GET /events/:eventId/attendance/summary — manager and above
+router.get('/:eventId/attendance/summary', managerAndAbove, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const { eventId } = req.params;
+    const summary = await getAttendanceSummary({ tenantId, eventId });
+    return res.status(200).json({ summary });
+  } catch (error) {
+    console.error('Get attendance summary error:', error.message);
+    return errorResponse(res, error.message, 500);
+  }
+});
+
+// GET /events/:eventId/attendance/responses — employee-wise detail, manager and above
+router.get('/:eventId/attendance/responses', managerAndAbove, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const { eventId } = req.params;
+    const responses = await getAttendanceResponses({ tenantId, eventId });
+    return res.status(200).json({ count: responses.length, responses });
+  } catch (error) {
+    console.error('Get attendance responses error:', error.message);
     return errorResponse(res, error.message, 500);
   }
 });

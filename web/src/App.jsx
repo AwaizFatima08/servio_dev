@@ -43,7 +43,8 @@ import EventManagementPage    from './pages/admin/EventManagementPage';
 import ReportingDashboardPage from './pages/admin/ReportingDashboardPage';
 import NotificationCentrePage from './pages/admin/NotificationCentrePage';
 import AppSettingsPage        from './pages/admin/AppSettingsPage';
-import FeedbackDashboardPage  from './pages/admin/FeedbackDashboardPage';
+import FeedbackDashboardPage        from './pages/admin/FeedbackDashboardPage';
+import OfficialGuestApprovalsPage   from './pages/admin/OfficialGuestApprovalsPage';
 
 // ── Shared pages (all roles) ──
 import ContactUsPage from './pages/shared/ContactUsPage';
@@ -192,8 +193,9 @@ export default function App() {
 
             {/* ── Admin-only: App Settings ── */}
             <Route path="/settings"        element={<WithToken Page={AppSettingsPage} />} />
-            <Route path="/feedback-admin"  element={<WithToken Page={FeedbackDashboardPage} />} />
-
+            <Route path="/feedback-admin"        element={<WithToken Page={FeedbackDashboardPage} />} />
+            <Route path="/guest-approvals"       element={<WithToken Page={OfficialGuestApprovalsPage} />} />
+            
             {/* ── Shared: Contact Us (all roles) ── */}
             <Route path="/contact"    element={<WithToken Page={ContactUsPage} />} />
 

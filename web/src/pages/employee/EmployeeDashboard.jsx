@@ -244,7 +244,7 @@ export default function EmployeeDashboard() {
 
       {/* F5: Event banner */}
       {pendingEvents.length > 0 && (
-        <a href="/notifications" className={styles.eventBanner}>
+        <a href="/events" className={styles.eventBanner}>
           <i className="ti ti-calendar-event" />
           <span className={styles.eventBannerText}>
             {pendingEvents.length === 1

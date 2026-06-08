@@ -109,6 +109,8 @@ const NAV_CONFIG = {
       items: [
         { label: 'Events',          icon: 'calendar-event', to: '/events' },
         { label: 'Reports',         icon: 'chart-bar',      to: '/reports' },
+        { label: 'Feedback Review',      icon: 'message-dots',   to: '/feedback-admin' },
+        { label: 'Guest Approvals',      icon: 'user-check',     to: '/guest-approvals' },
         { label: 'App Settings',    icon: 'settings',       to: '/settings' },
         { label: 'Contact Us',      icon: 'phone',          to: '/contact' },
         { label: 'Notifications',   icon: 'bell',           to: '/notifications' },

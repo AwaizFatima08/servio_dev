@@ -116,6 +116,14 @@ export default function WalkInPage() {
   const [guestName, setGuestName]                         = useState('');
   const [sponsoringEmpNumber, setSponsoringEmpNumber]     = useState('');
   const [sponsoringEmpError, setSponsoringEmpError]       = useState('');
+
+  // Sponsoring employee search
+  const [sponsorSearch, setSponsorSearch]         = useState('');
+  const [sponsorResults, setSponsorResults]       = useState([]);
+  const [sponsorLoading, setSponsorLoading]       = useState(false);
+  const [sponsorSelected, setSponsorSelected]     = useState(null);
+  const [showSponsorDrop, setShowSponsorDrop]     = useState(false);
+  const sponsorRef = useRef(null);
  
   // Submit
   const [submitting, setSubmitting]       = useState(false);
@@ -147,10 +155,41 @@ export default function WalkInPage() {
       if (searchRef.current && !searchRef.current.contains(e.target)) {
         setShowDropdown(false);
       }
+      if (sponsorRef.current && !sponsorRef.current.contains(e.target)) {
+        setShowSponsorDrop(false);
+      }
     }
     document.addEventListener('mousedown', handle);
     return () => document.removeEventListener('mousedown', handle);
   }, []);
+
+  // Sponsor employee search effect
+  useEffect(() => {
+    if (sponsorSearch.length < 2) { setSponsorResults([]); return; }
+    const timer = setTimeout(async () => {
+      setSponsorLoading(true);
+      try {
+        const token = await getToken();
+        const results = await getEmployees(sponsorSearch, token);
+        setSponsorResults(results.slice(0, 10));
+        setShowSponsorDrop(true);
+      } catch {
+        setSponsorResults([]);
+      } finally {
+        setSponsorLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [sponsorSearch, getToken]);
+
+  function selectSponsor(emp) {
+    setSponsorSelected(emp);
+    setSponsoringEmpNumber(emp.officialEmployeeNumber);
+    setSponsorSearch(emp.fullName || emp.officialEmployeeNumber);
+    setShowSponsorDrop(false);
+    setSponsorResults([]);
+    setSponsoringEmpError('');
+  }
 
   function selectEmployee(emp) {
     setSelectedEmp(emp);
@@ -187,16 +226,20 @@ export default function WalkInPage() {
   }, [selectedMeal]);
 
   // Load full menu item catalogue when special meal toggle is turned on
+  const [menuItemsError, setMenuItemsError] = useState('');
+
   useEffect(() => {
     if (!isSpecialMeal || menuItemsLoaded) return;
     async function loadItems() {
       setMenuItemsLoading(true);
+      setMenuItemsError('');
       try {
         const token = await getToken();
         const items = await getActiveMenuItems(token);
         setAllMenuItems(items);
         setMenuItemsLoaded(true);
       } catch (e) {
+        setMenuItemsError('Could not load catalogue. Please refresh and try again.');
         console.error('Failed to load menu items:', e.message);
       } finally {
         setMenuItemsLoading(false);
@@ -416,6 +459,10 @@ export default function WalkInPage() {
     setGuestName('');
     setSponsoringEmpNumber('');
     setSponsoringEmpError('');
+    setSponsorSearch('');
+    setSponsorSelected(null);
+    setSponsorResults([]);
+    setShowSponsorDrop(false);
     setDiningMode('dine_in');
     setSubmitSuccess(null);
     setSubmitError('');
@@ -583,6 +630,10 @@ export default function WalkInPage() {
                   setSubjectTab('official_guest');
                   setSelectedEmp(null);
                   setEmpSearch('');
+                  setSponsorSearch('');
+                  setSponsorSelected(null);
+                  setSponsoringEmpNumber('');
+                  setSponsorResults([]);
                 }}
               >
                 <i className="ti ti-briefcase" /> Official Guest
@@ -694,21 +745,72 @@ export default function WalkInPage() {
               onChange={e => setGuestName(e.target.value)}
             />
             <label className={styles.fieldLabel} style={{ marginTop: 12 }}>
-              Sponsoring Employee Number
+              Sponsoring Employee
             </label>
-            <input
-              type="text"
-              className={`${styles.ogTextField} ${sponsoringEmpError ? styles.ogTextFieldError : ''}`}
-              placeholder="e.g. FFL00100"
-              value={sponsoringEmpNumber}
-              onChange={e => { setSponsoringEmpNumber(e.target.value); setSponsoringEmpError(''); }}
-            />
+            <div className={styles.searchWrap} ref={sponsorRef}>
+              <div className={`${styles.searchBox} ${sponsoringEmpError ? styles.ogTextFieldError : ''}`}>
+                <i className="ti ti-search" />
+                <input
+                  type="text"
+                  placeholder="Name or employee number…"
+                  value={sponsorSearch}
+                  onChange={e => {
+                    setSponsorSearch(e.target.value);
+                    setSponsorSelected(null);
+                    setSponsoringEmpNumber('');
+                    setSponsoringEmpError('');
+                  }}
+                  onFocus={() => sponsorResults.length > 0 && setShowSponsorDrop(true)}
+                />
+                {sponsorLoading && <div className={styles.spinnerSm} />}
+                {sponsorSearch && !sponsorLoading && (
+                  <button className={styles.clearBtn} onClick={() => {
+                    setSponsorSearch('');
+                    setSponsorSelected(null);
+                    setSponsoringEmpNumber('');
+                    setSponsorResults([]);
+                  }}>
+                    <i className="ti ti-x" />
+                  </button>
+                )}
+              </div>
+              {showSponsorDrop && sponsorResults.length > 0 && (
+                <div className={styles.dropdown}>
+                  {sponsorResults.map(emp => (
+                    <button
+                      key={emp.officialEmployeeNumber}
+                      className={styles.dropdownItem}
+                      onClick={() => selectSponsor(emp)}
+                    >
+                      <span className={styles.empName}>{emp.fullName}</span>
+                      <span className={styles.empNum}>{emp.officialEmployeeNumber}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {showSponsorDrop && sponsorSearch.length >= 2 && !sponsorLoading && sponsorResults.length === 0 && (
+                <div className={styles.dropdown}>
+                  <div className={styles.dropdownEmpty}>No employees found</div>
+                </div>
+              )}
+            </div>
+            {sponsorSelected && (
+              <div className={styles.selectedEmpCard}>
+                <div className={styles.selectedEmpAvatar}>
+                  {(sponsorSelected.fullName || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()}
+                </div>
+                <div>
+                  <div className={styles.selectedEmpName}>{sponsorSelected.fullName}</div>
+                  <div className={styles.selectedEmpMeta}>
+                    {sponsorSelected.officialEmployeeNumber}
+                    {sponsorSelected.designation ? ` · ${sponsorSelected.designation}` : ''}
+                  </div>
+                </div>
+              </div>
+            )}
             {sponsoringEmpError && (
               <div className={styles.ogFieldError}>{sponsoringEmpError}</div>
             )}
-            <div className={styles.ogFieldHint}>
-              Enter the employee number of the person hosting or responsible for this guest.
-            </div>
           </div>
           )}
 
@@ -843,6 +945,16 @@ export default function WalkInPage() {
                     <div className={styles.menuLoading}>
                       <div className={styles.spinnerSm} />
                       <span>Loading catalogue…</span>
+                    </div>
+                  )}
+
+                  {!menuItemsLoading && menuItemsError && (
+                    <div className={styles.errorBanner}>{menuItemsError}</div>
+                  )}
+
+                  {!menuItemsLoading && menuItemsLoaded && !menuItemsError && (
+                    <div className={styles.ogFieldHint}>
+                      Type an item name to search the catalogue.
                     </div>
                   )}
 

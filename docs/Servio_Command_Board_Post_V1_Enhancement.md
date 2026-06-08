@@ -10,18 +10,26 @@
 | Firebase | servio-dev-55d2d |
 | GitHub | AwaizFatima08/servio_dev |
 | NAS Path | /mnt/storage/projects/servio_dev/ |
-| Last Updated | 7 June 2026 |
+| Last Updated | 9 June 2026 |
 | Last Backup | Due — run before closing this session |
+
+---
+
+## 🎉 MILESTONE — 9 June 2026
+
+**V1 Core + V1 Enhancement — WEB COMPLETE AND FIELD TESTED**
+
+All 20 web screens live. All V1 Enhancement features (F1–F8) developed, deployed, and field tested. All bugs resolved. System stable and ready for Phase 2 controlled rollout.
+
+Mobile update remaining for F1/F2 ala carte feature only.
 
 ---
 
 ## 1. Current Status
 
-**PHASE: V1 Enhancement Feature Development — F1 and F2 COMPLETE**
+**PHASE: V1 Enhancement — WEB COMPLETE. Mobile F1/F2 pending.**
 
-F1 (Employee BF ala carte self-serve) deployed and field-tested. All test cases passed.
-F2 (Supervisor proxy/walk-in BF ala carte) developed and deployed. Field test pending in next session.
-Next: F2 field test report → then proceed to F3.
+All web features delivered and field tested. One mobile update remaining — BF ala carte employee self-serve (F1) and supervisor proxy/walk-in (F2). No other work until this mobile update is done and tested.
 
 ---
 
@@ -33,49 +41,39 @@ Always run backup before starting:
 bash /mnt/storage/projects/servio_dev/scripts/backup/servio_backup.sh
 ```
 
-### Work Order — V1 Enhancement (priority order)
+### Work Order — Next Session
 
-| # | Feature | Priority | Platform | Status |
-|---|---------|----------|----------|--------|
-| F1 | Employee self-serve BF ala carte multi-item | HIGH | Web + Mobile | ✅ COMPLETE — Web deployed + field tested |
-| F2 | Supervisor proxy/walk-in BF ala carte multi-item | HIGH | Web | ✅ COMPLETE — Web deployed, field test pending |
-| F3 | Official guest walk-in mess booking — schema gap fix | MEDIUM | Backend + Web | Not started |
-| F4 | Supervisor proxy/walk-in special lunch/dinner | MEDIUM | Web | Not started |
-| F5 | Event banner on employee home screen | MEDIUM | Web | Not started |
-| F6 | Accounts Supervisor home dashboard | MEDIUM | Web | Not started |
-| F7 | Booking cutoff as editable field in App Settings | LOW | Backend + Web | Not started |
-| F8 | Individual feedback review for admin | LOW | Web | Not started |
-| F13 | Node.js 20 → 22 upgrade | DEADLINE OCT 2026 | Infrastructure | Not started |
+| Priority | Task | Platform | Notes |
+|----------|------|----------|-------|
+| 1 | F1 Mobile — Employee BF ala carte self-serve | Mobile (Expo) | After combined web field test confirmed passing |
+| 2 | F2 Mobile — Supervisor proxy/walk-in BF ala carte | Mobile (Expo) | After F1 mobile done and tested |
+| 3 | F13 — Node.js 20 → 22 upgrade | Infrastructure | Deadline October 2026 — plan before August |
 
-Design discussion required before development begins on each remaining feature.
+After mobile F1/F2 complete and tested → proceed to Phase 2 rollout (controlled FFL employee group).
 
 ---
 
 ## 3. Open Feature Lists
 
-### 3.1 V1 Enhancement — SCOPE LOCKED
+### 3.1 V1 Enhancement — SCOPE LOCKED — WEB COMPLETE ✅
 
-**Scope frozen as of 6 June 2026. No additions until Enhancement complete and field-tested.**
+| # | Feature | Platform | Status |
+|---|---------|----------|--------|
+| F1 | Employee self-serve BF ala carte (multi-item) | Web + Mobile | ✅ Web DONE + field tested. Mobile pending. |
+| F2 | Supervisor proxy/walk-in BF ala carte (multi-item) | Web | ✅ Web DONE + field tested. Mobile pending. |
+| F3 | Official guest walk-in + sponsor search | Web | ✅ DONE + field tested |
+| F4 | Supervisor special meal walk-in catalogue | Web | ✅ DONE + field tested |
+| F5 | Accounts Supervisor home dashboard + event banner | Web | ✅ DONE + field tested |
+| F6/F7 | Booking cutoff widget in App Settings | Web | ✅ DONE + field tested |
+| F8 | Individual feedback review for admin | Web | ✅ DONE + field tested |
+| Guest Approvals | Admin official guest billing approval page | Web | ✅ DONE + field tested |
+| F13 | Node.js 20 → 22 upgrade | Infrastructure | ⏳ Not started — deadline Oct 2026 |
 
-| # | Feature | Priority | Platform | Status |
-|---|---------|----------|----------|--------|
-| F1 | Employee self-serve BF ala carte (multi-item) | HIGH | Web + Mobile | ✅ Web DONE. Mobile pending. |
-| F2 | Supervisor proxy/walk-in BF ala carte (multi-item) | HIGH | Web | ✅ Web DONE. Field test pending. |
-| F3 | Official guest walk-in mess booking — schema gap fix | MEDIUM | Backend + Web | Not started |
-| F4 | Supervisor proxy/walk-in special lunch/dinner | MEDIUM | Web | Not started |
-| F5 | Event banner on employee home screen | MEDIUM | Web | Not started |
-| F6 | Accounts Supervisor home dashboard | MEDIUM | Web | Not started |
-| F7 | Booking cutoff as editable in App Settings | LOW | Backend + Web | Not started |
-| F8 | Individual feedback review for admin | LOW | Web | Not started |
-| F13 | Node.js 20 → 22 upgrade | DEADLINE OCT 2026 | Infrastructure | Not started |
-
-**Note on F1 Mobile:** Web complete and tested. Mobile app ala carte booking (BookMealScreen.js) still pending — to be done after F2 field test passes.
-
-**Note on personal_guest walk-in:** Guest toggle removed from WalkInPage. Guest walk-in will be redesigned as official guest flow under F3.
+**Mobile remaining:** F1 (BookMealScreen.js — BF ala carte) + F2 (WalkInScreen + ProxyBookingScreen).
 
 ### 3.2 V1 Extension — SCOPE LOCKED
 
-**Scope frozen as of 6 June 2026. No additions until Extension complete and field-tested.**
+**No work on Extension until Enhancement mobile update complete and Phase 2 rollout stable.**
 
 | Version | Scope | Design Status | Dependency |
 |---------|-------|---------------|------------|
@@ -85,7 +83,7 @@ Design discussion required before development begins on each remaining feature.
 | V1.4 | Bakery + supervisor view | PENDING DISCUSSION | V1.1 |
 | V1.5 | Full dashboards + analytics + reporting + billing | PENDING DISCUSSION | V1.2, V1.3, V1.4 |
 | V1.6 | Notifications + reporting alignment | PENDING DISCUSSION | V1.5 |
-| Mobile Ext. | Admin/Manager/Supervisor/Accounts mobile dashboards (F9–F12) | DEFERRED FROM V1 ENHANCEMENT | Post V1 Extension stable |
+| Mobile Ext. | Admin/Manager/Supervisor/Accounts mobile dashboards | DEFERRED | Post V1 Extension stable |
 
 ---
 
@@ -102,11 +100,11 @@ Design discussion required before development begins on each remaining feature.
 
 ## 5. Rollout Plan
 
-| Phase | Who | Trigger |
-|-------|-----|---------|
-| Phase 1 | Internal team — Homi, Awaiz, Hadi | IN PROGRESS |
-| Phase 2 | Controlled FFL employee group (3–5 employees) | After V1 Enhancement complete + APK rebuild + field test pass |
-| Phase 3 | Full FFL management club | After Phase 2 stable |
+| Phase | Who | Trigger | Status |
+|-------|-----|---------|--------|
+| Phase 1 | Internal team — Homi, Awaiz, Hadi | IN PROGRESS | ✅ Active |
+| Phase 2 | Controlled FFL employee group (3–5 employees) | After mobile F1/F2 complete + APK rebuild + field test pass | Pending |
+| Phase 3 | Full FFL management club | After Phase 2 stable | Pending |
 
 ---
 
@@ -138,12 +136,13 @@ Design discussion required before development begins on each remaining feature.
 6. **Tenant isolation** on every Firestore operation — tenantId on all queries
 7. **camelCase throughout** — collections, fields, code
 8. **verifyRole** is a factory: `verifyRole(ROLES.X)` — never direct middleware; sets `req.userRole`, `req.tenantId`, `req.officialEmployeeNumber`
-9. **Route ordering:** specific before parameterised (e.g. `/cycles/active` before `/:id`)
+9. **Route ordering:** specific before parameterised (e.g. `/events/active` before `/:eventId`) — lesson learned this session
 10. **All responses:** `successResponse` / `errorResponse` from `../utils` — never raw `res.json()`
 11. **No `FieldValue.serverTimestamp()`** in services — use `new Date()`
 12. **`db.settings()`** called once only in `index.js` — never in service files
 13. **Design locked on paper before any code written** — for all features
 14. **Ala carte bookingSource:** route reads `bookingSource` + `targetEmployeeNumber` from body — self defaults to caller, proxy/walk-in must supply targetEmployeeNumber
+15. **Composite indexes:** any new Firestore query combining `where` + `orderBy` on different fields requires a composite index — create immediately from the error URL when it appears
 
 ---
 
@@ -152,7 +151,7 @@ Design discussion required before development begins on each remaining feature.
 | Version | Scope |
 |---------|-------|
 | V1 current | Mess operations — all core flows live. All bugs resolved. |
-| V1 Enhancement | F1–F8, F13 — mess module improvements, missing flows, infrastructure. SCOPE LOCKED. |
+| V1 Enhancement | F1–F8, F13, Guest Approvals — SCOPE LOCKED. Web complete + field tested. Mobile F1/F2 pending. |
 | V1 Extension | V1.1 Family CRUD → V1.2 Café → V1.3 Tea Bar + Tuck Shop → V1.4 Bakery → V1.5 Dashboards → V1.6 Notifications. SCOPE LOCKED. |
 | V2 | Guest House + BOQ + Library |
 | V3 | Sports + Kiosk + SMS/WhatsApp |
@@ -203,62 +202,68 @@ TOKEN=$(curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:sign
 | bookingGroupId | One shared ID per session across all items |
 | Notification | One combined per session — "Ala Carte Booked" |
 | Weekly booking | Not applicable — ala carte is daily choice only |
-| Official guest ala carte | Pending — part of F3 |
+| Official guest ala carte | Supported — part of F3, now live |
 
 ---
 
 ## 12. Enhancement Development Log
 
+### V1 Enhancement Field Test — 9 June 2026 ✅
+
+**All features field tested and confirmed working. Fixes applied during session:**
+
+| Issue | Fix | Files |
+|-------|-----|-------|
+| F3 sponsor search — plain text input | Replaced with live search dropdown (same pattern as employee search) | `WalkInPage.jsx` |
+| F4 special meal catalogue — appeared broken | Missing composite index on `menuItems` + missing hint text + no error state | `WalkInPage.jsx` + Firebase indexes |
+| F5 event banner — not appearing | `GET /events/active` route intercepted by `GET /:eventId` (wrong route order) + missing composite index on `events` | `eventRoutes.js` + Firebase indexes |
+| F8 feedback review — not accessible | Missing sidebar link + missing composite index on `mealFeedback` | `Sidebar.jsx` + Firebase indexes |
+| Events employee screen — past events showing | Client-side date filter added to `EmployeeEventsView.loadEvents` | `EventManagementPage.jsx` |
+| Event banner link — went to notifications | `href="/notifications"` → `href="/events"` | `EmployeeDashboard.jsx` |
+| Guest Approvals — no admin page | Built `OfficialGuestApprovalsPage.jsx` + route + sidebar link | New files + `App.jsx` + `Sidebar.jsx` |
+| Three composite indexes missing | Created from Firebase error URLs | Firebase console |
+
+**New files added this session:**
+- `web/src/pages/admin/OfficialGuestApprovalsPage.jsx`
+- `web/src/pages/admin/OfficialGuestApprovalsPage.module.css`
+
+**Files modified this session:**
+- `functions/src/events/eventRoutes.js` — route ordering fix
+- `web/src/pages/admin/WalkInPage.jsx` — F3 sponsor search + F4 catalogue hint + error state
+- `web/src/pages/admin/EventManagementPage.jsx` — employee events date filter
+- `web/src/components/layout/Sidebar.jsx` — Feedback Review + Guest Approvals links
+- `web/src/App.jsx` — OfficialGuestApprovalsPage import + route
+- `web/src/pages/employee/EmployeeDashboard.jsx` — event banner href fix
+
+---
+
 ### F1 — Employee BF Ala Carte (Web) ✅ — 7 June 2026
 
 **Files changed:**
-- `functions/src/mess/messReservationService.js` — added `createAlaCarteBooking` function
-- `functions/src/mess/messRoutes.js` — added `POST /mess/reservations/alacarte` route (self only at this stage)
-- `web/src/pages/employee/BookMealPage.jsx` — added AlaCartePicker component, updated SingleBookingFlow, updated SingleSuccess
-- `web/src/pages/employee/BookMealPage.module.css` — added `.sectionLabel`, `.sectionHint`, `.acQtyRow`
-- `web/src/services/messService.js` — added `createAlaCarteBooking` function
+- `functions/src/mess/messReservationService.js` — added `createAlaCarteBooking`
+- `functions/src/mess/messRoutes.js` — added `POST /mess/reservations/alacarte`
+- `web/src/pages/employee/BookMealPage.jsx` — AlaCartePicker component
+- `web/src/pages/employee/BookMealPage.module.css` — new classes
+- `web/src/services/messService.js` — added `createAlaCarteBooking`
 
-**Field test result:** All 7 test cases passed. Lunch shows combo only. Breakfast shows combo + ala carte. Issuance dashboard shows separate row per ala carte item. Notification fires once per session. Weekly booking unaffected.
+**Field test result:** All 7 test cases passed.
 
 ---
 
 ### F2 — Supervisor Proxy/Walk-in BF Ala Carte (Web) ✅ — 7 June 2026
 
 **Files changed:**
-- `functions/src/mess/messRoutes.js` — updated `/reservations/alacarte` route to support `bookingSource: proxy/walk_in` and `targetEmployeeNumber` from body
-- `web/src/pages/supervisor/WalkInPage.jsx` — removed personal_guest toggle entirely, added ala carte section for breakfast, updated handleSubmit, resetAll, success screen
-- `web/src/pages/supervisor/WalkInPage.module.css` — added 6 new classes
-- `web/src/pages/supervisor/ProxyBookingPage.jsx` — added ala carte section in Step 3, updated handleSubmit, resetAll, success screen
-- `web/src/pages/supervisor/ProxyBookingPage.module.css` — added 6 new classes
+- `functions/src/mess/messRoutes.js` — updated alacarte route for proxy/walk-in
+- `web/src/pages/admin/WalkInPage.jsx` — ala carte section added
+- `web/src/pages/admin/WalkInPage.module.css` — new classes
+- `web/src/pages/admin/ProxyBookingPage.jsx` — ala carte section added
+- `web/src/pages/admin/ProxyBookingPage.module.css` — new classes
 
-**Design decision locked:** `personal_guest` walk-in removed. Guest walk-in will be redesigned as official guest flow under F3.
+**Design decision locked:** `personal_guest` walk-in removed. Guest walk-in redesigned as official guest flow under F3.
 
-**Field test:** Pending — to be done in next session.
-
----
-
-## 13. F2 Field Test Checklist (Next Session)
-
-**Walk-in (login as FFL00004):**
-- [ ] Breakfast — two sections visible (Combo + Ala Carte)
-- [ ] Lunch — Combo only, no Ala Carte
-- [ ] Guest toggle is completely gone
-- [ ] Book ala carte walk-in → Firestore: `bookingSource: walk_in`, `issueStatus: issued`
-- [ ] Issuance dashboard shows ala carte walk-in items as already issued
-
-**Proxy Booking (login as FFL00004):**
-- [ ] Step 3 Breakfast — two sections visible
-- [ ] Step 3 Lunch — Combo only
-- [ ] Book ala carte proxy → Firestore: `bookingSource: proxy`, `issueStatus: pending`, `employeeNumber` = target employee (not supervisor)
-- [ ] Issuance dashboard shows ala carte proxy items as pending, can be issued
+**Field test result:** Passed.
 
 ---
-
-## Bug Correction History (Summary)
-
-### F1 + F2 — Ala Carte Feature Development — 7 June 2026 ✅
-
-See Enhancement Development Log above.
 
 ### Phase 5 — Mobile Bug Correction — 6 June 2026 ✅
 
