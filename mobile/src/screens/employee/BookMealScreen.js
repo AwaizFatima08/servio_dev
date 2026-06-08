@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getDailyMenu, bookMeal } from '../../services/messService';
+import { getDailyMenu, bookMeal, bookAlaCarte } from '../../services/messService';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -61,12 +61,22 @@ export default function BookMealScreen({ navigation }) {
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState(null);
 
-  // Modal state
+  // Modal state — combo booking
   const [modalVisible, setModalVisible]     = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
   const [diningMode, setDiningMode]         = useState('dine_in');
   const [quantity, setQuantity]             = useState(1);
   const [booking, setBooking]               = useState(false);
+
+  // Ala carte state — multi-item session
+  const [alaCarteSelections, setAlaCarteSelections] = useState({});
+  const [alaCarteNames, setAlaCarteNames]           = useState({});
+  const [alaCarteDiningMode, setAlaCarteDiningMode] = useState('dine_in');
+  const [alaCarteBooking, setAlaCarteBooking]       = useState(false);
+
+  const isBreakfast          = selectedMeal === 'breakfast';
+  const hasAlaCarteSelection = Object.values(alaCarteSelections).some(q => q > 0);
+  const alaCarteItemCount    = Object.values(alaCarteSelections).filter(q => q > 0).length;
 
   const loadMenu = useCallback(async (date, mealType) => {
     setLoading(true);
@@ -84,6 +94,9 @@ export default function BookMealScreen({ navigation }) {
 
   useEffect(() => {
     loadMenu(selectedDate, selectedMeal);
+    // Reset ala carte selections when date or meal changes
+    setAlaCarteSelections({});
+    setAlaCarteNames({});
   }, [selectedDate, selectedMeal, loadMenu]);
 
   const openModal = (option) => {
@@ -92,6 +105,8 @@ export default function BookMealScreen({ navigation }) {
     setQuantity(1);
     setModalVisible(true);
   };
+
+  // ── Combo booking ────────────────────────────────────────────────────────────
 
   const handleBook = async () => {
     if (!selectedOption) return;
@@ -105,7 +120,7 @@ export default function BookMealScreen({ navigation }) {
         optionLabel:     selectedOption.displayLabel || selectedOption.itemName,
         itemName:        selectedOption.comboName || selectedOption.itemName,
         diningMode,
-        selectionMode:   selectedOption.isAlaCarte ? 'alacarte' : 'combo',
+        selectionMode:   'combo',
         quantity,
       };
       await bookMeal(payload);
@@ -126,6 +141,50 @@ export default function BookMealScreen({ navigation }) {
       setBooking(false);
     }
   };
+
+  // ── Ala carte helpers ────────────────────────────────────────────────────────
+
+  const handleAlaCarteUpdate = (itemId, itemName, newQty) => {
+    setAlaCarteSelections(prev => ({ ...prev, [itemId]: newQty }));
+    setAlaCarteNames(prev => ({ ...prev, [itemId]: itemName }));
+  };
+
+  const handleAlaCarteBook = async () => {
+    if (!hasAlaCarteSelection) return;
+    setAlaCarteBooking(true);
+    try {
+      const items = Object.entries(alaCarteSelections)
+        .filter(([, qty]) => qty > 0)
+        .map(([itemId, qty]) => ({
+          itemId,
+          itemName: alaCarteNames[itemId] || itemId,
+          quantity: qty,
+        }));
+      await bookAlaCarte({
+        reservationDate: selectedDate,
+        diningMode:      alaCarteDiningMode,
+        items,
+      });
+      setAlaCarteSelections({});
+      setAlaCarteNames({});
+      const modeLabel = alaCarteDiningMode === 'dine_in' ? 'Dine In' : 'Takeaway';
+      Alert.alert(
+        'Ala Carte Booked!',
+        `${items.length} item${items.length > 1 ? 's' : ''} for ${formatDisplayDate(selectedDate)} (${modeLabel}) confirmed.`,
+        [{ text: 'OK' }]
+      );
+    } catch (err) {
+      Alert.alert(
+        'Error',
+        err?.response?.data?.message || err.message || 'Ala carte booking failed.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setAlaCarteBooking(false);
+    }
+  };
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <SafeAreaView style={styles.container}>
@@ -203,6 +262,8 @@ export default function BookMealScreen({ navigation }) {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scroll}>
+
+          {/* Combo section */}
           {menu.combos && menu.combos.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Combo Meals</Text>
@@ -211,16 +272,82 @@ export default function BookMealScreen({ navigation }) {
               ))}
             </>
           )}
-          {menu.alaCarte && menu.alaCarte.length > 0 && (
+
+          {/* Ala carte section — breakfast only, multi-item */}
+          {isBreakfast && menu.alaCarte && menu.alaCarte.length > 0 && (
             <>
               <Text style={styles.sectionTitle}>Ala Carte</Text>
-              {menu.alaCarte.map((item, idx) => (
-                <AlaCarteCard key={idx} item={item} onBook={() => openModal({ ...item, isAlaCarte: true })} />
-              ))}
+              <Text style={styles.sectionHint}>
+                Select items and quantities, then confirm below.
+              </Text>
+              {menu.alaCarte.map((item, idx) => {
+                const current = alaCarteSelections[item.itemId] || 0;
+                return (
+                  <AlaCarteCard
+                    key={idx}
+                    item={item}
+                    quantity={current}
+                    onQuantityChange={(newQty) =>
+                      handleAlaCarteUpdate(item.itemId, item.itemName, newQty)
+                    }
+                  />
+                );
+              })}
+
+              {/* Confirm panel — appears when any item selected */}
+              {hasAlaCarteSelection && (
+                <View style={styles.alaCarteSummary}>
+                  <Text style={styles.alaCarteSummaryLabel}>How are you dining?</Text>
+                  <View style={styles.alaCarteDiningRow}>
+                    <TouchableOpacity
+                      style={[styles.diningBtn, alaCarteDiningMode === 'dine_in' && styles.diningBtnActive]}
+                      onPress={() => setAlaCarteDiningMode('dine_in')}
+                    >
+                      <Ionicons
+                        name="restaurant-outline"
+                        size={15}
+                        color={alaCarteDiningMode === 'dine_in' ? '#fff' : '#1A7A4A'}
+                      />
+                      <Text style={[styles.diningBtnText, alaCarteDiningMode === 'dine_in' && styles.diningBtnTextActive]}>
+                        Dine In
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.diningBtn, alaCarteDiningMode === 'takeaway' && styles.diningBtnActive]}
+                      onPress={() => setAlaCarteDiningMode('takeaway')}
+                    >
+                      <Ionicons
+                        name="bag-outline"
+                        size={15}
+                        color={alaCarteDiningMode === 'takeaway' ? '#fff' : '#1A7A4A'}
+                      />
+                      <Text style={[styles.diningBtnText, alaCarteDiningMode === 'takeaway' && styles.diningBtnTextActive]}>
+                        Takeaway
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.alaCarteConfirmBtn,
+                      alaCarteBooking && styles.alaCarteConfirmBtnDisabled,
+                    ]}
+                    onPress={handleAlaCarteBook}
+                    disabled={alaCarteBooking}
+                  >
+                    {alaCarteBooking
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Text style={styles.alaCarteConfirmText}>
+                          Confirm Ala Carte ({alaCarteItemCount} item{alaCarteItemCount > 1 ? 's' : ''})
+                        </Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              )}
             </>
           )}
+
           {(!menu.combos || menu.combos.length === 0) &&
-           (!menu.alaCarte || menu.alaCarte.length === 0) && (
+           (!isBreakfast || !menu.alaCarte || menu.alaCarte.length === 0) && (
             <View style={styles.centeredMsg}>
               <Text style={styles.errorText}>No items on this day's menu.</Text>
             </View>
@@ -228,7 +355,7 @@ export default function BookMealScreen({ navigation }) {
         </ScrollView>
       )}
 
-      {/* Booking modal */}
+      {/* Combo booking modal */}
       <BookingModal
         visible={modalVisible}
         option={selectedOption}
@@ -284,25 +411,44 @@ function ComboCard({ combo, onBook }) {
   );
 }
 
-// ─── Ala Carte Card ───────────────────────────────────────────────────────────
+// ─── Ala Carte Card — inline quantity controls ────────────────────────────────
 
-function AlaCarteCard({ item, onBook }) {
+function AlaCarteCard({ item, quantity, onQuantityChange }) {
+  const selected = quantity > 0;
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, selected && styles.cardSelected]}>
       <View style={styles.cardTop}>
         <View style={styles.cardLeft}>
           <Text style={styles.cardTitle}>{item.itemName}</Text>
           {item.baseUnit ? <Text style={styles.cardSub}>{item.baseUnit}</Text> : null}
         </View>
-        <TouchableOpacity style={styles.bookBtn} onPress={onBook}>
-          <Text style={styles.bookBtnText}>Book</Text>
-        </TouchableOpacity>
+        <View style={styles.acQtyRow}>
+          <TouchableOpacity
+            style={[styles.acQtyBtn, quantity <= 0 && styles.qtyBtnDisabled]}
+            onPress={() => onQuantityChange(Math.max(0, quantity - 1))}
+            disabled={quantity <= 0}
+          >
+            <Ionicons name="remove" size={16} color={quantity <= 0 ? '#ccc' : '#1A7A4A'} />
+          </TouchableOpacity>
+          <View style={styles.acQtyDisplay}>
+            <Text style={[styles.acQtyText, selected && styles.acQtyTextSelected]}>
+              {quantity}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.acQtyBtn, quantity >= 10 && styles.qtyBtnDisabled]}
+            onPress={() => onQuantityChange(Math.min(10, quantity + 1))}
+            disabled={quantity >= 10}
+          >
+            <Ionicons name="add" size={16} color={quantity >= 10 ? '#ccc' : '#1A7A4A'} />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 }
 
-// ─── Booking Modal ────────────────────────────────────────────────────────────
+// ─── Booking Modal — combo only ───────────────────────────────────────────────
 
 function BookingModal({
   visible, option, diningMode, onDiningChange,
@@ -339,7 +485,7 @@ function BookingModal({
               onPress={() => onQuantityChange(Math.min(MAX_QTY, quantity + 1))}
               disabled={quantity >= MAX_QTY}
             >
-              <Ionicons name="add" size={20} color={quantity >= MAX_QTY ? '#ccc' : '#1A7A4A' } />
+              <Ionicons name="add" size={20} color={quantity >= MAX_QTY ? '#ccc' : '#1A7A4A'} />
             </TouchableOpacity>
             <Text style={styles.qtyNote}>max {MAX_QTY}</Text>
           </View>
@@ -425,9 +571,11 @@ const styles = StyleSheet.create({
 
   // Cards
   scroll:             { padding: 16, paddingBottom: 32 },
-  sectionTitle:       { fontSize: 15, fontWeight: '700', color: '#042C1E', marginBottom: 10, marginTop: 8 },
+  sectionTitle:       { fontSize: 15, fontWeight: '700', color: '#042C1E', marginBottom: 6, marginTop: 8 },
+  sectionHint:        { fontSize: 12, color: '#888', marginBottom: 10 },
   card:               { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 10, elevation: 1 },
-  cardTop:            { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  cardSelected:       { borderWidth: 1.5, borderColor: '#1A7A4A' },
+  cardTop:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardLeft:           { flex: 1, marginRight: 12 },
   cardTitle:          { fontSize: 15, fontWeight: '600', color: '#333' },
   cardSub:            { fontSize: 13, color: '#888', marginTop: 3 },
@@ -439,6 +587,21 @@ const styles = StyleSheet.create({
   constituentItem:    { fontSize: 13, color: '#555', marginTop: 4 },
   unitText:           { fontSize: 12, color: '#aaa' },
 
+  // Ala carte inline quantity controls
+  acQtyRow:           { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  acQtyBtn:           { width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, borderColor: '#1A7A4A', alignItems: 'center', justifyContent: 'center' },
+  acQtyDisplay:       { width: 32, height: 30, borderRadius: 6, backgroundColor: '#EBF9F4', alignItems: 'center', justifyContent: 'center' },
+  acQtyText:          { fontSize: 15, fontWeight: '700', color: '#bbb' },
+  acQtyTextSelected:  { color: '#042C1E' },
+
+  // Ala carte confirm panel
+  alaCarteSummary:        { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginTop: 4, marginBottom: 10, elevation: 1 },
+  alaCarteSummaryLabel:   { fontSize: 13, color: '#888', marginBottom: 10 },
+  alaCarteDiningRow:      { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  alaCarteConfirmBtn:     { backgroundColor: '#1A7A4A', borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
+  alaCarteConfirmBtnDisabled: { backgroundColor: '#88bba4' },
+  alaCarteConfirmText:    { color: '#fff', fontWeight: '700', fontSize: 15 },
+
   // Modal
   modalOverlay:       { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   modalBox:           { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 36 },
@@ -447,7 +610,7 @@ const styles = StyleSheet.create({
   modalItemName:      { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 20 },
   modalSectionLabel:  { fontSize: 13, color: '#888', marginBottom: 10 },
 
-  // Quantity
+  // Quantity (combo modal)
   qtyRow:             { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 12 },
   qtyBtn:             { width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: '#1A7A4A', alignItems: 'center', justifyContent: 'center' },
   qtyBtnDisabled:     { borderColor: '#ddd' },

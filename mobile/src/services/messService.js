@@ -13,10 +13,20 @@ export const getDailyMenu = async (date, mealType) => {
   return res.data;
 };
 
-// Book a meal for self
+// Book a combo meal for self
 // payload: { reservationDate, mealType, menuItemId, menuOptionKey, optionLabel, itemName, diningMode, selectionMode }
 export const bookMeal = async (payload) => {
   const res = await api.post(`/mess/reservations`, payload);
+  return res.data;
+};
+
+// Book ala carte items for self — breakfast only
+// payload: { reservationDate, diningMode, items: [{itemId, itemName, quantity}] }
+export const bookAlaCarte = async (payload) => {
+  const res = await api.post(`/mess/reservations/alacarte`, {
+    ...payload,
+    bookingSource: 'self',
+  });
   return res.data;
 };
 

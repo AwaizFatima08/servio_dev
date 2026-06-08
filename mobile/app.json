@@ -7,11 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#EBF9F4"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "org.homilabs.servio"
@@ -33,6 +28,17 @@
         "projectId": "36fa5931-2c0e-4113-a3ac-9672a3a8bea5"
       }
     },
-    "owner": "homi55"
+    "owner": "homi55",
+    "plugins": [
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#EBF9F4"
+        }
+      ]
+    ]
   }
 }
