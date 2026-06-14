@@ -1,6 +1,6 @@
 // web/src/services/eventService.js — complete replacement v2
 
-const BASE_URL = 'https://asia-south1-servio-dev-55d2d.cloudfunctions.net/api';
+import { BASE_URL } from './config.js';
 function authHeader(token) { return { Authorization: `Bearer ${token}` }; }
 function jsonHeaders(token) { return { ...authHeader(token), 'Content-Type': 'application/json' }; }
 

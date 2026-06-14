@@ -113,22 +113,46 @@ const getEmployee = async (officialEmployeeNumber) => {
 
 const setEmployeeStatus = async ({ officialEmployeeNumber, isActive, updatedByUid }) => {
 
-  const doc = await db.collection(COLLECTIONS.EMPLOYEES).doc(officialEmployeeNumber).get();
+  const empRef = db.collection(COLLECTIONS.EMPLOYEES).doc(officialEmployeeNumber);
+  const doc = await empRef.get();
 
   if (!doc.exists) {
     return { success: false, message: `Employee ${officialEmployeeNumber} not found` };
   }
 
-  await db.collection(COLLECTIONS.EMPLOYEES).doc(officialEmployeeNumber).update({
-    isActive,
-    updatedAt: ts(),
-  });
+  // V1.1: employee status + family cascade committed together in ONE batch,
+  // so we never land in a split state (employee toggled but family not).
+  const batch = db.batch();
+  const stamp = ts();
+
+  batch.update(empRef, { isActive, updatedAt: stamp });
+
+  // On DEACTIVATION, cascade-deactivate all active family members.
+  // On reactivation we deliberately do NOT auto-restore them — the employee
+  // reviews and restores manually (scope decision).
+  //
+  // Query is two-equality only (tenantId + officialEmployeeNumber) to avoid
+  // needing a composite index; the isActive check is done in memory.
+  let cascadedCount = 0;
+  if (isActive === false) {
+    const famSnap = await db.collection(COLLECTIONS.FAMILY_MEMBERS)
+      .where('tenantId', '==', 'ffl')
+      .where('officialEmployeeNumber', '==', officialEmployeeNumber)
+      .get();
+
+    const activeMembers = famSnap.docs.filter(d => d.data().isActive === true);
+    activeMembers.forEach(d => batch.update(d.ref, { isActive: false, updatedAt: stamp }));
+    cascadedCount = activeMembers.length;
+  }
+
+  await batch.commit();
 
   return {
     success: true,
     message: `Employee ${officialEmployeeNumber} ${isActive ? 'activated' : 'deactivated'}`,
     officialEmployeeNumber,
     isActive,
+    familyMembersDeactivated: cascadedCount,
   };
 };
 

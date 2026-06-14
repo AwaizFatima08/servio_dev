@@ -5,8 +5,9 @@
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import axios from 'axios';
+import { BASE_URL } from './config.js';
 
-const API_BASE = 'https://asia-south1-servio-dev-55d2d.cloudfunctions.net/api';
+const API_BASE = BASE_URL;
 
 // ─────────────────────────────────────────
 // login

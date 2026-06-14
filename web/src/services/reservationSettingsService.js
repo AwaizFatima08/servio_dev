@@ -3,7 +3,7 @@
 // HomiLabs | Servio | Web
 // Reads and writes reservationSettings — separate from appSettings.
 
-const BASE_URL = 'https://asia-south1-servio-dev-55d2d.cloudfunctions.net/api';
+import { BASE_URL } from './config.js';
 
 function authHeader(token) {
   return { Authorization: `Bearer ${token}` };

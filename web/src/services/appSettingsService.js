@@ -14,7 +14,7 @@
 
 import { auth } from '../config/firebase';
 
-const BASE_URL = 'https://asia-south1-servio-dev-55d2d.cloudfunctions.net/api';
+import { BASE_URL } from './config.js';
 
 const getToken = async () => {
   const user = auth.currentUser;

@@ -35,6 +35,9 @@ const UPDATABLE_FIELDS = [
   'managerPhone',
   'supportEmail',
   'supportPhone',
+  // V1.1 — Family Member CRUD
+  'maxFamilyMembersPerEmployee',
+  'familyMemberFeatureActive',
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
