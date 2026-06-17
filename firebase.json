@@ -1,6 +1,6 @@
 {
   "firestore": {
-    "database": "(default)",
+    "database": "servio-dev",
     "rules": "core/functions/firestore.rules",
     "indexes": "core/functions/firestore.indexes.json"
   },

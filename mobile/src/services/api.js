@@ -26,9 +26,10 @@
 // ─────────────────────────────────────────────────────
 
 import axios from 'axios';
+import Constants from 'expo-constants';
 import { auth } from './firebase';
 
-const API_BASE_URL = 'https://asia-south1-servio-dev-55d2d.cloudfunctions.net/api';
+const API_BASE_URL = Constants.expoConfig.extra.apiUrl;
 
 const api = axios.create({
   baseURL: API_BASE_URL,

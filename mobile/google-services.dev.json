@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1074937348507",
+    "project_id": "servio-dev-55d2d",
+    "storage_bucket": "servio-dev-55d2d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1074937348507:android:ba7486e7716644e320613e",
+        "android_client_info": {
+          "package_name": "org.homilabs.servio"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCNEDbUEz02_KJbfJ8PSr2PBDkIXQFqixI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "servio-dev-55d2d"
+    "default": "servio-dev-55d2d",
+    "dev": "servio-dev-55d2d",
+    "prod": "servio-prod-3a6de"
   }
 }
