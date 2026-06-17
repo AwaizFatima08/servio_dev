@@ -24,9 +24,7 @@ const express = require('express');
 const cors = require('cors');
 
 // ── Initialize Firebase Admin ────────────
-admin.initializeApp({
-  credential: admin.credential.cert(require('../service-account.json')),
-});
+admin.initializeApp();
 
 // Point to the named Firestore database
 const { getFirestore } = require('firebase-admin/firestore');
