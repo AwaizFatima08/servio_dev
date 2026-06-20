@@ -110,9 +110,12 @@ router.patch('/:employeeNumber/status', adminOnly, async (req, res) => {
       updatedByUid: req.user.uid,
     });
     if (!result.success) return errorResponse(res, result.message, 404);
+    // V1.1 carry fix (19-Jun-2026): pass full service result through so the
+    // admin UI can show the family cascade count.
     return successResponse(res, {
       officialEmployeeNumber: result.officialEmployeeNumber,
       isActive: result.isActive,
+      familyMembersDeactivated: result.familyMembersDeactivated,
     }, result.message);
   } catch (error) {
     return errorResponse(res, 'Failed to update employee status', 500, error);

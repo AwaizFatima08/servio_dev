@@ -18,7 +18,12 @@ const ROLES = {
   ADMIN:                           'admin',
   MANAGER:                         'manager',
   MESS_SUPERVISOR:                 'mess_supervisor',
+  // DEPRECATED (19-Jun-2026) — kept for V1 compatibility. V1.2+ uses
+  // CAFE_SUPERVISOR and CAFE_WAITER (granular). Remove only after no
+  // user document carries this role in either dev or prod.
   CAFE_BAKERY_TUCKSHOP_SUPERVISOR: 'cafe_bakery_tuckshop_supervisor',
+  CAFE_SUPERVISOR:                 'cafe_supervisor',
+  CAFE_WAITER:                     'cafe_waiter',
   ACCOUNTS_SUPERVISOR:             'accounts_supervisor',
   GH_SUPERVISOR:                   'gh_supervisor',
   BOQ_SUPERVISOR:                  'boq_supervisor',
@@ -91,8 +96,10 @@ const MEMBER_RELATIONS = {
 };
 
 const MARITAL_STATUS = {
-  SINGLE:  'single',
-  MARRIED: 'married',
+  SINGLE:   'single',
+  MARRIED:  'married',
+  DIVORCED: 'divorced',
+  WIDOWED:  'widowed',
 };
 
 const OFFICIAL_ACCOUNT_TYPES = {
@@ -180,7 +187,7 @@ const MENU_OPTION_KEYS = {
   ALACARTE: 'alacarte',
 };
 
-const DINING_MODES    = { DINE_IN: 'dine_in', TAKEAWAY: 'takeaway' };
+const DINING_MODES    = { DINE_IN: 'dine_in', TAKEAWAY: 'takeaway', OUTDOOR_SEATING: 'outdoor_seating' };
 const SELECTION_MODES = { COMBO: 'combo', ALACARTE: 'alacarte' };
 
 const BILLING_DESTINATIONS = {
@@ -398,6 +405,32 @@ const REPORT_TYPES = {
 };
 
 const PERIOD_TYPES = { DAILY: 'daily', WEEKLY: 'weekly', MONTHLY: 'monthly' };
+// ── Cafe (V1.2) ───────────────────────────────────────────────────────────────
+
+const CAFE_ORDER_TYPES = {
+  CAFE_HOURS:       'cafe_hours',
+  ANYTIME_TAKEAWAY: 'anytime_takeaway',
+};
+
+const CAFE_ORDER_STATUS = {
+  PLACED:    'placed',
+  ACCEPTED:  'accepted',
+  CANCELLED: 'cancelled',
+};
+
+const CAFE_CONSUMER_TYPES = {
+  SELF:          'self',
+  FAMILY_MEMBER: 'family_member',
+};
+
+// Café cancellation reasons — narrower than mess. Café orders cancelled only
+// inside the 1-hour window on anytime_takeaway. cafe_hours orders cannot be
+// cancelled by employee.
+const CAFE_CANCELLATION_REASONS = {
+  EMPLOYEE_REQUEST: 'employee_request',
+  DATA_CORRECTION:  'data_correction',
+  OTHER:            'other',
+};
 
 // ── COLLECTIONS ───────────────────────────────────────────────────────────────
 // Single source of truth — must match Firestore collection names exactly
@@ -424,6 +457,8 @@ const COLLECTIONS = {
   MESS_RESERVATIONS:          'messReservations',
   MEAL_RATES:                 'mealRates',
   MEAL_FEEDBACK:              'mealFeedback',
+  // Cafe Operations (1) — V1.2
+  CAFE_ORDERS:                'cafeOrders',
   // Events (6)
   EVENT_NOTE_TEMPLATES:       'eventNoteTemplates',
   EVENTS:                     'events',
@@ -457,5 +492,6 @@ module.exports = {
   NOTIFICATION_STATUS, NOTIFICATION_TYPES_IDENTITY, NOTIFICATION_TYPES_MESS,
   NOTIFICATION_TYPES_EVENTS, NOTIFICATION_TYPES_BILLING, NOTIFICATION_TYPES_ADMIN,
   DELIVERY_STATUS, IN_APP_STATUS, REVIEW_STATUS, REPORT_TYPES, PERIOD_TYPES,
+  CAFE_ORDER_TYPES, CAFE_ORDER_STATUS, CAFE_CONSUMER_TYPES, CAFE_CANCELLATION_REASONS,
   COLLECTIONS,
 };

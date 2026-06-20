@@ -15,6 +15,7 @@ const NAV_CONFIG = {
       items: [
         { label: 'Home',          icon: 'home',           to: '/dashboard' },
         { label: 'My Profile',    icon: 'user',           to: '/profile' },
+        { label: 'My Family',     icon: 'users',          to: '/my-family' },
       ],
     },
     {

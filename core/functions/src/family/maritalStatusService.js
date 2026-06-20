@@ -4,15 +4,17 @@
 //
 // FILE LOCATION: functions/src/family/maritalStatusService.js
 //
-// maritalStatus lives on the employees document.
-//   single → married : employee changes freely, immediate effect.
-//   married → single : pending model. Admin approval required. Family members
-//                      remain accessible during the pending period. On admin
-//                      approval, all active family members auto-deactivate.
+// SLICE 3a (19-Jun-2026): simplified model.
+//   - Vocabulary expanded to 4 values: single / married / divorced / widowed.
+//   - Employee changes status directly. No admin approval. No pending state.
+//   - No cascade. Spouse deactivation happens on the family page if/when
+//     the employee chooses; marital status is a personal label.
+//   - listPendingMaritalChanges / approveMaritalChange / rejectMaritalChange
+//     remain in the file but are now PARKED — no UI route reaches them.
+//     Retained for possible future admin tooling. Do not delete without
+//     also removing the corresponding routes in familyRoutes.js.
 //
-// The "My Family" tab is hidden in the UI until married status is declared;
-// that gating is a frontend concern driven by the maritalStatus this service
-// returns. tenantId-scoped throughout. new Date() timestamps (Rule #11).
+// tenantId-scoped throughout. new Date() timestamps (Rule #11).
 // ─────────────────────────────────────────
 
 const { getFirestore } = require('firebase-admin/firestore');
@@ -47,9 +49,13 @@ async function getMyMaritalStatus({ uid }) {
 
 // ─────────────────────────────────────────
 // setMyMaritalStatus
-// single → married : applied immediately.
-// married → single : stored as pendingMaritalStatus, awaits admin approval.
-// Same value as current : no-op error.
+// Employee self-declares marital status. Any of the four values may be set
+// from any current state. No admin approval. No pending state. No cascade
+// onto family members — the employee manages spouse deactivation separately
+// on the family page.
+//
+// Defensive: clears pendingMaritalStatus on every write, in case the field
+// was set by an older (pre-Slice 3a) flow.
 // ─────────────────────────────────────────
 async function setMyMaritalStatus({ uid, maritalStatus }) {
   const valid = Object.values(MARITAL_STATUS);
@@ -68,43 +74,33 @@ async function setMyMaritalStatus({ uid, maritalStatus }) {
     throw new Error(`Marital status is already ${maritalStatus}`);
   }
 
-  // single (or unset) → married : immediate.
-  if (maritalStatus === MARITAL_STATUS.MARRIED) {
-    await ref.update({
-      maritalStatus: MARITAL_STATUS.MARRIED,
-      pendingMaritalStatus: null,
-      updatedAt: now(),
-    });
-    return {
-      message: 'Marital status updated to married',
-      maritalStatus: MARITAL_STATUS.MARRIED,
-      pending: false,
-    };
-  }
+  await ref.update({
+    maritalStatus,
+    pendingMaritalStatus: null,
+    updatedAt: now(),
+  });
 
-  // married → single : pending admin approval.
-  if (maritalStatus === MARITAL_STATUS.SINGLE) {
-    if (current !== MARITAL_STATUS.MARRIED) {
-      // No married state to step down from.
-      await ref.update({ maritalStatus: MARITAL_STATUS.SINGLE, pendingMaritalStatus: null, updatedAt: now() });
-      return { message: 'Marital status set to single', maritalStatus: MARITAL_STATUS.SINGLE, pending: false };
-    }
-    if (emp.pendingMaritalStatus === MARITAL_STATUS.SINGLE) {
-      throw new Error('A change to single is already pending admin approval');
-    }
-    await ref.update({ pendingMaritalStatus: MARITAL_STATUS.SINGLE, updatedAt: now() });
-    return {
-      message: 'Change to single submitted. Pending admin approval. Family members remain accessible until approved.',
-      maritalStatus: current,
-      pending: true,
-    };
-  }
-
-  throw new Error('Unsupported marital status transition');
+  return {
+    message: `Marital status updated to ${maritalStatus}`,
+    maritalStatus,
+    // Kept in the response for backward compatibility with the Slice 1 web
+    // service which still reads this field. Always false going forward.
+    pending: false,
+  };
 }
 
+// ═════════════════════════════════════════
+// PARKED — Admin marital approval flow (Slice 3a)
+// ═════════════════════════════════════════
+// These three functions remain deployed but are not reachable from any UI
+// route in the simplified Slice 3a model (employee declares marital status
+// directly; no pending state; no admin approval). They are retained for
+// possible future admin tooling (e.g. correcting a misclicked status on
+// behalf of an employee). Same parking pattern as the family deletion flow.
 // ─────────────────────────────────────────
-// ADMIN — listPendingMaritalChanges
+
+// ─────────────────────────────────────────
+// ADMIN — listPendingMaritalChanges  [PARKED]
 // Lists employees with a pendingMaritalStatus for the tenant.
 // ─────────────────────────────────────────
 async function listPendingMaritalChanges({ tenantId }) {
@@ -126,7 +122,7 @@ async function listPendingMaritalChanges({ tenantId }) {
 }
 
 // ─────────────────────────────────────────
-// ADMIN — approveMaritalChange
+// ADMIN — approveMaritalChange  [PARKED]
 // Approves married → single. Applies status and auto-deactivates ALL active
 // family members for that employee (single batch).
 // ─────────────────────────────────────────
@@ -168,7 +164,7 @@ async function approveMaritalChange({ tenantId, officialEmployeeNumber }) {
 }
 
 // ─────────────────────────────────────────
-// ADMIN — rejectMaritalChange
+// ADMIN — rejectMaritalChange  [PARKED]
 // Clears the pending change; current married status stays in force.
 // ─────────────────────────────────────────
 async function rejectMaritalChange({ tenantId, officialEmployeeNumber }) {

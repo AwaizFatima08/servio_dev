@@ -22,6 +22,7 @@ import MyBillPage         from './pages/employee/MyBillPage';
 import FeedbackPage       from './pages/employee/FeedbackPage';
 import NotificationsPage  from './pages/employee/NotificationsPage';
 import MyProfilePage      from './pages/employee/MyProfilePage';
+import MyFamilyPage       from './pages/employee/MyFamilyPage';
 
 // ── Supervisor pages ──
 import IssuanceDashboardPage  from './pages/admin/IssuanceDashboardPage';
@@ -170,6 +171,7 @@ export default function App() {
             <Route path="/feedback"     element={<WithToken Page={FeedbackPage} />} />
             <Route path="/notifications" element={<WithToken Page={NotificationsPage} />} />
             <Route path="/profile"      element={<WithToken Page={MyProfilePage} />} />
+            <Route path="/my-family"    element={<WithToken Page={MyFamilyPage} />} />
 
             {/* ── Supervisor screens ── */}
             <Route path="/issuance"       element={<WithToken Page={IssuanceDashboardPage} />} />

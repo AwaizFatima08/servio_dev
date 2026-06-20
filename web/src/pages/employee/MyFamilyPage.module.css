@@ -1,0 +1,485 @@
+/* MyFamilyPage.module.css */
+/* Matches MyProfilePage.module.css idiom — Playfair Display headings, DM Sans body,
+   Servio palette (#042C1E, #0F6E56, #3DBFA0, #EBF9F4, #D4960A). */
+
+.page { padding: 28px 32px; max-width: 800px; }
+
+.header { margin-bottom: 24px; }
+.title { font-family: 'Playfair Display', serif; font-size: 26px; color: #042C1E; margin: 0 0 6px; }
+.subtitle { font-size: 14px; color: #6b7280; margin: 0; }
+
+.loading { color: #6b7280; padding: 40px 0; text-align: center; }
+.errorBanner { background: #fee2e2; color: #b91c1c; padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 16px; }
+
+/* Empty / not-married card */
+.emptyCard {
+  background: #fff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 14px;
+  padding: 36px 28px;
+  text-align: center;
+}
+.emptyIcon { font-size: 40px; color: #3DBFA0; display: block; margin-bottom: 12px; }
+.emptyTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  color: #042C1E;
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+.emptyBody { font-size: 14px; color: #6b7280; margin: 0; line-height: 1.6; }
+.emptyHint { color: #0F6E56; font-weight: 600; }
+
+/* Pending married→single banner */
+.pendingBanner {
+  background: #fef9c3;
+  color: #92400e;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 14px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.pendingBanner strong { color: #78350f; }
+
+/* Member list */
+.list {
+  background: #fff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #ecfdf5;
+}
+.row:last-child { border-bottom: none; }
+.rowDim { opacity: 0.55; }
+
+.rowMain { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rowName {
+  font-size: 15px;
+  font-weight: 600;
+  color: #042C1E;
+  font-family: 'DM Sans', sans-serif;
+}
+.rowMeta { font-size: 13px; color: #6b7280; display: flex; align-items: center; gap: 6px; }
+.metaItem { }
+.metaDot { color: #d1d5db; }
+
+.rowRight { flex-shrink: 0; }
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.badgeDeletion { background: #fee2e2; color: #b91c1c; }
+.badgeInactive { background: #f3f4f6; color: #6b7280; }
+
+/* Footer note */
+.footerNote {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: center;
+  font-style: italic;
+}
+/* ─────────────────────────────────────────
+   MyFamilyPage.module.css — Slice 2 additions
+   HomiLabs | Servio | V1.1
+
+   PASTE THESE RULES AT THE END of the existing MyFamilyPage.module.css.
+   None of the Slice 1 selectors are overridden — these are all new classes.
+
+   Brand tokens used (already in app theme):
+     --deep-green   : #042C1E
+     --mid-green    : #0F6E56
+     --bright-green : #3DBFA0
+     --pale-green   : #EBF9F4
+     --accent-gold  : #D4960A
+   If your theme exposes these as different CSS variables, replace inline.
+   Hard-coded fallbacks below match the brand hex codes so the file works
+   even before any variable wiring.
+   ───────────────────────────────────────── */
+
+/* Header layout: title on the left, Add button + cap note on the right.
+   Stacks on small screens. */
+.headerRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.headerActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.capNote {
+  font-size: 12px;
+  color: #7a7a7a;
+}
+
+/* Buttons. Primary = Add / Save. Secondary = Cancel. linkBtn = row action. */
+.primaryBtn {
+  background: #0F6E56;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.primaryBtn:hover:not(:disabled) {
+  background: #042C1E;
+}
+.primaryBtn:disabled {
+  background: #c5c5c5;
+  cursor: not-allowed;
+}
+
+.secondaryBtn {
+  background: transparent;
+  color: #444;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.secondaryBtn:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+.secondaryBtn:disabled {
+  color: #999;
+  cursor: not-allowed;
+}
+
+.linkBtn {
+  background: none;
+  border: none;
+  color: #0F6E56;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+.linkBtn:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.linkBtn:disabled {
+  color: #aaa;
+  cursor: not-allowed;
+}
+
+/* Row right side now holds a badge AND an action group. */
+.rowActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* Flash banners (success / error feedback after writes). */
+.flashSuccess,
+.flashError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+.flashSuccess {
+  background: #EBF9F4;
+  color: #042C1E;
+  border: 1px solid #3DBFA0;
+}
+.flashError {
+  background: #fdecea;
+  color: #611a15;
+  border: 1px solid #e57373;
+}
+.flashClose {
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+  padding: 0 4px;
+}
+
+/* ─────────────────────────────────────────
+   Modal (used by Add and Edit dialogs)
+   ───────────────────────────────────────── */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 44, 30, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 10px;
+  padding: 24px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modalTitle {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #042C1E;
+}
+
+.modalError {
+  background: #fdecea;
+  color: #611a15;
+  border: 1px solid #e57373;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* ─────────────────────────────────────────
+   Form fields inside dialogs
+   ───────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+}
+
+.formInput {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+}
+.formInput:focus {
+  outline: none;
+  border-color: #0F6E56;
+  box-shadow: 0 0 0 2px rgba(15, 110, 86, 0.15);
+}
+.formInputDisabled {
+  background: #f5f5f5;
+  color: #777;
+  cursor: not-allowed;
+}
+
+.formHint {
+  font-size: 12px;
+  color: #888;
+}
+
+.radioGroup {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.radioOption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+/* ─────────────────────────────────────────
+   MyFamilyPage.module.css — Slice 3b additions
+   HomiLabs | Servio | V1.1
+
+   APPEND THESE RULES at the end of the existing MyFamilyPage.module.css.
+   None of the Slice 1 or Slice 2 selectors are overridden — these are
+   all new classes.
+
+   Pattern: mirrors MyProfilePage.module.css section/edit/field idioms so
+   the Marital Status card visually matches the Contact Info card on the
+   profile page.
+   ───────────────────────────────────────── */
+
+/* ── Section card (used for the Marital Status card) ───────────────────── */
+.section {
+  margin-bottom: 28px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1.5px solid #d1fae5;
+  padding: 20px 24px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.sectionTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #042C1E;
+  margin: 0;
+}
+
+/* ── Edit / Save / Cancel buttons inside the section header ───────────── */
+.editBtn {
+  background: #EBF9F4;
+  color: #0F6E56;
+  border: 1.5px solid #3DBFA0;
+  border-radius: 8px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+.editBtn:hover {
+  background: #d1fae5;
+}
+
+.editActions {
+  display: flex;
+  gap: 6px;
+}
+
+.saveSmBtn {
+  background: #0F6E56;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+.saveSmBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cancelSmBtn {
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+.cancelSmBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Single field (Marital Status uses one full-width field) ──────────── */
+.fieldItem { }
+
+.fieldLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.fieldValue {
+  font-size: 15px;
+  color: #042C1E;
+  padding: 6px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.fieldEmpty {
+  color: #d1d5db;
+}
+
+.fieldInput {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1.5px solid #d1fae5;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  color: #042C1E;
+  outline: none;
+  background: #fff;
+}
+.fieldInput:focus {
+  border-color: #0F6E56;
+}
+
+/* ── Family-list header (sits between Marital card and the list) ──────── */
+.familyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+/* ── Single-hint card (shown when single AND no active members) ───────── */
+.singleHint {
+  background: #fff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 14px;
+  padding: 20px 24px;
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+  line-height: 1.5;
+}

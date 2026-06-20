@@ -48,6 +48,8 @@ const kitchenRoutes               = require('./kitchen/kitchenRoutes');
 const profileRoutes               = require('./profile/profileRoutes');
 const appSettingsRoutes           = require('./appSettings/appSettingsRoutes');
 const familyRoutes                = require('./family/familyRoutes');
+const cafeRoutes                  = require('./cafe/cafeRoutes');
+
 
 // ── Middleware + scheduled module (used by manual trigger below) ──
 // verifyToken populates req.user from the Bearer token.
@@ -91,6 +93,7 @@ app.use('/kitchen',                 kitchenRoutes);
 app.use('/profile',                 profileRoutes);
 app.use('/app-settings',            appSettingsRoutes);
 app.use('/family',                  familyRoutes);
+app.use('/cafe',                    cafeRoutes);
 
 // ── Admin: Manual menu resolver trigger (Batch 1, 01 Jun 2026) ──
 // POST /admin/resolve-menus

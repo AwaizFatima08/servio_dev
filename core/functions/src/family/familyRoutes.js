@@ -188,8 +188,9 @@ router.patch('/me/:familyMemberId', anyAuthenticated, async (req, res) => {
     const uid = req.user.uid;
     const tenantId = req.tenantId;
     const { familyMemberId } = req.params;
-    const { fullName, dateOfBirth } = req.body || {};
-    const result = await updateFamilyMember({ uid, tenantId, familyMemberId, fullName, dateOfBirth });
+    // Slice 3a: relation became editable. Pass through alongside name/DOB.
+    const { fullName, dateOfBirth, relation } = req.body || {};
+    const result = await updateFamilyMember({ uid, tenantId, familyMemberId, fullName, dateOfBirth, relation });
     return successResponse(res, result, result.message);
   } catch (error) {
     console.error('PATCH /family/me/:id error:', error.message);

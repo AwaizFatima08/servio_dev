@@ -6,9 +6,11 @@
 //
 // Employee self-manages dependents (spouse, son, daughter).
 // No admin approval for add / edit / activate / deactivate.
-// Admin approval is required only for:
-//   - permanent deletion of a wrongly-entered member (zero transactions)
-//   - married → single marital status change (cascades deactivation)
+//
+// SLICE 3a (19-Jun-2026): Relation became editable. A wrongly-entered
+// relation is corrected via edit, not via delete + re-add. DOB safeguard
+// enforced (son/daughter must end up with a DOB after the edit). Every
+// relation change is appended to relationHistory[] on the doc for audit.
 //
 // Convention notes:
 //   - Named DB: getFirestore('servio-dev')
@@ -71,13 +73,27 @@ async function _getMaxFamilyMembers(tenantId) {
 // ─────────────────────────────────────────
 // _validateMemberInput
 // Shared validation for add and edit.
+//
+// Behaviour:
+//   - requireRelation === true  (add)  : relation must be present and valid;
+//                                        DOB must be present if relation is
+//                                        son/daughter.
+//   - requireRelation === false (edit) : relation is optional, but if provided
+//                                        it must be a valid value. DOB safety
+//                                        (son/daughter must have DOB) is
+//                                        enforced by updateFamilyMember after
+//                                        merging old + new values — not here.
 // ─────────────────────────────────────────
 function _validateMemberInput({ relation, fullName, dateOfBirth }, { requireRelation = true } = {}) {
+  const validRelations = Object.values(MEMBER_RELATIONS);
+
   if (requireRelation) {
-    const validRelations = Object.values(MEMBER_RELATIONS);
     if (!relation || !validRelations.includes(relation)) {
       throw new Error(`relation must be one of: ${validRelations.join(', ')}`);
     }
+  } else if (relation !== undefined && !validRelations.includes(relation)) {
+    // Edit context: relation is optional, but if sent it must be valid.
+    throw new Error(`relation must be one of: ${validRelations.join(', ')}`);
   }
 
   if (fullName !== undefined) {
@@ -86,7 +102,8 @@ function _validateMemberInput({ relation, fullName, dateOfBirth }, { requireRela
     }
   }
 
-  // DOB required for son and daughter; optional for spouse.
+  // DOB required for son and daughter on ADD; on edit, the post-merge DOB
+  // check lives in updateFamilyMember (which knows the existing value).
   if (requireRelation && DOB_REQUIRED_RELATIONS.includes(relation)) {
     if (!dateOfBirth) {
       throw new Error(`dateOfBirth is required for relation: ${relation}`);
@@ -126,6 +143,12 @@ const _shape = (id, data) => ({
   deletionRequestReason: data.deletionRequestReason || null,
   deletionRequestNote: data.deletionRequestNote || null,
   deletionRequestedAt: _toISO(data.deletionRequestedAt),
+  // relationHistory: append-only audit of relation edits. Each entry:
+  //   { from, to, changedAt (ISO), changedByUid }
+  // Field may be absent on docs created before Slice 3a — surfaced as [].
+  relationHistory: Array.isArray(data.relationHistory)
+    ? data.relationHistory.map(h => ({ ...h, changedAt: _toISO(h.changedAt) }))
+    : [],
   createdAt: _toISO(data.createdAt),
   updatedAt: _toISO(data.updatedAt),
 });
@@ -221,31 +244,78 @@ async function _loadOwnedMember({ uid, tenantId, familyMemberId }) {
 
 // ─────────────────────────────────────────
 // updateFamilyMember
-// Edits fullName and/or dateOfBirth. Relation is immutable after creation
-// (a wrong relation = wrong entry → delete + re-add).
-// DOB editing remains with the employee in V1.1 (V3 review point).
+// Edits fullName, dateOfBirth, and/or relation.
+//
+// SLICE 3a (19-Jun-2026): relation became editable.
+//
+// Rules:
+//   - If the request changes relation, the post-update relation+DOB must be
+//     coherent: son and daughter require a DOB (either carried over or
+//     supplied in this same request).
+//   - DOB cannot be cleared while relation is (or becomes) son/daughter.
+//   - A real relation change (from !== to) appends to relationHistory[].
+//     A "change" to the same value is a no-op for history.
+//   - Members with deletionRequested === true cannot be edited.
+//     (The UI does not expose deletion, so this guards stale records.)
 // ─────────────────────────────────────────
-async function updateFamilyMember({ uid, tenantId, familyMemberId, fullName, dateOfBirth }) {
+async function updateFamilyMember({ uid, tenantId, familyMemberId, fullName, dateOfBirth, relation }) {
   const { ref, data } = await _loadOwnedMember({ uid, tenantId, familyMemberId });
 
   if (data.deletionRequested === true) {
     throw new Error('Cannot edit a member that is pending deletion');
   }
 
-  _validateMemberInput({ fullName, dateOfBirth }, { requireRelation: false });
+  // Field-level validation (shape/types). Cross-field checks come after.
+  _validateMemberInput({ relation, fullName, dateOfBirth }, { requireRelation: false });
 
-  const updates = { updatedAt: now() };
-  if (fullName !== undefined) updates.fullName = fullName.trim();
-  if (dateOfBirth !== undefined) {
-    // Guard: son/daughter must keep a DOB.
-    if ((dateOfBirth === null || dateOfBirth === '') && DOB_REQUIRED_RELATIONS.includes(data.relation)) {
-      throw new Error(`dateOfBirth cannot be cleared for relation: ${data.relation}`);
-    }
-    updates.dateOfBirth = dateOfBirth || null;
+  // Compute what the doc will look like AFTER this update for safeguard checks.
+  // dateOfBirth: undefined = unchanged; '' or null = explicit clear; string = set.
+  const finalRelation = relation !== undefined ? relation : data.relation;
+
+  let finalDob;
+  if (dateOfBirth === undefined) {
+    finalDob = data.dateOfBirth || null;
+  } else if (dateOfBirth === null || dateOfBirth === '') {
+    finalDob = null;
+  } else {
+    finalDob = dateOfBirth;
   }
 
+  // DOB safeguard: son/daughter must have a DOB after this update.
+  if (DOB_REQUIRED_RELATIONS.includes(finalRelation) && !finalDob) {
+    throw new Error(`dateOfBirth is required for relation: ${finalRelation}`);
+  }
+
+  // Build update payload. Only include fields that the caller actually sent;
+  // this keeps the write surgical and DevTools-readable.
+  const updates = { updatedAt: now() };
+  if (fullName !== undefined)    updates.fullName    = fullName.trim();
+  if (dateOfBirth !== undefined) updates.dateOfBirth = dateOfBirth || null;
+
+  const relationChanged = relation !== undefined && relation !== data.relation;
+  if (relationChanged) {
+    updates.relation = relation;
+  }
+
+  // No-op detection: only updatedAt was added => no real fields touched.
   if (Object.keys(updates).length === 1) {
     throw new Error('No valid fields to update');
+  }
+
+  // If relation changed, append an audit entry. Read-modify-write to preserve
+  // ordering (we'd rather not rely on arrayUnion's dedup semantics with
+  // timestamped objects). New entry pushed to the end.
+  if (relationChanged) {
+    const existingHistory = Array.isArray(data.relationHistory) ? data.relationHistory : [];
+    updates.relationHistory = [
+      ...existingHistory,
+      {
+        from: data.relation,
+        to: relation,
+        changedAt: now(),
+        changedByUid: uid,
+      },
+    ];
   }
 
   await ref.update(updates);
@@ -396,15 +466,28 @@ async function rejectDeletion({ tenantId, familyMemberId, note }) {
 }
 
 // ─────────────────────────────────────────
-// _memberHasTransactions
-// Placeholder transaction guard. In V1.1 there are no consumer-tagged service
-// collections yet. When V1.2 (cafeOrders) etc. land, this must query each
-// service collection for documents tagging this familyMemberId.
-// Returns false for now so wrongly-entered members can be cleaned up.
+// _memberHasTransactions (closed 19-Jun-2026, V1.2 Slice 1)
+//
+// Returns true if the family member is referenced by any consumer-tagged
+// transaction collection. Used by approveDeletion to decide whether
+// hard-delete is safe.
+//
+// V1.2 adds cafeOrders. Future versions will extend this:
+//   V1.3 — tuckShopTransactions, bakeryOrders
+//   V1.4 — bbqOrders
 // ─────────────────────────────────────────
-async function _memberHasTransactions(/* tenantId, familyMemberId */) {
-  // TODO (V1.2+): query cafeOrders / tuckshopOrders / bbqOrders for
-  // consumerFamilyMemberId === familyMemberId before allowing permanent delete.
+async function _memberHasTransactions(tenantId, familyMemberId) {
+  // V1.2 — cafeOrders
+  const cafeSnap = await db
+    .collection(COLLECTIONS.CAFE_ORDERS)
+    .where('tenantId', '==', tenantId)
+    .where('consumerFamilyMemberId', '==', familyMemberId)
+    .limit(1)
+    .get();
+  if (!cafeSnap.empty) return true;
+
+  // V1.3+ — extend here as new consumer-tagged collections come online.
+
   return false;
 }
 
@@ -419,4 +502,7 @@ module.exports = {
   listDeletionRequests,
   approveDeletion,
   rejectDeletion,
+    // Test-only export — V1.2 Slice 1 stub-fix verification (test_member_has_transactions.js).
+  // Not used by any production code path. Safe to keep exported.
+  _memberHasTransactions,
 };

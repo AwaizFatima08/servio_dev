@@ -32,6 +32,14 @@ const errorResponse = (res, message = 'An error occurred', statusCode = 500, err
  * Current timestamp as ISO string
  */
 const nowISO = () => new Date().toISOString();
+/**
+ * Date as YYYY-MM-DD in PKT (UTC+5).
+ * Safe on Node.js (backend). For mobile, use the inline pattern in mess service
+ * (Hermes does not handle toLocaleString reliably).
+ */
+const pktDateStr = (date = new Date()) => {
+  return date.toLocaleString('en-CA', { timeZone: 'Asia/Karachi' }).split(',')[0];
+};
 
 /**
  * Generate a padded sequential ID
@@ -65,6 +73,7 @@ module.exports = {
   successResponse,
   errorResponse,
   nowISO,
+  pktDateStr,
   generateId,
   isNonEmptyString,
   validateRequired,

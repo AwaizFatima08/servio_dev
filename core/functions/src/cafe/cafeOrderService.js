@@ -1,0 +1,639 @@
+// ─────────────────────────────────────────
+// cafeOrderService.js — V1.2 Slice 1 (Cafe Indoor + Outdoor Mini Cafe)
+// HomiLabs | Servio
+//
+// Mirrors messReservationService.js patterns. Covers:
+//   - createSelfOrder           (employee places own order)
+//   - createProxyOrder          (cafe_supervisor / cafe_waiter places on behalf)
+//   - createWalkInOrder         (cafe_supervisor / cafe_waiter places for walk-in)
+//   - cancelOrder               (employee or admin cancels within window)
+//   - listMyOrders              (own order history)
+//
+// Out of scope for Slice 1 (covered in later slices):
+//   - Kitchen dashboard list, supervisor acknowledgement       → Slice 2
+//   - Official cafe meals (OG numbers, Type 1 manual slip)     → Slice 4
+//
+// Schema reference: Servio_V1_Schema_Reference.docx + V1 Extension Scope §V1.2
+// Collection: cafeOrders. Mirrors messReservations with additions/removals
+// per scope doc §"Schema Changes".
+// ─────────────────────────────────────────
+
+const { getFirestore } = require('firebase-admin/firestore');
+const db = getFirestore('servio-dev');
+
+const {
+  COLLECTIONS,
+  CAFE_ORDER_TYPES,
+  CAFE_ORDER_STATUS,
+  CAFE_CONSUMER_TYPES,
+  CAFE_CANCELLATION_REASONS,
+  DINING_MODES,
+  BOOKING_SOURCES,
+  BILLING_DESTINATIONS,
+  FEEDBACK_STATUS,
+} = require('../constants');
+
+const { pktDateStr } = require('../utils');
+
+// ─────────────────────────────────────────
+// Time helpers (PKT)
+// ─────────────────────────────────────────
+
+// Returns minutes past midnight (PKT) for a Date.
+function pktMinutesOfDay(date = new Date()) {
+  const pktStr = date.toLocaleString('en-GB', {
+    timeZone: 'Asia/Karachi',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  // pktStr format: "HH:MM"
+  const [h, m] = pktStr.split(':').map(Number);
+  return h * 60 + m;
+}
+
+// Parses "HH:MM" → minutes since midnight. Returns null if invalid.
+function parseHHMM(hhmm) {
+  if (typeof hhmm !== 'string') return null;
+  const match = hhmm.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return null;
+  const h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return h * 60 + m;
+}
+
+// Builds a PKT Date for today at HH:MM. Returns timestamp (Date object).
+function todayAtPKT(hhmm) {
+  const todayStr = pktDateStr(new Date()); // YYYY-MM-DD in PKT
+  // Construct as PKT (UTC+5): the iso string YYYY-MM-DDTHH:MM:00+05:00 is unambiguous.
+  return new Date(`${todayStr}T${hhmm}:00+05:00`);
+}
+
+// ─────────────────────────────────────────
+// Time window constants (PKT, expressed as minutes of day)
+//
+// Cafe physically operates 18:00 to 23:00 PKT (service window).
+// Order acceptance closes at 22:30 PKT — gives kitchen 30 min to clear
+// the last orders before service ends. Applies to BOTH order types.
+// ─────────────────────────────────────────
+const CAFE_HOURS_START       = 18 * 60;        // 18:00 — cafe_hours order window opens
+const CAFE_ORDER_END         = 22 * 60 + 30;   // 22:30 — order acceptance closes (both types)
+const CAFE_SERVICE_END       = 23 * 60;        // 23:00 — cafe physically closes (pickup ceiling)
+const ANYTIME_TA_START       = 8 * 60;         // 08:00 — anytime_takeaway window opens
+const ANYTIME_TA_LEAD_MIN    = 2 * 60;         // 2 hours minimum lead time
+const ANYTIME_TA_CANCEL_MIN  = 60;             // 1 hour cancellation window
+
+// ─────────────────────────────────────────
+// Resolved cafe menu lookup
+// Reads serviceMenuConfigs/cafe and validates menuItemId exists in items[].
+// Returns the matched item object, or throws.
+// ─────────────────────────────────────────
+async function _resolveCafeMenuItem(menuItemId) {
+  const doc = await db
+    .collection(COLLECTIONS.SERVICE_MENU_CONFIGS)
+    .doc('cafe')
+    .get();
+
+  if (!doc.exists) {
+    throw new Error('Cafe menu is not configured. Contact admin.');
+  }
+
+  const data = doc.data();
+  if (!data.isActive) {
+    throw new Error('Cafe is not currently active.');
+  }
+
+  const items = Array.isArray(data.items) ? data.items : [];
+  const match = items.find((it) => it.itemId === menuItemId);
+
+  if (!match) {
+    throw new Error(`Menu item not found in cafe menu: ${menuItemId}`);
+  }
+
+  return match;
+}
+
+// ─────────────────────────────────────────
+// Family member validation
+// Confirms the family member exists, belongs to the employee, is active,
+// and is not pending deletion. Returns the member object or throws.
+// ─────────────────────────────────────────
+async function _resolveFamilyMember({ tenantId, officialEmployeeNumber, familyMemberId }) {
+  const doc = await db
+    .collection(COLLECTIONS.FAMILY_MEMBERS)
+    .doc(familyMemberId)
+    .get();
+
+  if (!doc.exists) {
+    throw new Error('Family member not found.');
+  }
+
+  const m = doc.data();
+
+  if (m.tenantId !== tenantId) {
+    throw new Error('Family member not found.');
+  }
+  if (m.officialEmployeeNumber !== officialEmployeeNumber) {
+    throw new Error('Family member does not belong to this employee.');
+  }
+  if (m.isActive !== true) {
+    throw new Error('Family member is not active.');
+  }
+  if (m.deletionRequested === true) {
+    throw new Error('Family member is pending deletion.');
+  }
+
+  return m;
+}
+
+// ─────────────────────────────────────────
+// Common validation — shape, time windows, consumer
+// Called by all three create functions before write.
+// Throws on any violation. Returns { menuItem, familyMember|null, computed }.
+// ─────────────────────────────────────────
+async function _validateOrderInput({
+  tenantId,
+  officialEmployeeNumber,
+  orderType,
+  menuItemId,
+  quantity,
+  diningMode,
+  requestedPickupTime,
+  consumerType,
+  consumerFamilyMemberId,
+}) {
+  // --- Required fields ---
+  if (!Object.values(CAFE_ORDER_TYPES).includes(orderType)) {
+    throw new Error(`Invalid orderType: ${orderType}`);
+  }
+  if (!menuItemId || typeof menuItemId !== 'string') {
+    throw new Error('menuItemId is required.');
+  }
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new Error('quantity must be a positive integer.');
+  }
+  if (!Object.values(DINING_MODES).includes(diningMode)) {
+    throw new Error(`Invalid diningMode: ${diningMode}`);
+  }
+  if (!Object.values(CAFE_CONSUMER_TYPES).includes(consumerType)) {
+    throw new Error(`Invalid consumerType: ${consumerType}`);
+  }
+
+  // --- diningMode consistency with orderType ---
+  if (orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY) {
+    if (diningMode !== DINING_MODES.TAKEAWAY) {
+      throw new Error('anytime_takeaway orders must use diningMode: takeaway.');
+    }
+  }
+  // cafe_hours accepts dine_in, takeaway, outdoor_seating — no further constraint here.
+
+  // --- requestedPickupTime: required for any non-dine_in order ---
+  if (diningMode !== DINING_MODES.DINE_IN) {
+    if (!requestedPickupTime) {
+      throw new Error('requestedPickupTime is required for takeaway and outdoor_seating orders.');
+    }
+    if (parseHHMM(requestedPickupTime) === null) {
+      throw new Error('requestedPickupTime must be in HH:MM format.');
+    }
+  }
+
+  // --- Time window checks (against current PKT) ---
+  const nowMin = pktMinutesOfDay(new Date());
+
+  if (orderType === CAFE_ORDER_TYPES.CAFE_HOURS) {
+    if (nowMin < CAFE_HOURS_START || nowMin > CAFE_ORDER_END) {
+      throw new Error('Cafe orders accepted 18:00 to 22:30 PKT only. Cafe service runs until 23:00.');
+    }
+  } else if (orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY) {
+    if (nowMin < ANYTIME_TA_START || nowMin > CAFE_ORDER_END) {
+      throw new Error('anytime_takeaway accepts orders between 08:00 and 22:30 PKT only.');
+    }
+    // Lead time check: pickup must be >= now + 2 hours
+    const pickupMin = parseHHMM(requestedPickupTime);
+    if (pickupMin === null || pickupMin < nowMin + ANYTIME_TA_LEAD_MIN) {
+      throw new Error('anytime_takeaway requires at least 2 hours lead time.');
+    }
+    // Pickup time must fall within cafe service window (close: 23:00)
+    if (pickupMin > CAFE_SERVICE_END) {
+      throw new Error('Pickup time must be at or before 23:00 PKT (cafe close).');
+    }
+  }
+
+  // --- Menu item resolution ---
+  const menuItem = await _resolveCafeMenuItem(menuItemId);
+
+  // --- Family member resolution (if applicable) ---
+  let familyMember = null;
+  if (consumerType === CAFE_CONSUMER_TYPES.FAMILY_MEMBER) {
+    if (!consumerFamilyMemberId) {
+      throw new Error('consumerFamilyMemberId is required when consumerType is family_member.');
+    }
+    familyMember = await _resolveFamilyMember({
+      tenantId,
+      officialEmployeeNumber,
+      familyMemberId: consumerFamilyMemberId,
+    });
+  } else {
+    // self → consumerFamilyMemberId must be absent or null
+    if (consumerFamilyMemberId) {
+      throw new Error('consumerFamilyMemberId must not be set when consumerType is self.');
+    }
+  }
+
+  return { menuItem, familyMember };
+}
+
+// ─────────────────────────────────────────
+// Document builder — common shape for all three create paths
+// ─────────────────────────────────────────
+function _buildOrderDoc({
+  tenantId,
+  // creator (who hit the API)
+  createdByUid,
+  createdByRole,
+  createdByEmployeeNumber,
+  // subject (who the order is for)
+  employeeNumber,
+  employeeName,
+  // order params
+  bookingSource,
+  orderType,
+  menuItem,
+  quantity,
+  diningMode,
+  requestedPickupTime,
+  consumerType,
+  consumerFamilyMemberId,
+  consumerName,
+}) {
+  const now = new Date();
+  const orderDate = pktDateStr(now);
+
+  // cancellation window: only for anytime_takeaway, 1 hour from now
+  let cancellationWindowExpiresAt = null;
+  if (orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY) {
+    cancellationWindowExpiresAt = new Date(now.getTime() + ANYTIME_TA_CANCEL_MIN * 60 * 1000);
+  }
+
+  return {
+    tenantId,
+
+    // Audit (who created this transaction)
+    createdByUid,
+    createdByRole,
+    createdByEmployeeNumber,
+    createdAt: now,
+    updatedAt: now,
+    bookingSource, // self | proxy | walk_in
+
+    // Subject (whose account this hits)
+    subjectType: 'self', // V1.2 Slice 1 — personal only. Official subject types arrive in Slice 4.
+    employeeNumber,
+    employeeName,
+
+    // Order specifics
+    orderType,             // cafe_hours | anytime_takeaway
+    menuItemId: menuItem.itemId,
+    itemName:   menuItem.itemName,
+    quantity,
+    diningMode,            // dine_in | takeaway | outdoor_seating
+    requestedPickupTime: diningMode === DINING_MODES.DINE_IN ? null : requestedPickupTime,
+
+    // Consumer (self vs family member)
+    consumerType,                                          // self | family_member
+    consumerFamilyMemberId: consumerFamilyMemberId || null,
+    consumerName,
+
+    // Lifecycle
+    orderStatus: CAFE_ORDER_STATUS.PLACED,
+    acceptedAt: null,
+    acceptedByUid: null,
+    cancellationWindowExpiresAt,
+    cancelledAt: null,
+    cancelledByUid: null,
+    cancelledByRole: null,
+    cancellationReason: null,
+    cancellationNote: null,
+
+    // Rate / billing (retrospective; filled by Slice 4 / rate entry slice)
+    rateTargetKey: `${orderDate}_cafe_${menuItem.itemId}`,
+    unitRate: null,
+    amount: null,
+    rateStatus: 'pending', // RATE_STATUS enum has no PENDING — literal matches mess pattern
+    rateAppliedAt: null,
+    billingDestination: BILLING_DESTINATIONS.EMPLOYEE_ACCOUNT,
+    costCentreCode: null,
+
+    // Feedback
+    feedbackStatus: FEEDBACK_STATUS.PENDING,
+    feedbackSubmittedAt: null,
+
+    // Misc
+    isVisible: true,
+    remarks: null,
+  };
+}
+
+// ─────────────────────────────────────────
+// Employee lookup helper
+// ─────────────────────────────────────────
+async function _getEmployee({ tenantId, officialEmployeeNumber }) {
+  const doc = await db
+    .collection(COLLECTIONS.EMPLOYEES)
+    .doc(officialEmployeeNumber)
+    .get();
+
+  if (!doc.exists) throw new Error(`Employee not found: ${officialEmployeeNumber}`);
+  const data = doc.data();
+  if (data.tenantId !== tenantId) throw new Error(`Employee not found: ${officialEmployeeNumber}`);
+  if (data.isActive !== true) throw new Error(`Employee is inactive: ${officialEmployeeNumber}`);
+  return data;
+}
+
+// ─────────────────────────────────────────
+// createSelfOrder
+// Employee places own order. createdBy == subject.
+// ─────────────────────────────────────────
+async function createSelfOrder({
+  uid,
+  officialEmployeeNumber,
+  tenantId,
+  userRole,
+  orderType,
+  menuItemId,
+  quantity,
+  diningMode,
+  requestedPickupTime,
+  consumerType,
+  consumerFamilyMemberId,
+}) {
+  const { menuItem, familyMember } = await _validateOrderInput({
+    tenantId,
+    officialEmployeeNumber,
+    orderType,
+    menuItemId,
+    quantity,
+    diningMode,
+    requestedPickupTime,
+    consumerType,
+    consumerFamilyMemberId,
+  });
+
+  const employee = await _getEmployee({ tenantId, officialEmployeeNumber });
+
+  const consumerName = consumerType === CAFE_CONSUMER_TYPES.SELF
+    ? employee.fullName
+    : familyMember.fullName;
+
+  const doc = _buildOrderDoc({
+    tenantId,
+    createdByUid: uid,
+    createdByRole: userRole,
+    createdByEmployeeNumber: officialEmployeeNumber,
+    employeeNumber: officialEmployeeNumber,
+    employeeName: employee.fullName,
+    bookingSource: BOOKING_SOURCES.SELF,
+    orderType,
+    menuItem,
+    quantity,
+    diningMode,
+    requestedPickupTime,
+    consumerType,
+    consumerFamilyMemberId,
+    consumerName,
+  });
+
+  const ref = await db.collection(COLLECTIONS.CAFE_ORDERS).add(doc);
+  return { orderId: ref.id, ...doc };
+}
+
+// ─────────────────────────────────────────
+// createProxyOrder
+// cafe_supervisor / cafe_waiter places on behalf of an employee.
+// targetEmployeeNumber is the consumer-side employee.
+// ─────────────────────────────────────────
+async function createProxyOrder({
+  uid,
+  officialEmployeeNumber,   // supervisor's own number (creator)
+  tenantId,
+  userRole,
+  targetEmployeeNumber,
+  orderType,
+  menuItemId,
+  quantity,
+  diningMode,
+  requestedPickupTime,
+  consumerType,
+  consumerFamilyMemberId,
+}) {
+  if (!targetEmployeeNumber) {
+    throw new Error('targetEmployeeNumber is required for proxy orders.');
+  }
+
+  const { menuItem, familyMember } = await _validateOrderInput({
+    tenantId,
+    officialEmployeeNumber: targetEmployeeNumber, // family member belongs to target
+    orderType,
+    menuItemId,
+    quantity,
+    diningMode,
+    requestedPickupTime,
+    consumerType,
+    consumerFamilyMemberId,
+  });
+
+  const targetEmployee = await _getEmployee({
+    tenantId,
+    officialEmployeeNumber: targetEmployeeNumber,
+  });
+
+  const consumerName = consumerType === CAFE_CONSUMER_TYPES.SELF
+    ? targetEmployee.fullName
+    : familyMember.fullName;
+
+  const doc = _buildOrderDoc({
+    tenantId,
+    createdByUid: uid,
+    createdByRole: userRole,
+    createdByEmployeeNumber: officialEmployeeNumber,
+    employeeNumber: targetEmployeeNumber,
+    employeeName: targetEmployee.fullName,
+    bookingSource: BOOKING_SOURCES.PROXY,
+    orderType,
+    menuItem,
+    quantity,
+    diningMode,
+    requestedPickupTime,
+    consumerType,
+    consumerFamilyMemberId,
+    consumerName,
+  });
+
+  const ref = await db.collection(COLLECTIONS.CAFE_ORDERS).add(doc);
+  return { orderId: ref.id, ...doc };
+}
+
+// ─────────────────────────────────────────
+// createWalkInOrder
+// Same as proxy mechanically, but bookingSource differs and is recorded
+// for analytics. Per scope doc the supervisor still picks the consumer
+// employee (no walk-in for an unknown employee in V1.2 — that's the OG
+// flow in Slice 4).
+// ─────────────────────────────────────────
+async function createWalkInOrder({
+  uid,
+  officialEmployeeNumber,
+  tenantId,
+  userRole,
+  targetEmployeeNumber,
+  orderType,
+  menuItemId,
+  quantity,
+  diningMode,
+  requestedPickupTime,
+  consumerType,
+  consumerFamilyMemberId,
+}) {
+  if (!targetEmployeeNumber) {
+    throw new Error('targetEmployeeNumber is required for walk-in orders.');
+  }
+
+  const { menuItem, familyMember } = await _validateOrderInput({
+    tenantId,
+    officialEmployeeNumber: targetEmployeeNumber,
+    orderType,
+    menuItemId,
+    quantity,
+    diningMode,
+    requestedPickupTime,
+    consumerType,
+    consumerFamilyMemberId,
+  });
+
+  const targetEmployee = await _getEmployee({
+    tenantId,
+    officialEmployeeNumber: targetEmployeeNumber,
+  });
+
+  const consumerName = consumerType === CAFE_CONSUMER_TYPES.SELF
+    ? targetEmployee.fullName
+    : familyMember.fullName;
+
+  const doc = _buildOrderDoc({
+    tenantId,
+    createdByUid: uid,
+    createdByRole: userRole,
+    createdByEmployeeNumber: officialEmployeeNumber,
+    employeeNumber: targetEmployeeNumber,
+    employeeName: targetEmployee.fullName,
+    bookingSource: BOOKING_SOURCES.WALK_IN,
+    orderType,
+    menuItem,
+    quantity,
+    diningMode,
+    requestedPickupTime,
+    consumerType,
+    consumerFamilyMemberId,
+    consumerName,
+  });
+
+  const ref = await db.collection(COLLECTIONS.CAFE_ORDERS).add(doc);
+  return { orderId: ref.id, ...doc };
+}
+
+// ─────────────────────────────────────────
+// cancelOrder
+// Rules:
+//   - cafe_hours orders: cannot be cancelled by employee. Admin can.
+//   - anytime_takeaway: employee can cancel if now < cancellationWindowExpiresAt.
+//                       Admin can cancel anytime.
+// ─────────────────────────────────────────
+async function cancelOrder({
+  orderId,
+  tenantId,
+  cancelledByUid,
+  cancelledByRole,
+  cancelledByEmployeeNumber,
+  isAdmin,
+  cancellationReason,
+  cancellationNote,
+}) {
+  if (!Object.values(CAFE_CANCELLATION_REASONS).includes(cancellationReason)) {
+    throw new Error(`Invalid cancellationReason: ${cancellationReason}`);
+  }
+
+  const ref = db.collection(COLLECTIONS.CAFE_ORDERS).doc(orderId);
+  const doc = await ref.get();
+
+  if (!doc.exists) throw new Error('Order not found.');
+  const order = doc.data();
+
+  if (order.tenantId !== tenantId) throw new Error('Order not found.');
+  if (order.orderStatus === CAFE_ORDER_STATUS.CANCELLED) {
+    throw new Error('Order is already cancelled.');
+  }
+
+  // Ownership: non-admin can only cancel own orders
+  if (!isAdmin && order.employeeNumber !== cancelledByEmployeeNumber) {
+    throw new Error('You can only cancel your own orders.');
+  }
+
+  // cafe_hours: only admin can cancel
+  if (order.orderType === CAFE_ORDER_TYPES.CAFE_HOURS && !isAdmin) {
+    throw new Error('Cafe hours orders cannot be cancelled. They are charged regardless.');
+  }
+
+  // anytime_takeaway: window check for employee
+  if (
+    order.orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY &&
+    !isAdmin
+  ) {
+    const expires = order.cancellationWindowExpiresAt;
+    const expiresMs = expires && expires.toMillis ? expires.toMillis() : new Date(expires).getTime();
+    if (Date.now() > expiresMs) {
+      throw new Error('Cancellation window has passed (1 hour from order time).');
+    }
+  }
+
+  const now = new Date();
+  await ref.update({
+    orderStatus: CAFE_ORDER_STATUS.CANCELLED,
+    cancelledAt: now,
+    cancelledByUid,
+    cancelledByRole,
+    cancellationReason,
+    cancellationNote: (cancellationNote || '').trim() || null,
+    updatedAt: now,
+  });
+
+  return { message: 'Order cancelled.', orderId };
+}
+
+// ─────────────────────────────────────────
+// listMyOrders
+// Returns the caller's own orders, most recent first. Default 30-day window.
+// ─────────────────────────────────────────
+async function listMyOrders({ tenantId, officialEmployeeNumber, days = 30 }) {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const snap = await db
+    .collection(COLLECTIONS.CAFE_ORDERS)
+    .where('tenantId', '==', tenantId)
+    .where('employeeNumber', '==', officialEmployeeNumber)
+    .where('createdAt', '>=', since)
+    .orderBy('createdAt', 'desc')
+    .get();
+
+  const orders = snap.docs.map((d) => ({ orderId: d.id, ...d.data() }));
+  return { orders, count: orders.length };
+}
+
+module.exports = {
+  createSelfOrder,
+  createProxyOrder,
+  createWalkInOrder,
+  cancelOrder,
+  listMyOrders,
+};
