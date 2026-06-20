@@ -25,3 +25,4 @@ Thumbs.db
 npm-debug.log*
 employee_upload/serviceAccountKey.json
 keys/
+.~lock.*#
