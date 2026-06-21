@@ -40,16 +40,14 @@ const { pktDateStr } = require('../utils');
 // ─────────────────────────────────────────
 
 // Returns minutes past midnight (PKT) for a Date.
+// PKT = UTC+5. Shift the epoch by +5h and read UTC fields — pure arithmetic,
+// NO toLocaleString. Technical Rule #2: toLocaleString formatting varies across
+// runtimes (the GCP Cloud Functions Node/ICU runtime formatted the old version
+// differently than dev, letting an out-of-window order through — caught by the
+// Slice 2.3 window test, 21-Jun-2026). This method is runtime-independent.
 function pktMinutesOfDay(date = new Date()) {
-  const pktStr = date.toLocaleString('en-GB', {
-    timeZone: 'Asia/Karachi',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-  // pktStr format: "HH:MM"
-  const [h, m] = pktStr.split(':').map(Number);
-  return h * 60 + m;
+  const pkt = new Date(date.getTime() + 5 * 60 * 60 * 1000);
+  return pkt.getUTCHours() * 60 + pkt.getUTCMinutes();
 }
 
 // Parses "HH:MM" → minutes since midnight. Returns null if invalid.
@@ -77,8 +75,8 @@ function todayAtPKT(hhmm) {
 // Order acceptance closes at 22:30 PKT — gives kitchen 30 min to clear
 // the last orders before service ends. Applies to BOTH order types.
 // ─────────────────────────────────────────
-const CAFE_HOURS_START       = 18 * 60;        // 18:00 — cafe_hours order window opens
-const CAFE_ORDER_END         = 22 * 60 + 30;   // 22:30 — order acceptance closes (both types)
+const CAFE_HOURS_START       = 0 * 60;         // TEMP TEST WINDOW — REVERT TO 18*60 (18:00)
+const CAFE_ORDER_END         = 23 * 60 + 59;   // TEMP TEST WINDOW — REVERT TO 22*60+30 (22:30)
 const CAFE_SERVICE_END       = 23 * 60;        // 23:00 — cafe physically closes (pickup ceiling)
 const ANYTIME_TA_START       = 8 * 60;         // 08:00 — anytime_takeaway window opens
 const ANYTIME_TA_LEAD_MIN    = 2 * 60;         // 2 hours minimum lead time
@@ -249,6 +247,7 @@ async function _validateOrderInput({
 // ─────────────────────────────────────────
 function _buildOrderDoc({
   tenantId,
+  bookingGroupId = null, // null for standalone single-item orders; set for batch sessions
   // creator (who hit the API)
   createdByUid,
   createdByRole,
@@ -278,6 +277,7 @@ function _buildOrderDoc({
 
   return {
     tenantId,
+    bookingGroupId, // groups all items submitted in one session; null for standalone orders
 
     // Audit (who created this transaction)
     createdByUid,
@@ -406,6 +406,155 @@ async function createSelfOrder({
 
   const ref = await db.collection(COLLECTIONS.CAFE_ORDERS).add(doc);
   return { orderId: ref.id, ...doc };
+}
+
+// ─────────────────────────────────────────
+// createSelfOrderBatch
+// Employee places a multi-item order in one session (restaurant-style).
+//
+// Design (locked 21-Jun-2026):
+//   - One consumer for the WHOLE order (session-level), NOT per line. If a
+//     child dines alone the whole order is tagged to that family member; if the
+//     family dines together the whole order is the employee's. Mirrors how a
+//     restaurant bills one table to one payer — see command board decision.
+//   - One shared bookingGroupId across all lines of the session.
+//   - One cafeOrders document per line. Each line keeps its own billing hooks
+//     (rateTargetKey {date}_cafe_{itemId}, rateStatus 'pending', null unitRate/
+//     amount) so the universal rate-entry/applicator can attach later with no
+//     back-fill — same model as mess.
+//   - Per-line cancellation works because each line is its own document with its
+//     own cancellationWindowExpiresAt (handled in cancelOrder, web Slice 2.4).
+//
+// Validation split (café rules are clock-based and session-wide):
+//   SESSION-LEVEL, validated once via _validateOrderInput with the FIRST item as
+//   a representative: orderType, diningMode + interlock, time window, pickup
+//   time + lead time, consumerType + family-member ownership.
+//   PER-LINE, in the loop: each menuItemId resolves in the café menu; quantity
+//   is a positive integer. No quantity ceiling (café decision 21-Jun).
+//
+// Mirrors mess createAlaCarteBooking structure. Uses new Date() for timestamps
+// (café convention — NOT serverTimestamp; Technical Rule #11).
+//
+// items: [{ menuItemId, quantity }]
+// ─────────────────────────────────────────
+async function createSelfOrderBatch({
+  uid,
+  officialEmployeeNumber,
+  tenantId,
+  userRole,
+  orderType,
+  diningMode,
+  requestedPickupTime,
+  consumerType,
+  consumerFamilyMemberId,
+  items,
+}) {
+  // --- Array shape ---
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('At least one item must be selected.');
+  }
+  // Firestore batches cap at 500 writes; a café order is nowhere near that, so a
+  // very large count signals a bad request rather than a real order. Guard with a
+  // generous ceiling so an absurd payload fails clearly instead of at commit.
+  if (items.length > 50) {
+    throw new Error('Too many items in one order (max 50 per order).');
+  }
+  for (const line of items) {
+    if (!line || typeof line.menuItemId !== 'string' || !line.menuItemId) {
+      throw new Error('Each item must have a menuItemId.');
+    }
+    if (!Number.isInteger(line.quantity) || line.quantity < 1) {
+      throw new Error(`Quantity for an item must be a positive integer.`);
+    }
+  }
+
+  // --- Session-level validation ---
+  // _validateOrderInput enforces orderType, diningMode + interlock, the live PKT
+  // time window, pickup-time + lead-time rules, consumerType, and family-member
+  // ownership. These are all session-wide for a café order, so we validate them
+  // ONCE using the first line as the representative menu item. The family member
+  // (if any) is resolved here a single time and reused for every line.
+  const first = items[0];
+  const { familyMember } = await _validateOrderInput({
+    tenantId,
+    officialEmployeeNumber,
+    orderType,
+    menuItemId: first.menuItemId,
+    quantity: first.quantity,
+    diningMode,
+    requestedPickupTime,
+    consumerType,
+    consumerFamilyMemberId,
+  });
+
+  // --- Resolve every remaining line's menu item (per-line existence check) ---
+  // first.menuItemId was already resolved inside _validateOrderInput; resolve the
+  // rest. Collect the resolved menuItem objects in submission order.
+  const resolvedItems = [];
+  for (const line of items) {
+    const menuItem = await _resolveCafeMenuItem(line.menuItemId);
+    resolvedItems.push({ menuItem, quantity: line.quantity });
+  }
+
+  // --- Account holder (subject == creator for self-order) ---
+  const employee = await _getEmployee({ tenantId, officialEmployeeNumber });
+
+  const consumerName = consumerType === CAFE_CONSUMER_TYPES.SELF
+    ? employee.fullName
+    : familyMember.fullName;
+
+  // --- One shared bookingGroupId for the whole session ---
+  // Mint a document id up front (no write yet) to use as the group id. Same
+  // doc()-then-id pattern mess uses.
+  const bookingGroupId = db.collection(COLLECTIONS.CAFE_ORDERS).doc().id;
+
+  // --- Build every line and write them ATOMICALLY in one batch ---
+  // All lines of a session commit together or none do. A mid-write failure can
+  // no longer leave a partial order under an incomplete bookingGroupId.
+  // Refs are pre-minted with doc() so we know every orderId before commit and
+  // can return them. (db.batch() uses set(ref, doc), not add().)
+  const batch = db.batch();
+  const created = [];
+
+  for (const { menuItem, quantity } of resolvedItems) {
+    const ref = db.collection(COLLECTIONS.CAFE_ORDERS).doc(); // pre-minted id, no write
+    const doc = _buildOrderDoc({
+      tenantId,
+      bookingGroupId,
+      createdByUid: uid,
+      createdByRole: userRole,
+      createdByEmployeeNumber: officialEmployeeNumber,
+      employeeNumber: officialEmployeeNumber,
+      employeeName: employee.fullName,
+      bookingSource: BOOKING_SOURCES.SELF,
+      orderType,
+      menuItem,
+      quantity,
+      diningMode,
+      requestedPickupTime,
+      consumerType,
+      consumerFamilyMemberId,
+      consumerName,
+    });
+
+    batch.set(ref, doc);
+    created.push({
+      orderId: ref.id,
+      menuItemId: menuItem.itemId,
+      itemName: menuItem.itemName,
+      quantity,
+      rateTargetKey: doc.rateTargetKey,
+    });
+  }
+
+  // Single atomic commit. Throws if any write fails — nothing is persisted.
+  await batch.commit();
+
+  return {
+    bookingGroupId,
+    orderCount: created.length,
+    orders: created,
+  };
 }
 
 // ─────────────────────────────────────────
@@ -632,6 +781,7 @@ async function listMyOrders({ tenantId, officialEmployeeNumber, days = 30 }) {
 
 module.exports = {
   createSelfOrder,
+  createSelfOrderBatch,
   createProxyOrder,
   createWalkInOrder,
   cancelOrder,

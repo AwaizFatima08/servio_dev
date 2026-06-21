@@ -28,6 +28,13 @@ const NAV_CONFIG = {
       ],
     },
     {
+      section: 'Café',
+      items: [
+        { label: 'Café',          icon: 'coffee',         to: '/cafe' },
+        { label: 'My Café Orders', icon: 'receipt',       to: '/my-cafe-orders' },
+      ],
+    },
+    {
       section: 'Club',
       items: [
         { label: 'Events',        icon: 'calendar-event', to: '/events' },

@@ -5,11 +5,16 @@
 // Mounted at /cafe by index.js.
 //
 // Routes:
-//   POST   /cafe/orders               employee self-order
-//   POST   /cafe/orders/proxy         cafe_supervisor | cafe_waiter | admin
-//   POST   /cafe/orders/walk-in       cafe_supervisor | cafe_waiter | admin
-//   GET    /cafe/orders/mine          any authenticated user
+//   GET    /cafe/menu                      any authenticated user                 (V1.2 Web Slice 1)
+//   POST   /cafe/orders                    employee self-order
+//   POST   /cafe/orders/batch              employee multi-item self-order (V1.2 Web Slice 2.3)
+//   POST   /cafe/orders/proxy              cafe_supervisor | cafe_waiter | admin
+//   POST   /cafe/orders/walk-in            cafe_supervisor | cafe_waiter | admin
+//   GET    /cafe/orders/mine               any authenticated user
 //   PATCH  /cafe/orders/:orderId/cancel    employee (own) | admin
+//   PATCH  /cafe/orders/:orderId/accept    cafe_supervisor | cafe_waiter | admin  (V1.2 Slice 2)
+//   GET    /cafe/kitchen/orders            cafe_supervisor | cafe_waiter | admin  (V1.2 Slice 2)
+//   POST   /cafe/admin/rebuild-menu        admin only
 //
 // Specific routes are declared before parameterised :orderId routes
 // (Technical Rule #18).
@@ -26,6 +31,46 @@ const { ROLES } = require('../constants');
 
 const cafeOrderService = require('./cafeOrderService');
 const cafeMenuResolver = require('./cafeMenuResolver');
+const cafeKitchenService = require('./cafeKitchenService');
+const cafeMenuService = require('./cafeMenuService');
+
+// ─────────────────────────────────────────
+// GET /cafe/menu — read the resolved café menu (V1.2 Web Slice 1)
+// No body, no query params. Returns the fat serviceMenuConfigs/cafe doc
+// (filtered to a stable client shape). Broad role set — any authenticated
+// user in the tenant can see what the café serves.
+// ─────────────────────────────────────────
+router.get(
+  '/menu',
+  verifyToken,
+  verifyRole(
+    ROLES.EMPLOYEE,
+    ROLES.MESS_SUPERVISOR,
+    ROLES.CAFE_SUPERVISOR,
+    ROLES.CAFE_WAITER,
+    ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+    ROLES.ACCOUNTS_SUPERVISOR,
+    ROLES.GH_SUPERVISOR,
+    ROLES.BOQ_SUPERVISOR,
+    ROLES.STORE_SUPERVISOR,
+    ROLES.PURCHASER,
+    ROLES.SPORTS_SUPERVISOR,
+    ROLES.MANAGER,
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      const result = await cafeMenuService.getCafeMenu({
+        tenantId: req.tenantId,
+      });
+      return successResponse(res, result, 'Café menu retrieved.');
+    } catch (err) {
+      console.error('[GET /cafe/menu] error:', err);
+      return errorResponse(res, err.message || 'Failed to load café menu.', 500, err);
+    }
+  }
+);
 
 // ─────────────────────────────────────────
 // POST /cafe/orders — employee self-order
@@ -63,6 +108,54 @@ router.post(
       return successResponse(res, result, 'Order placed.', 201);
     } catch (err) {
       console.error('[POST /cafe/orders] error:', err);
+      return errorResponse(res, err.message || 'Failed to place order.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// POST /cafe/orders/batch — employee multi-item self-order (one session)
+// Body: { orderType, diningMode, requestedPickupTime?, consumerType,
+//         consumerFamilyMemberId?, items: [{ menuItemId, quantity }] }
+//
+// One consumer for the whole order (session-level). One shared bookingGroupId.
+// One cafeOrders document per line, each with its own billing hooks. See
+// cafeOrderService.createSelfOrderBatch for the locked design.
+// ─────────────────────────────────────────
+router.post(
+  '/orders/batch',
+  verifyToken,
+  verifyRole(
+    ROLES.EMPLOYEE,
+    ROLES.MESS_SUPERVISOR,
+    ROLES.CAFE_SUPERVISOR,
+    ROLES.CAFE_WAITER,
+    ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy V1 role — kept for V1 compatibility
+    ROLES.ACCOUNTS_SUPERVISOR,
+    ROLES.GH_SUPERVISOR,
+    ROLES.BOQ_SUPERVISOR,
+    ROLES.STORE_SUPERVISOR,
+    ROLES.PURCHASER,
+    ROLES.SPORTS_SUPERVISOR,
+    ROLES.MANAGER,
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      if (!Array.isArray(req.body.items) || req.body.items.length === 0) {
+        return errorResponse(res, 'items array is required and must not be empty.', 400);
+      }
+      const result = await cafeOrderService.createSelfOrderBatch({
+        uid: req.user.uid,
+        officialEmployeeNumber: req.officialEmployeeNumber,
+        tenantId: req.tenantId,
+        userRole: req.userRole,
+        ...req.body,
+      });
+      return successResponse(res, result, `Order placed. ${result.orderCount} item(s).`, 201);
+    } catch (err) {
+      console.error('[POST /cafe/orders/batch] error:', err);
       return errorResponse(res, err.message || 'Failed to place order.', 400, err);
     }
   }
@@ -242,6 +335,68 @@ router.post(
     } catch (err) {
       console.error('[POST /cafe/admin/rebuild-menu] error:', err);
       return errorResponse(res, err.message || 'Failed to rebuild cafe menu.', 500, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// PATCH /cafe/orders/:orderId/accept — kitchen acknowledges an order
+// placed -> accepted. No body required.
+//
+// V1.2 Slice 2. 'accepted' is the terminal state — there is no further
+// transition (no 'ready'/'served'). See cafeKitchenService.js header for
+// why this makes the kitchen-orders list's "today only" scope mandatory.
+// ─────────────────────────────────────────
+router.patch(
+  '/orders/:orderId/accept',
+  verifyToken,
+  verifyRole(
+    ROLES.CAFE_SUPERVISOR,
+    ROLES.CAFE_WAITER,
+    ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      const result = await cafeKitchenService.acceptOrder({
+        orderId: req.params.orderId,
+        tenantId: req.tenantId,
+        acceptedByUid: req.user.uid,
+      });
+      return successResponse(res, result, result.message);
+    } catch (err) {
+      console.error('[PATCH /cafe/orders/:orderId/accept] error:', err);
+      return errorResponse(res, err.message || 'Failed to accept order.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// GET /cafe/kitchen/orders — today's orders for the kitchen view
+// Returns placed + accepted orders (PKT today only), oldest first,
+// plus unacknowledgedCount. No date parameter — see cafeKitchenService.js
+// header for why this is scoped to today only by design.
+// ─────────────────────────────────────────
+router.get(
+  '/kitchen/orders',
+  verifyToken,
+  verifyRole(
+    ROLES.CAFE_SUPERVISOR,
+    ROLES.CAFE_WAITER,
+    ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      const result = await cafeKitchenService.getKitchenOrders({
+        tenantId: req.tenantId,
+      });
+      return successResponse(res, result, 'Kitchen orders retrieved.');
+    } catch (err) {
+      console.error('[GET /cafe/kitchen/orders] error:', err);
+      return errorResponse(res, err.message || 'Failed to retrieve kitchen orders.', 500, err);
     }
   }
 );
