@@ -68,6 +68,20 @@ function todayAtPKT(hhmm) {
   return new Date(`${todayStr}T${hhmm}:00+05:00`);
 }
 
+// Adds N days to a YYYY-MM-DD string, returning YYYY-MM-DD (PKT).
+// Pure offset arithmetic via the +05:00 anchor — no toLocaleString, no tz parsing.
+function addDaysToDateStr(dateStr, days) {
+  const d = new Date(`${dateStr}T00:00:00+05:00`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return pktDateStr(d);
+}
+
+// Builds a PKT Date for an arbitrary YYYY-MM-DD + HH:MM. Generalises todayAtPKT
+// to any date. Unambiguous via the +05:00 offset.
+function pickupDateTimePKT(dateStr, hhmm) {
+  return new Date(`${dateStr}T${hhmm}:00+05:00`);
+}
+
 // ─────────────────────────────────────────
 // Time window constants (PKT, expressed as minutes of day)
 //
@@ -75,12 +89,15 @@ function todayAtPKT(hhmm) {
 // Order acceptance closes at 22:30 PKT — gives kitchen 30 min to clear
 // the last orders before service ends. Applies to BOTH order types.
 // ─────────────────────────────────────────
-const CAFE_HOURS_START       = 0 * 60;         // TEMP TEST WINDOW — REVERT TO 18*60 (18:00)
-const CAFE_ORDER_END         = 23 * 60 + 59;   // TEMP TEST WINDOW — REVERT TO 22*60+30 (22:30)
+const CAFE_HOURS_START       = 18 * 60;        // 18:00 — cafe_hours order window opens
+const CAFE_ORDER_END         = 22 * 60 + 30;   // 22:30 — cafe_hours order window closes
 const CAFE_SERVICE_END       = 23 * 60;        // 23:00 — cafe physically closes (pickup ceiling)
 const ANYTIME_TA_START       = 8 * 60;         // 08:00 — anytime_takeaway window opens
 const ANYTIME_TA_LEAD_MIN    = 2 * 60;         // 2 hours minimum lead time
 const ANYTIME_TA_CANCEL_MIN  = 60;             // 1 hour cancellation window
+// Advance-date ordering (added in the anytime advance-date slice, 22-Jun-2026)
+const ANYTIME_TA_SAMEDAY_LOCKOUT  = 20 * 60;   // 20:00 PKT — after this, same-day pickup is locked; pickup must be tomorrow+
+const ANYTIME_TA_MAX_ADVANCE_DAYS = 7;         // pickup-date ceiling: today .. today+7 (PKT)
 
 // ─────────────────────────────────────────
 // Resolved cafe menu lookup
@@ -158,6 +175,7 @@ async function _validateOrderInput({
   quantity,
   diningMode,
   requestedPickupTime,
+  requestedPickupDate,
   consumerType,
   consumerFamilyMemberId,
 }) {
@@ -198,24 +216,58 @@ async function _validateOrderInput({
 
   // --- Time window checks (against current PKT) ---
   const nowMin = pktMinutesOfDay(new Date());
+  const todayStr = pktDateStr(new Date());
+
+  // resolvedPickupDate is returned to the create paths so the document carries
+  // an explicit pickup date. For anytime_takeaway it is validated below; for
+  // cafe_hours it stays whatever was passed (today by default) and is unused.
+  let resolvedPickupDate = requestedPickupDate || todayStr;
+  let pickupDateTime = null;
 
   if (orderType === CAFE_ORDER_TYPES.CAFE_HOURS) {
     if (nowMin < CAFE_HOURS_START || nowMin > CAFE_ORDER_END) {
       throw new Error('Cafe orders accepted 18:00 to 22:30 PKT only. Cafe service runs until 23:00.');
     }
   } else if (orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY) {
-    if (nowMin < ANYTIME_TA_START || nowMin > CAFE_ORDER_END) {
-      throw new Error('anytime_takeaway accepts orders between 08:00 and 22:30 PKT only.');
+    // Placement allowed 24/7 — no nowMin window cap. The constraint is on the
+    // FULFILMENT datetime (date + time), not on when the order is placed.
+
+    // requestedPickupDate format + ceiling (today .. today+MAX_ADVANCE_DAYS).
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(resolvedPickupDate)) {
+      throw new Error('requestedPickupDate must be in YYYY-MM-DD format.');
     }
-    // Lead time check: pickup must be >= now + 2 hours
+    const maxDateStr = addDaysToDateStr(todayStr, ANYTIME_TA_MAX_ADVANCE_DAYS);
+    if (resolvedPickupDate < todayStr) {
+      throw new Error('requestedPickupDate cannot be in the past.');
+    }
+    if (resolvedPickupDate > maxDateStr) {
+      throw new Error(`requestedPickupDate cannot be more than ${ANYTIME_TA_MAX_ADVANCE_DAYS} days ahead.`);
+    }
+
     const pickupMin = parseHHMM(requestedPickupTime);
-    if (pickupMin === null || pickupMin < nowMin + ANYTIME_TA_LEAD_MIN) {
-      throw new Error('anytime_takeaway requires at least 2 hours lead time.');
+    if (pickupMin === null) {
+      throw new Error('requestedPickupTime must be in HH:MM format.');
     }
-    // Pickup time must fall within cafe service window (close: 23:00)
+    // Pickup time must fall within cafe service window (close: 23:00) on any date.
     if (pickupMin > CAFE_SERVICE_END) {
       throw new Error('Pickup time must be at or before 23:00 PKT (cafe close).');
     }
+
+    const isSameDay = resolvedPickupDate === todayStr;
+
+    if (isSameDay) {
+      // After 20:00 PKT, same-day pickup is locked — must order for tomorrow+.
+      if (nowMin >= ANYTIME_TA_SAMEDAY_LOCKOUT) {
+        throw new Error('Same-day pickup is closed after 20:00 PKT. Choose tomorrow or later.');
+      }
+      // Same-day requires >= 2h lead time from now.
+      if (pickupMin < nowMin + ANYTIME_TA_LEAD_MIN) {
+        throw new Error('anytime_takeaway requires at least 2 hours lead time for same-day pickup.');
+      }
+    }
+    // Future-date: 2h lead waived (a next-day order has a whole night of lead).
+
+    pickupDateTime = pickupDateTimePKT(resolvedPickupDate, requestedPickupTime);
   }
 
   // --- Menu item resolution ---
@@ -239,7 +291,7 @@ async function _validateOrderInput({
     }
   }
 
-  return { menuItem, familyMember };
+  return { menuItem, familyMember, resolvedPickupDate, pickupDateTime };
 }
 
 // ─────────────────────────────────────────
@@ -262,6 +314,8 @@ function _buildOrderDoc({
   quantity,
   diningMode,
   requestedPickupTime,
+  requestedPickupDate,
+  pickupDateTime,
   consumerType,
   consumerFamilyMemberId,
   consumerName,
@@ -269,10 +323,21 @@ function _buildOrderDoc({
   const now = new Date();
   const orderDate = pktDateStr(now);
 
-  // cancellation window: only for anytime_takeaway, 1 hour from now
+  // Cancellation window (anytime_takeaway only):
+  //   same-day pickup  → 1 hour from placement (unchanged original rule)
+  //   future-date pickup → cancellable until pickup (Option B, locked 22-Jun)
+  // For future-date orders this field holds the PICKUP datetime, not a
+  // placement-based window. The cancelOrder check ("now > expiresAt → reject")
+  // works unchanged for both cases.
   let cancellationWindowExpiresAt = null;
   if (orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY) {
-    cancellationWindowExpiresAt = new Date(now.getTime() + ANYTIME_TA_CANCEL_MIN * 60 * 1000);
+    const isSameDay = !requestedPickupDate || requestedPickupDate === orderDate;
+    if (isSameDay) {
+      cancellationWindowExpiresAt = new Date(now.getTime() + ANYTIME_TA_CANCEL_MIN * 60 * 1000);
+    } else {
+      // future-date: cancellable right up to pickup time
+      cancellationWindowExpiresAt = pickupDateTime || new Date(now.getTime() + ANYTIME_TA_CANCEL_MIN * 60 * 1000);
+    }
   }
 
   return {
@@ -299,6 +364,12 @@ function _buildOrderDoc({
     quantity,
     diningMode,            // dine_in | takeaway | outdoor_seating
     requestedPickupTime: diningMode === DINING_MODES.DINE_IN ? null : requestedPickupTime,
+    // Explicit pickup date for anytime_takeaway advance orders (YYYY-MM-DD, PKT).
+    // For cafe_hours / same-day this is the order date. Older orders predate this
+    // field — readers fall back to the order date when it is absent.
+    requestedPickupDate: orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY
+      ? (requestedPickupDate || orderDate)
+      : orderDate,
 
     // Consumer (self vs family member)
     consumerType,                                          // self | family_member
@@ -365,10 +436,11 @@ async function createSelfOrder({
   quantity,
   diningMode,
   requestedPickupTime,
+  requestedPickupDate,
   consumerType,
   consumerFamilyMemberId,
 }) {
-  const { menuItem, familyMember } = await _validateOrderInput({
+  const { menuItem, familyMember, resolvedPickupDate, pickupDateTime } = await _validateOrderInput({
     tenantId,
     officialEmployeeNumber,
     orderType,
@@ -376,6 +448,7 @@ async function createSelfOrder({
     quantity,
     diningMode,
     requestedPickupTime,
+    requestedPickupDate,
     consumerType,
     consumerFamilyMemberId,
   });
@@ -399,6 +472,8 @@ async function createSelfOrder({
     quantity,
     diningMode,
     requestedPickupTime,
+    requestedPickupDate: resolvedPickupDate,
+    pickupDateTime,
     consumerType,
     consumerFamilyMemberId,
     consumerName,
@@ -445,6 +520,7 @@ async function createSelfOrderBatch({
   orderType,
   diningMode,
   requestedPickupTime,
+  requestedPickupDate,
   consumerType,
   consumerFamilyMemberId,
   items,
@@ -475,7 +551,7 @@ async function createSelfOrderBatch({
   // ONCE using the first line as the representative menu item. The family member
   // (if any) is resolved here a single time and reused for every line.
   const first = items[0];
-  const { familyMember } = await _validateOrderInput({
+  const { familyMember, resolvedPickupDate, pickupDateTime } = await _validateOrderInput({
     tenantId,
     officialEmployeeNumber,
     orderType,
@@ -483,6 +559,7 @@ async function createSelfOrderBatch({
     quantity: first.quantity,
     diningMode,
     requestedPickupTime,
+    requestedPickupDate,
     consumerType,
     consumerFamilyMemberId,
   });
@@ -532,6 +609,8 @@ async function createSelfOrderBatch({
       quantity,
       diningMode,
       requestedPickupTime,
+      requestedPickupDate: resolvedPickupDate,
+      pickupDateTime,
       consumerType,
       consumerFamilyMemberId,
       consumerName,
@@ -573,6 +652,7 @@ async function createProxyOrder({
   quantity,
   diningMode,
   requestedPickupTime,
+  requestedPickupDate,
   consumerType,
   consumerFamilyMemberId,
 }) {
@@ -580,7 +660,7 @@ async function createProxyOrder({
     throw new Error('targetEmployeeNumber is required for proxy orders.');
   }
 
-  const { menuItem, familyMember } = await _validateOrderInput({
+  const { menuItem, familyMember, resolvedPickupDate, pickupDateTime } = await _validateOrderInput({
     tenantId,
     officialEmployeeNumber: targetEmployeeNumber, // family member belongs to target
     orderType,
@@ -588,6 +668,7 @@ async function createProxyOrder({
     quantity,
     diningMode,
     requestedPickupTime,
+    requestedPickupDate,
     consumerType,
     consumerFamilyMemberId,
   });
@@ -614,6 +695,8 @@ async function createProxyOrder({
     quantity,
     diningMode,
     requestedPickupTime,
+    requestedPickupDate: resolvedPickupDate,
+    pickupDateTime,
     consumerType,
     consumerFamilyMemberId,
     consumerName,
@@ -641,6 +724,7 @@ async function createWalkInOrder({
   quantity,
   diningMode,
   requestedPickupTime,
+  requestedPickupDate,
   consumerType,
   consumerFamilyMemberId,
 }) {
@@ -648,7 +732,7 @@ async function createWalkInOrder({
     throw new Error('targetEmployeeNumber is required for walk-in orders.');
   }
 
-  const { menuItem, familyMember } = await _validateOrderInput({
+  const { menuItem, familyMember, resolvedPickupDate, pickupDateTime } = await _validateOrderInput({
     tenantId,
     officialEmployeeNumber: targetEmployeeNumber,
     orderType,
@@ -656,6 +740,7 @@ async function createWalkInOrder({
     quantity,
     diningMode,
     requestedPickupTime,
+    requestedPickupDate,
     consumerType,
     consumerFamilyMemberId,
   });
@@ -682,6 +767,8 @@ async function createWalkInOrder({
     quantity,
     diningMode,
     requestedPickupTime,
+    requestedPickupDate: resolvedPickupDate,
+    pickupDateTime,
     consumerType,
     consumerFamilyMemberId,
     consumerName,

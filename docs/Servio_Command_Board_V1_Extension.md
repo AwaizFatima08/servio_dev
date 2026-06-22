@@ -13,7 +13,7 @@
 | GitHub | `AwaizFatima08/servio_dev` |
 | NAS Path | `/mnt/storage/projects/servio_dev/` |
 | Consolidated on | 20 June 2026 |
-| Last Updated | 20 June 2026 |
+| Last Updated | 22 June 2026 |
 
 > **Reading note for new sessions.** This is the working command board. Paste it at the start of a new chat to restore context. V1 history lives separately in `Servio_CB_V1.md` — reference that only if a V1-era detail comes up.
 
@@ -21,7 +21,7 @@
 
 ## 1. Current Status (paragraph)
 
-V1 is deployed to prod (frozen for the 15-day tester trial — see V1 CB) and dev development has moved entirely to V1 Extension. **V1.1 Family Member CRUD** is complete on backend + web (mobile deferred to end of V1 Extension per build-order change locked 19-Jun). **V1.2 Café + Outdoor Mini Café + kitchen dashboard** has backend complete (Slices 1 + 2 field-tested 20-Jun) and **Web Slice 1 (read-only café menu) complete and field-tested 20-Jun**. Next active work is **V1.2 Web Slice 2 — order placement UI**. V1.3 and V1.4 are scope-locked and queued. Mobile build for V1.1–V1.4 is bundled at end of V1 Extension.
+V1 is deployed to prod (frozen for the 15-day tester trial — see V1 CB) and dev development has moved entirely to V1 Extension. **V1.1 Family Member CRUD** is complete on backend + web (mobile deferred to end of V1 Extension per build-order change locked 19-Jun). **V1.2 Café + Outdoor Mini Café + kitchen dashboard** has backend complete (Slices 1 + 2 field-tested 20-Jun) and the **café employee ordering flow built and field-tested 22-Jun** (Web Slices 2.1–2.4: cart → review modal → multi-item submit → consolidated collapsible history → cancel UI). **The café flow is BUILT but HELD OPEN — not yet closed** — pending the **anytime advance-date ordering slice** (next active work). The `anytime_takeaway` cancel path is deployed but unverified by design, because anytime orders can't be meaningfully placed/cancelled until the timing model is fixed; `cafe_hours` ordering (the common path) is complete and working. V1.3 and V1.4 are scope-locked and queued. Mobile build for V1.1–V1.4 is bundled at end of V1 Extension.
 
 ---
 
@@ -42,7 +42,7 @@ firebase use
 
 | Priority | Task | Platform | Notes |
 |----------|------|----------|-------|
-| 1 | **V1.2 Web Slice 2 — café order placement UI** | Dev (Web) | Brings `POST /cafe/orders` + `GET /cafe/orders/mine` + cancel UI to life. Plan slice breakdown before any code. Backend already shipped in V1.2 Backend Slice 1. See Section 5 carry list. |
+| 1 | **V1.2 anytime advance-date ordering slice** | Dev (Backend + Web) | Backend-first. Adds `requestedPickupDate` to café order schema; `anytime_takeaway` placement allowed 24/7; validate pickup datetime future + ≥2h lead (same-day only); after-20:00 PKT placement locks same-day (pickup must be tomorrow+). `cafe_hours` unchanged. Then web modal date-picker + history display + batch passthrough. **Closes the café flow** — verify `anytime_takeaway` cancel path (per-line + whole-order) as part of this slice. Design-lock open Qs first: 20:00 hardcoded vs appSettings; max advance days; lead-time waiver for future-date orders. See Section 5. |
 | 2 | Test `servio.homilabs.org` hosting (DNS/SSL) | Prod | Confirm login loads + works |
 | 3 | Admin/super_admin bootstrap in PROD | Prod | Deferred delicate step |
 | 4 | V1.1 + V1.2 + V1.3 + V1.4 Mobile build | Mobile | After all four module web builds close. Includes F1/F2 mobile from V1 Enhancement. |
@@ -57,7 +57,7 @@ Reference: `Servio_V1_Extension_Scope_09Jun2026.md` in `docs/`.
 | Version | Scope | Design | Build |
 |---------|-------|--------|-------|
 | V1.1 | Family Member CRUD | 🔒 LOCKED | Backend ✅ · Web complete ✅ · Mobile deferred to end of V1 Extension |
-| V1.2 | Café + Outdoor Mini Café + kitchen dashboard | 🔒 LOCKED | Backend ✅ · Web 1 ✅ · Web 2 ⏳ · Web 3 ⏳ · Web 4 ⏳ · Mobile deferred |
+| V1.2 | Café + Outdoor Mini Café + kitchen dashboard | 🔒 LOCKED | Backend ✅ · Web 1 ✅ · Web 2.1–2.4 ✅ built (café flow HELD OPEN pending advance-date slice) · Web 3 ⏳ · Web 4 ⏳ · Mobile deferred |
 | V1.3 | Tea Bar + Tuck Shop (bakery absorbed) | 🔒 LOCKED | Not started |
 | V1.4 | BBQ | 🔒 LOCKED | Not started |
 | V1.5 | Dashboards + analytics + reporting + billing | Design after V1.4 build | — |
@@ -82,8 +82,9 @@ Reference: `Servio_V1_Extension_Scope_09Jun2026.md` in `docs/`.
 | Backend Slice 1 | `cafeOrders` schema + self/proxy/walk-in order paths + cancellation rules + family consumer tagging + `cafeMenuResolver` + `cafe_supervisor` + `cafe_waiter` roles + `_memberHasTransactions` stub fix | ✅ 20-Jun field-tested (18/18) | Closes V1.1 carry #1 (open item #1) |
 | Backend Slice 2 | Kitchen dashboard: `getKitchenOrders` (today-only, oldest-first, with `unacknowledgedCount`) + `acceptOrder` (placed → accepted) | ✅ 20-Jun field-tested (13/13) | `accepted` is terminal — today-only scope is a correctness requirement |
 | Web Slice 1 | Read-only café menu + `GET /cafe/menu` endpoint + Café page + sidebar Café section | ✅ 20-Jun field-tested | Pure read, no order UI |
-| Web Slice 2 | Order placement UI: composer dialog + own-orders list + cancel UI | ⏳ Next | Backend already exists |
-| Web Slice 3 | Kitchen dashboard UI + supervisor proxy ordering | ⏳ Pending | `cafe_supervisor` / `cafe_waiter` sidebar configs go here |
+| Web Slice 2 (2.1–2.4) | Café employee ordering: cart + review modal (consumer picker, order-type/dining interlock, conditional pickup) + multi-item batch submit + full success screen + consolidated collapsible order history + cancel UI | ✅ 22-Jun field-tested (BUILT, café flow HELD OPEN) | See 7.2 session log. `anytime_takeaway` cancel path deployed but unverified by design until advance-date slice. |
+| Advance-date ordering | `anytime_takeaway` 24/7 placement + `requestedPickupDate` schema + same-day-after-2000 lockout + modal date-picker | ⏳ NEXT | Backend-first. Closes the café flow + verifies anytime cancel. |
+| Web Slice 3 | Kitchen dashboard UI + supervisor proxy ordering | ⏳ Pending | `cafe_supervisor` / `cafe_waiter` sidebar configs go here. Reuses the order modal (built proxy-reusable in Slice 2.3). |
 | Web Slice 4 | Official café meals | ⏳ Pending | |
 | Mobile | Full V1.2 mobile flow | ⏳ Deferred to end of V1 Extension | Web is the design source |
 
@@ -110,6 +111,12 @@ Reference: `Servio_V1_Extension_Scope_09Jun2026.md` in `docs/`.
 | 16 | `test_cafe_slice2.sh` has dev test-account credentials in git | Dev | Low | Script auto-fetches admin + employee tokens at startup via hardcoded email/password for the two dev fixtures. Removed token-swapping friction from Slice 1. Tradeoff: live, reusable dev credentials are committed to git in plaintext. Both accounts are throwaway dev fixtures. Accepted as a reasonable tradeoff for dev; flagged rather than decided silently. |
 | 17 | Sidebar configs missing for `cafe_supervisor` and `cafe_waiter` | Dev (Web) | Resolve in V1.2 Web Slice 3 | Both roles exist in `constants.js` (added in V1.2 Backend Slice 1) but `NAV_CONFIG` in `Sidebar.jsx` has no entries for them. Users with either role currently fall through to the default employee nav. Resolve when kitchen dashboard UI ships (V1.2 Web Slice 3). Not blocking Web Slice 2. |
 | 18 | Browser timezone leakage in "Updated" timestamp on Café page | Dev (Web) | Low | Page subtitle shows `updatedAt` rendered via `Date.toLocaleString` with no explicit timezone. Users in different timezones see different times for the same backend write. Acceptable for V1.2 (single-tenant FFL, all PKT users), but worth noting before any multi-tenant deployment. Hard-code to PKT in the formatter if it ever matters. |
+| 19 | Universal rate-entry / billing for café / tea bar / tuck shop / bakery | Dev | V1.5 billing-alignment | Café order lines ship with billing hooks (`rateTargetKey {date}_cafe_{itemId}`, `rateStatus: pending`, `billingDestination: employee_account`, null unitRate/amount) but NO rate-entry mechanism exists yet. Port the mess `mealRates` + applicator model: issued items → next-day per-item report → rate entered once → batch-published by `rateTargetKey` → employee notified → billing-history screen. One slice, all four services, after the order flows are built. Until then every café order shows "Rate pending" indefinitely. |
+| 20 | `toLocaleString` audit across `core/functions/src` | Dev | Medium | `pktMinutesOfDay` in `cafeOrderService.js` was migrated `toLocaleString` → UTC arithmetic (Rule #2 compliance) on 22-Jun. Other time-of-day usages elsewhere in the backend may carry the same Hermes-on-mobile / inconsistency risk. Grep for `toLocaleString` and audit each call site. Preventive — no confirmed defect. |
+| 21 | Verify `bookingGroupId` + `createdByRole` present in `listMyOrders` response | Dev (Web) | Confirm next session | 2.4 `MyCafeOrdersPage` groups by `bookingGroupId` and derives the "through proxy booking" tag from `createdByRole`. Both are on the order document (confirmed in raw test output) and `listMyOrders` returns order docs, so they should be present — built defensively (missing `bookingGroupId` → order renders as a standalone solo card; missing `createdByRole` → no proxy tag). Confirm in the field that multi-item orders actually consolidate into one card. |
+| 22 | Backend timestamp serialization: `{_seconds,_nanoseconds}` not ISO | Dev | Medium | Café API returns Firestore Timestamps as `{_seconds,_nanoseconds}` objects, NOT ISO strings — discovered during 2.4. Frontend coerces via a `toDate` helper that handles object / ISO / ms shapes. `cafeService.js` comments saying "(ISO)" for `createdAt` / `cancellationWindowExpiresAt` are wrong until normalized. Normalize at the API boundary (serialize Timestamps to ISO in `successResponse`) in a later pass, then simplify the frontend coercion. |
+| 23 | Café test-order fixtures accumulating on dev | Dev | Before V1.2 → prod | Batch-order testing (22-Jun) created many real `cafeOrders` for FFL00003 — multiple `CAFE_TEST_*` / `Cardimom Tea` / `Black Coffee` / `Doodh Patti Tea` / `Cappuccino` fixtures across several `bookingGroupId`s, all `Rate pending`. Harmless dev data. Fold into the existing open item #14 / #8 cleanup sweep before V1.2 reaches prod. |
+| 24 | Café window widening discipline during build | Dev | Active reminder | The `cafe_hours` / `anytime_takeaway` order windows were manually widened on the deployed dev function during café-flow development to allow off-hours testing. As of 22-Jun the window is **reverted to the real 18:00–22:30 and verified enforcing** (rejection message confirmed in field). If widened again for the advance-date slice: widen → test → revert → grep-verify (`grep "TEMP TEST WINDOW"` = 0, constants = `18*60` / `22*60+30`) BEFORE declaring the slice done. A widened window must never reach prod. This is the exact mismatch that caused a false "window bug" diagnosis on 22-Jun (see 7.2). |
 | S1 | Booking duplicate-check not atomic | Dev | Before full rollout | Carry from V1 — see V1 CB |
 | S2 | `employeeService` `.limit()` + in-memory filter breaks past 50 employees | Dev | Before full rollout | Carry from V1 |
 | S3 | Notification fanout 500-op batch limit | Dev | Before full rollout | Carry from V1 |
@@ -117,33 +124,38 @@ Reference: `Servio_V1_Extension_Scope_09Jun2026.md` in `docs/`.
 
 ### Recently Closed
 
+- ✅ **V1.2 café employee ordering flow (Web Slices 2.1–2.4)** — cart → review modal → multi-item batch submit → consolidated collapsible history → cancel UI. Built and field-tested 22-Jun. NOTE: BUILT, not fully closed — café flow held open pending the advance-date slice (see Section 5). `cafe_hours` path complete; `anytime_takeaway` cancel unverified by design until anytime timing fixed.
 - ✅ **Open Item #1** — `_memberHasTransactions()` stub fix. Now queries `cafeOrders` for `consumerFamilyMemberId` matches. Verified via `test_member_has_transactions.js` (direct unit test, not used by production code). Closed 20-Jun in V1.2 Backend Slice 1.
 - ✅ V1.1 carry #1 — `setEmployeeStatus` route now includes `familyMembersDeactivated` in HTTP response. Closed 19-Jun in V1.1 Backend Slice 3a.
 - ✅ Service-layer `familyMembersDeactivated` count — was already in service return, never the issue. Closed via discovery 19-Jun.
 
 ---
 
-## 5. Carry into V1.2 Web Slice 2
+## 5. Carry into the anytime advance-date ordering slice
 
-V1.2 Web Slice 2 brings the order placement endpoints to life on the web (backend already shipped in V1.2 Backend Slice 1, 20-Jun). Specific items:
+The café employee ordering flow (Web Slices 2.1–2.4) is built. The café flow is **held open** until this next slice lands. Scope:
 
-1. **Order composer dialog** — opened from a menu row. Needs: quantity stepper, `orderType` selector (`cafe_hours` vs `anytime_takeaway` with the order-window enforcement on the frontend defensively), `diningMode` selector (`dine_in` / `takeaway` / `outdoor_seating`), `consumerType` selector (`self` vs `family_member`) with family-member dropdown gated by ownership (only the caller's active, non-deletion-pending members), optional `requestedPickupTime` for `anytime_takeaway` with 2-hour minimum lead time.
+**The problem.** `anytime_takeaway` currently caps placement at 08:00–22:30 PKT and assumes same-day pickup (`requestedPickupTime` is `'HH:MM'`, implicitly today). This is too narrow for the real scenario: "I'm hosting a dinner tomorrow and want to place a café order late tonight for next-day pickup." The 08:00–22:30 cap is a `cafe_hours` rule leaking onto the anytime flow — "anytime" should mean place anytime, with the constraint on *fulfilment* timing, not *ordering* time.
 
-2. **Web service additions** — extend `web/src/services/cafeService.js` with `createSelfOrder`, `listMyOrders`, and `cancelOrder`. Match the existing pattern (token passed in, `data.data` return, throw on non-OK).
+**The new model (`anytime_takeaway` only — `cafe_hours` unchanged):**
+1. **Placement allowed 24/7** — drop the 08:00–22:30 placement cap for `anytime_takeaway`.
+2. **Add `requestedPickupDate`** (YYYY-MM-DD) to the café order schema. Existing orders implicitly = order date; new ones carry an explicit pickup date.
+3. **Validate the pickup *datetime*** (date + time): must be in the future; ≥2h lead time applies to **same-day** pickups only (a next-day order doesn't need the 2h kitchen-prep lead).
+4. **Same-day lockout after 20:00 PKT:** if placement time is after 20:00, today's pickup is off the table — `requestedPickupDate` must be tomorrow or later. (Kitchen-capacity guardrail.)
 
-3. **`MenuList` upgrade or replace** — Slice 1 rows are static `<div>`s. Slice 2 either upgrades them in place (rows become buttons that open the composer) or replaces the sub-component depending on how the composer flow shapes up. Either way `.menuRow` static-CSS rules need a hover/cursor pass.
+**Spans:** schema addition (`requestedPickupDate`) · backend `_validateOrderInput` time logic · web modal date-picker (anytime only, defaulting to today or tomorrow-if-past-2000) · history display (show pickup date on anytime orders) · batch endpoint passthrough (`requestedPickupDate` is session-level, carried to every line like `requestedPickupTime`).
 
-4. **Employee's own order list** — read-only list of `GET /cafe/orders/mine`. Default 30-day window. Show `orderStatus` (placed/accepted/cancelled), `consumerName` (self or family member), `diningMode`, `requestedPickupTime` if present, `cancellationWindowExpiresAt` if cancellation still possible.
+**Closes the café flow.** Verify the `anytime_takeaway` cancel path (per-line + whole-order, built in 2.4) as part of this slice — it's deployed but unverifiable until anytime orders can be meaningfully placed.
 
-5. **Cancel UI** — per the role-aware backend rules:
-   - Employee blocked from cancelling `cafe_hours` orders entirely.
-   - Employee can cancel `anytime_takeaway` only within `cancellationWindowExpiresAt`.
-   - Admin/super_admin can cancel either order type at any time.
-   - All cancellations require a `cancellationReason` from the controlled vocabulary (and an optional free-text note).
+**Design questions to lock BEFORE building:**
+- 20:00 lockout threshold: hardcoded constant vs `appSettings` key?
+- Maximum advance days (can you order 30 days out, or is there a ceiling)?
+- Confirm: lead-time (2h) waived entirely for future-date orders; only same-day pickups enforce it.
+- `requestedPickupDate` format + how existing (date-less) orders are treated in history display.
 
-6. **Order-window enforcement (defensive)** — frontend shows the composer only during the live order window. Backend remains authoritative. Mirror constants from `constants.js` rather than hardcoding.
+**Discipline:** backend-first, design-locked on paper, field-tested via curl before the web modal. If the café window is widened for off-hours testing, revert + grep-verify before declaring done (open item #24).
 
-7. **No supervisor / kitchen UI** — proxy ordering, walk-in entry, and the kitchen dashboard are V1.2 Web Slices 3 and 4. Slice 2 is employee-self-service only.
+**NOT in this slice:** the birthday-cake / multi-day-advance *bakery* pre-order model is a separate service (V1.3, `bakeryOrders`, `isPreorderOnly`). This slice is café `anytime_takeaway` next-day ordering, not arbitrary bakery scheduling.
 
 ---
 
@@ -250,6 +262,37 @@ V1.2 Web Slice 1 ships pure read-only. No disabled Order buttons, no inert consu
 ### Web service pattern — Pattern B (token passed in) (20 June 2026)
 
 `cafeService.js` matches `menuService.js` / `messService.js` / `kitchenService.js` (token passed in by the caller; `<WithToken>` in `App.jsx` injects it as a prop). `familyService.js`'s inside-the-service `auth.currentUser.getIdToken()` pattern is the outlier and was deliberately NOT propagated. Pattern B is the convention for new web services going forward.
+
+### Café order consumer model — whole-order, single consumer (22 June 2026)
+
+An order is tagged to ONE consumer for the whole order (restaurant model), not per-line. **This corrects the V1.2 scope doc**, which described per-line family-member tagging — that was never built; the batch endpoint takes a session-level `consumerType` / `consumerFamilyMemberId` applied to every line. Self-ordering and proxy both pick from a single "Self + family members" picker.
+
+### Café order "placed by" label model (22 June 2026)
+
+History shows **"Order placed by - {consumerName}"** (+ "through proxy booking" when a supervisor booked, derived from `createdByRole`). This is the consumer-as-placer convention agreed with Homi: the label names whose *consumption* the order represents, regardless of whose hands were on the device. Scenarios: employee orders for anyone on his own login → "placed by {employee}"; supervisor selects a child who dined alone → "placed by {child} through proxy booking"; supervisor places for an employee who forgot his phone → "placed by {employee} through proxy booking"; spouse on the employee's login selects herself → "placed by {spouse}".
+
+**The label is display-only.** Underneath, three facts stay separable at the data layer:
+- **Billing always → the employee account** (the account holder pays; family members and children have no account). The label helps the employee spot a family member over-using the facility.
+- **Audit (`createdByUid` / `createdByRole`) always → the real booker** (employee or supervisor), never the consumer.
+- Label is shown only for family/proxy orders; plain self orders stay clean (no redundant "placed by yourself").
+
+### Café orders are immutable once placed — no edit, cancel-only (22 June 2026)
+
+A placed café order cannot be edited (no quantity change, no add-item, no edit page). Reasons: (1) café orders go to a **kitchen** that may already be cooking once `placed` / `accepted` — editing a fired order desyncs the kitchen from reality; (2) each line carries a `rateTargetKey` heading for rate entry — "set quantity to zero" is really a cancellation and must hit the audited cancel path (records `cancelledAt` / `cancelledByUid` / `cancellationReason`), not a silent mutation. **"Add more" = a top-up order** (new `bookingGroupId`), placed the normal way — this is the correct model (a second round at the table), not a workaround. To change a placed order, the employee cancels (where rules permit) and re-orders.
+
+### Café cancellation rules — anytime-only (22 June 2026, reaffirming deployed backend)
+
+- **`cafe_hours` (dine-in / live takeaway):** the 30-minute serving window is a kitchen commitment (cooking starts immediately to meet it), so these are **never employee-cancellable**. No cancel button is shown at all on these orders (clean — not a greyed/disabled button, since `cafe_hours` is the common path and greying every order would be visual noise). Charged regardless.
+- **`anytime_takeaway`:** the only cancellable type — cancellable while `now < cancellationWindowExpiresAt` (deployed window: 1h). Cancel offered both whole-order (collapsed line) and per-line (expanded detail).
+- This matches the deployed backend exactly — 2.4's cancel UI required no backend change.
+
+### Café order modal built proxy-reusable (22 June 2026)
+
+The review modal (`OrderModal` in `CafePage.jsx`) is a self-contained component taking `(cart, itemsById, employeeName, familyMembers, onPlace, onClose)`. The supervisor proxy flow (V1.2 Web Slice 3) reuses it: same modal after an employee-search step, passing that employee's name + family and an `onSubmit` pointed at `/orders/proxy`. No rewrite — structured for this now at zero cost.
+
+### Café batch order is atomic (22 June 2026)
+
+`createSelfOrderBatch` writes all lines via `db.batch()` (one shared `bookingGroupId`, one doc per line, atomic all-or-nothing). This improves on the mess `createAlaCarteBooking` non-atomic `.add()`-loop pattern — worth back-porting to mess in a later pass. A bad item anywhere in the array rejects the whole batch (resolution happens before the write loop — no partial batch). Null `bookingGroupId` = a standalone single-item order (legacy single-item path renders as a solo card in history).
 
 ---
 
@@ -551,6 +594,36 @@ V1.2 Web Slice 1 complete and field-tested on dev. Read-only café menu page now
 4. No order scaffolding. Pure read.
 5. Three "no menu" conditions collapsed to one empty card.
 
+#### Session 22 June 2026 — V1.2 Café Employee Ordering (Web Slices 2.1–2.4) + Batch Backend
+
+The full café employee ordering flow built and field-tested across one extended session. Café flow is **BUILT but HELD OPEN** pending the advance-date slice. Browse → cart → review modal → multi-item submit → consolidated collapsible history → cancel UI.
+
+**Backend (additive):**
+- `cafeOrderService.js` — added `createSelfOrderBatch` (multi-item, atomic `db.batch()`, one `bookingGroupId`, session-level consumer, 50-item guard). `_buildOrderDoc` gained optional `bookingGroupId` param (null for single-item paths — single-item `createSelfOrder` / proxy / walk-in untouched, still `.add()`). Migrated `pktMinutesOfDay` `toLocaleString` → UTC arithmetic.
+- `cafeRoutes.js` — added `POST /cafe/orders/batch` (before `:orderId` routes per Rule #9).
+- Each line ships billing hooks: `rateTargetKey {date}_cafe_{itemId}`, `rateStatus: pending`, `billingDestination: employee_account`, null `unitRate` / `amount`. (Universal rate model attaches later — open item #19.)
+- Field test: `test_cafe_slice3_batch.sh` — 7/7 PASS (multi-item batch, shared `bookingGroupId`, billing hooks on every line, family-consumer batch, bad-item rejection / no partial batch, anytime+dine_in interlock rejection, empty-array rejection). `--assume-open` flag for widened-window runs.
+
+**Web:**
+- `cafeService.js` — added `createBatchOrder`, plus `createSelfOrder` / `listMyOrders` / `cancelOrder` (Pattern B throughout).
+- `CafePage.jsx` — reworked Slice-1 read-only menu into: Add-button / quantity-stepper rows → sticky cart bar → review modal (editable line list, order-type / dining-mode segmented controls with interlock, "Order for" consumer picker = Self + active family, conditional pickup-time) → real submit via `createBatchOrder` → full success screen (item lines, totals, next-day-rate note, "View my café orders" + "Order again"). Modal built proxy-reusable.
+- `CafePage.module.css` — additive cart / modal / segmented / success classes.
+- `MyCafeOrdersPage.jsx` — **rebuilt** from the 2.2 one-tile-per-document layout into orders grouped by `bookingGroupId` → one collapsible card per order. Collapsed line: short Order No. (`#` + last 6 of groupId, uppercase) · time · order-type tag · "Order placed by - {consumer}" (family/proxy only) · dining mode · item/unit counts · status pill · chevron · Cancel (anytime-in-window only). Expanded: per-item line (name × qty, amount or "Rate pending") + per-line cancel where rules permit. `toDate` timestamp-coercion helper (Firestore object / ISO / ms).
+- `MyCafeOrdersPage.module.css` — additive order-card / collapse / line classes.
+- New route `/my-cafe-orders` + sidebar entry (added in earlier 2.x work).
+
+**Field-tested working (screenshots confirmed):** cart steppers + cart bar; review modal with consumer picker ("son — Test Son 1"), interlock (Anytime Takeaway forces Takeaway, reveals pickup), window-rejection message; successful multi-item placement → success screen (4 items); consolidated history (multi-item orders as single collapsible cards, "Order placed by - Test Son 2", expand-to-items, `cafe_hours` showing no cancel button).
+
+**Decisions locked this session** (all in Section 6): whole-order single-consumer model (corrects scope doc); "Order placed by - {consumer}" display-only label (billing → employee, audit → real booker); orders immutable / no edit / cancel-only / top-up for "add more"; anytime-only cancellation (cafe_hours never cancellable, no button); modal built proxy-reusable; atomic `db.batch()` batch order.
+
+**The "window bug" that wasn't — recorded honestly.** Mid-session a closed-window test (`TEST 7`) appeared to fail — an order was accepted at 14:19 PKT, outside the 18:00–22:30 window. Initial diagnosis claimed a live `toLocaleString` runtime defect in `pktMinutesOfDay`, "shipped since Slice 1, masked by widened testing." **This was wrong.** Root cause: the deployed café window had been **manually widened for testing** and that wasn't accounted for in the test run — a test/deploy **mismatch**, not a code defect. The `pktMinutesOfDay` → UTC-arithmetic change was retained as **preventive Rule-#2 cleanup, NOT a bug fix** — no confirmed defect existed (the sandbox returned correct values). Lesson: don't escalate a test/deploy mismatch into a "shipped bug" diagnosis; check what's actually deployed first. (Open item #24 tracks the widening discipline.)
+
+**Test-harness bug fixed (mine, not the backend's):** `test_cafe_slice3_batch.sh` initially reported 0/7 — every correct backend response failed assertion. Cause: the `jget` helper printed Python's `True` / `False` (capital) while tests compared against JSON-style `"true"` / `"false"`. Every `success` check string-mismatched even though values were right. Fixed `jget` to emit lowercase JSON booleans → 7/7. Also: a stale copy of the script ran twice (disk ≠ executed) before the patched version was actually copied over — the grep-on-disk discipline (Rule #4 / open lesson) caught it.
+
+**Window state at session close:** café window **reverted to the real 18:00–22:30 and verified enforcing** (rejection message seen in field). No widened constants deployed. `getUTCHours` arithmetic on disk and deployed.
+
+**Held open — café flow NOT closed:** the `anytime_takeaway` cancel path (per-line + whole-order) is deployed but **unverified by design** — anytime orders can't be meaningfully placed/cancelled until the advance-date slice fixes the timing model (current 08:00–22:30 placement cap + same-day-only assumption). Cancel will be field-verified as part of that next slice. `cafe_hours` ordering (the common path) is complete and working. See Section 5 for the advance-date slice carry.
+
 **Field test results:**
 
 *Pre-flight greps (all passed):* every new file grep-verified on disk before deploy. CSS file had 19 class definitions exactly matching JSX references, zero orphans. App.jsx and Sidebar.jsx surrounding sections untouched (verified via control greps).
@@ -658,7 +731,7 @@ V1.2 Web Slice 1 complete and field-tested on dev. Read-only café menu page now
 
 | ID | Role | Identity | Notes |
 |----|------|----------|-------|
-| FFL00003 | employee | Ahmed Khan | Primary employee test account (V1.1 Slice 1+2+3a, V1.2 Backend Slice 1+2, V1.2 Web Slice 1). To be kept as employee going forward. Role drift to admin during V1.2 Backend Slice 1 testing — reverted. |
+| FFL00003 | employee | Ahmed Khan | Primary employee test account (V1.1 Slice 1+2+3a, V1.2 Backend Slice 1+2, V1.2 Web Slice 1, V1.2 café ordering Web 2.1–2.4 on 22-Jun). To be kept as employee going forward. Role drift to admin during V1.2 Backend Slice 1 testing — reverted. Many café test orders (`Rate pending`) accumulated under this account 22-Jun — see open item #23. |
 | FFL00100 | admin (elevated) | Humayun Shahzad | Was employee, elevated. Kept as admin. |
 | CLB00010 | admin | Qasim Ejaz | Personal email `admin@fatima-group.com`. Auth UID `UNh7SEPZruWHqQLaard7VFszgI73`. Replaces FFL00001. |
 | FFL01584 | employee | Qasim Ejaz | Qasim's customer-side account (separate identity by design). Real personal email. |
@@ -755,4 +828,58 @@ These are the operating rules that have been earned through pain over the V1.1 a
 
 ---
 
-*V1 Extension command board · Active working file · Consolidated 20 June 2026.*
+*V1 Extension command board · Active working file · Consolidated 20 June 2026 · Last updated 22 June 2026.*
+
+## V1.2 Café — Anytime Advance-Date Ordering Slice — CLOSED ✅ (22 Jun 2026)
+
+**Status:** Backend slice closed, field-verified on live dev (servio-dev-55d2d).
+This closes the café backend flow.
+
+### What shipped
+- `anytime_takeaway` placement now 24/7 (dropped 08:00–22:30 placement cap).
+- New field `requestedPickupDate` (YYYY-MM-DD PKT) on cafeOrders, threaded
+  through all four create paths + batch. Missing → falls back to order date
+  on read (no backfill — additive).
+- Same-day pickup: 2h lead enforced + ≤23:00 ceiling + 20:00 same-day lockout.
+- Future-date pickup (today+1 .. today+7): 2h lead waived, ≤23:00 still enforced.
+- Cancellation (Option B): same-day = 1h-from-placement (unchanged);
+  future-date = cancellable until pickup (cancellationWindowExpiresAt holds the
+  pickup datetime).
+- `cafe_hours` flow untouched.
+
+### New constants (in cafeOrderService.js)
+- `ANYTIME_TA_SAMEDAY_LOCKOUT = 20*60`
+- `ANYTIME_TA_MAX_ADVANCE_DAYS = 7`
+- New helpers: `addDaysToDateStr`, `pickupDateTimePKT`
+
+### Field test (all PASS, live dev, 22 Jun)
+24/7 placement · same-day 2h lead enforced · short-lead rejected ·
+future-date lead waived · ceiling +7 accepted · +8 rejected ·
+≤23:00 enforced · **future-date cancel = cancellable until pickup** ·
+#21 bookingGroupId + createdByRole present in listMyOrders ·
+#24 window reverted to 18*60/22*60+30, deployed, off-hours cafe_hours
+order confirmed rejected.
+
+### Tracked items carried forward (NOT bugs — deliberate)
+- **Dead constant:** `ANYTIME_TA_START` (08:00) now unused (was the anytime
+  placement floor we removed). Left in place per additive discipline. Remove
+  in a future cleanup pass if desired.
+- **Kitchen createdAt-scoping → WEB SLICE 3:** cafeKitchenService.getKitchenOrders
+  filters orders by `createdAt >= startOfTodayPKT`. With advance orders live, an
+  order PLACED today for a FUTURE pickup appears on the kitchen board on the
+  PLACEMENT day, not the pickup day. Kitchen date semantics must be decided when
+  the kitchen dashboard UI is built. Logged, not fixed (out of this slice's scope).
+
+### Lesson (process)
+Test harness initially used a hand-rolled date helper that skipped the
+pktDateStr +5h correction → returned today+0 for "tomorrow", making correct
+backend code look like it was failing across several runs. Fix: test scripts
+must reuse the production date helpers, not re-implement them. Two
+implementations of the same logic = drift, even in test code.
+
+### NEXT: V1.2 Café Web Slice (frontend) — NOT yet started
+Frontend changes required (backend contract now demands them):
+1. Order modal: pickup DATE picker (today..today+7; disable today after 20:00 PKT).
+2. MyCafeOrdersPage: display requestedPickupDate (fallback to order date if absent).
+3. Cancel button gating for future-date orders (available until pickup).
+Read CafePage.jsx + MyCafeOrdersPage + the café service file BEFORE proposing edits.
