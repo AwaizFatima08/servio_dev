@@ -59,6 +59,25 @@ function formatUpdated(iso) {
   });
 }
 
+// PKT date helpers for the anytime pickup-date picker. Uses the browser's
+// real timezone data (en-CA → YYYY-MM-DD), matching MyCafeOrdersPage's idiom.
+// NOT the backend's offset math — the browser has correct tz data; reuse it.
+const pktToday = () =>
+  new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
+const pktDaysFromToday = (n) => {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' });
+};
+// Minute-of-day in PKT, for the >= 20:00 same-day lockout (UX only; backend authoritative).
+const pktMinutesNow = () => {
+  const hhmm = new Date().toLocaleTimeString('en-GB', {
+    timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+};
+
 // ─────────────────────────────────────────
 // MenuList — rows with Add button / quantity stepper. (Slice 2.3-web-a)
 // ─────────────────────────────────────────
@@ -117,6 +136,13 @@ function OrderModal({
   const [diningMode, setDiningMode] = useState('dine_in');
   const [consumerId, setConsumerId] = useState('self'); // 'self' | familyMemberId
   const [pickupTime, setPickupTime] = useState('');
+  const [pickupDate, setPickupDate] = useState(pktToday());
+
+  // Date bounds: today .. today+7. After 20:00 PKT, same-day pickup is locked,
+  // so min becomes tomorrow (Q5 UX — single static threshold, backend still authoritative).
+  const sameDayLocked = pktMinutesNow() >= 20 * 60;
+  const pickupDateMin = sameDayLocked ? pktDaysFromToday(1) : pktToday();
+  const pickupDateMax = pktDaysFromToday(7);
 
   const isAnytime = orderType === 'anytime_takeaway';
   useEffect(() => {
@@ -141,6 +167,7 @@ function OrderModal({
     };
     if (consumerType === 'family_member') payload.consumerFamilyMemberId = consumerId;
     if (needsPickup) payload.requestedPickupTime = pickupTime;
+    if (isAnytime) payload.requestedPickupDate = pickupDate;
     onPlace(payload);
   };
 
@@ -218,6 +245,18 @@ function OrderModal({
               value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} />
             <span className={styles.modalHint}>
               {orderType === 'anytime_takeaway' ? 'At least 2 hours ahead, by 23:00.' : 'By 23:00.'}
+            </span>
+          </div>
+        )}
+
+        {isAnytime && (
+          <div className={styles.formRow}>
+            <label className={styles.modalLabel}>Pickup date</label>
+            <input type="date" className={styles.modalSelect}
+              value={pickupDate} min={pickupDateMin} max={pickupDateMax}
+              onChange={(e) => setPickupDate(e.target.value)} />
+            <span className={styles.modalHint}>
+              Today up to 7 days ahead{sameDayLocked ? ' (same-day pickup closed after 20:00)' : ''}.
             </span>
           </div>
         )}

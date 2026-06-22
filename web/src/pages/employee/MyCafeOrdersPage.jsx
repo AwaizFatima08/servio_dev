@@ -102,6 +102,7 @@ function groupOrders(flat) {
         orderType: o.orderType,
         diningMode: o.diningMode,
         requestedPickupTime: o.requestedPickupTime,
+        requestedPickupDate: o.requestedPickupDate,
         consumerType: o.consumerType,
         consumerName: o.consumerName,
         createdByRole: o.createdByRole,
@@ -336,7 +337,12 @@ export default function MyCafeOrdersPage({ token }) {
                       );
                     })}
                     {g.requestedPickupTime && (
-                      <div className={styles.pickupRow}><i className="ti ti-clock" /> Pickup {g.requestedPickupTime}</div>
+                      <div className={styles.pickupRow}>
+                        <i className="ti ti-clock" /> Pickup{' '}
+                        {g.requestedPickupDate && g.requestedPickupDate !== pktDayOf(g.createdAt)
+                          ? `${formatGroupDate(g.requestedPickupDate)}, ${g.requestedPickupTime}`
+                          : g.requestedPickupTime}
+                      </div>
                     )}
                   </div>
                 )}

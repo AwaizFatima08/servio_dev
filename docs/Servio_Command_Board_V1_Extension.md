@@ -883,3 +883,47 @@ Frontend changes required (backend contract now demands them):
 2. MyCafeOrdersPage: display requestedPickupDate (fallback to order date if absent).
 3. Cancel button gating for future-date orders (available until pickup).
 Read CafePage.jsx + MyCafeOrdersPage + the café service file BEFORE proposing edits.
+
+## V1.2 Café — Anytime Advance-Date Ordering — CLOSED ✅ (22 Jun 2026)
+**Backend AND Web slices closed. Café flow complete end-to-end, field-verified on dev.**
+
+### Shipped (backend, cafeOrderService.js)
+- anytime_takeaway placement 24/7; requestedPickupDate (YYYY-MM-DD PKT) added,
+  threaded through all 4 create paths + batch; missing → order date on read (no backfill).
+- Same-day: 2h lead + ≤23:00 + 20:00 lockout. Future-date (today+1..+7): lead waived, ≤23:00.
+- Cancel (Option B): same-day = 1h from placement; future-date = until pickup
+  (cancellationWindowExpiresAt holds pickup datetime).
+- Constants: ANYTIME_TA_SAMEDAY_LOCKOUT=20*60, ANYTIME_TA_MAX_ADVANCE_DAYS=7.
+  Helpers: addDaysToDateStr, pickupDateTimePKT.
+- cafe_hours window reverted to 18*60/22*60+30, redeployed, off-hours rejection verified.
+
+### Shipped (web)
+- CafePage.jsx: pickup-date picker in order modal (anytime only; min today / max today+7;
+  min→tomorrow after 20:00 PKT). Browser-tz helpers (toLocaleString en-CA), not backend math.
+- MyCafeOrdersPage.jsx: requestedPickupDate carried through grouping; expanded pickup row
+  shows "Pickup <date>, <time>" when pickup differs from order day, time-only otherwise.
+- cafeService.js: no change (payload passthrough). Cancel gating: no change (isCancellable
+  already correct for future dates via cancellationWindowExpiresAt).
+
+### Field-verified (dev, 22 Jun)
+Backend curl: all 8 validation rules + future-date cancel (cancelWin = pickup datetime).
+Web: date picker bounds (29 selectable, 30 greyed); #AG2XP5 shows "Pickup Mon, 29 Jun";
+#NVB4WN grouped under 22 Jun shows "Pickup Tue, 23 Jun"; per-line + whole-order cancel; success screen.
+
+### Tracked items (NOT bugs — carried forward)
+- Dead constant ANYTIME_TA_START (08:00) — was the removed placement floor. Left in place
+  (additive). Remove in a future cleanup pass.
+- Kitchen createdAt-scoping → WEB SLICE 3: cafeKitchenService.getKitchenOrders scopes to
+  createdAt>=startOfTodayPKT. Advance orders appear on kitchen board on PLACEMENT day, not
+  PICKUP day. Decide kitchen date semantics when the kitchen dashboard UI is built.
+- MyCafeOrdersPage history filter/grouping also keyed on createdAt — advance orders group
+  under placement day (correct, but pickup date only visible on expand). Acceptable; revisit
+  if users want pickup-day grouping.
+
+### Process lesson
+Test harness initially used a hand-rolled date helper missing the pktDateStr +5h correction
+→ returned today+0 for "tomorrow", made correct backend look broken across several runs.
+Lesson: test scripts must REUSE production helpers, not re-implement them.
+
+### NEXT (V1.2 remaining): Web Slice 3 — café supervisor/waiter/kitchen dashboards
+(kitchen date semantics decision lands here). Then mobile slice for V1.2.
