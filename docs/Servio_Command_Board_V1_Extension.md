@@ -927,4 +927,59 @@ Lesson: test scripts must REUSE production helpers, not re-implement them.
 
 V1.2 Café Web Slice 3 — CLOSED 23Jun2026. Kitchen board switched createdAt→requestedPickupDate semantics (advance orders surface on pickup day); in-memory soonest-pickup-first sort, dine-in null-pickup sinks below. Backend deployed + field-tested 6/6. 32 legacy field-less cafeOrders purged from dev. Frontend: new CafeKitchenPage.jsx (pages/admin/) + web cafeKitchenService.js + /cafe-kitchen route + sidebar nav for cafe_supervisor/cafe_waiter/manager/admin/legacy cafe_bakery_tuckshop_supervisor. Manager-inheritance gap fixed (MANAGER added to kitchen accept + orders routes). Card shows item/qty/pickup-time/dining-mode/consumer/employee-number + Accept. Full flow browser-verified: place→board→accept→status-back-to-employee. Open item #17 CLOSED. Role split (cafe_bakery_tuckshop_supervisor → cafe_supervisor + tuckshop_bakery_supervisor) DEFERRED to V1.3. Cosmetic: "Cardimom Tea" typo in seed data (→ Cardamom), non-blocking.
 
-NEXT — Slice 4 (café completion): orderStatus prepared terminal state (handed-over-from-kitchen, NOT billing event) + preparedAt/preparedByUid + "mark prepared" button (cafe_supervisor/cafe_waiter/manager/admin) + overrun timer. Café notification ("order being delivered") deferred to common-services phase, NOT Slice 4.
+---
+
+### V1.2 Café Slice 4 — Café Order Completion — CLOSED 23-Jun-2026 (late session)
+
+**Backend (deployed dev, field-tested 10/10 ×3 + isOverrun live-verified):**
+- `CAFE_ORDER_STATUS.PREPARED = 'prepared'` (constants).
+- `_buildOrderDoc`: `preparedAt` + `preparedByUid` null at creation (all 4 create paths).
+- `cafeKitchenService`: `markPrepared` (strict accepted→prepared; rejects placed/
+  prepared/cancelled/wrong-tenant). `CAFE_OVERRUN_MINUTES = 15`. `isOverrun` computed
+  at read in `getKitchenOrders` (from `acceptedAt`, accepted-only, duration math =
+  timezone-irrelevant). Header rewritten.
+- `cafeRoutes`: `PATCH /cafe/orders/:orderId/prepared` — cafe_supervisor, cafe_waiter,
+  legacy cafe_bakery_tuckshop_supervisor, manager, admin, super_admin (manager per
+  locked rule). Stale "accepted is terminal" route comment corrected.
+- Test: transitions 10/10 (3 runs). isOverrun confirmed in LIVE board (orders accepted
+  >15min = true, fresh = false). Full placed→accepted→prepared chain verified in
+  Firestore docs.
+
+**Web (deployed dev, browser-verified as Rashid Khan/CLB00020/legacy supervisor):**
+- web `cafeKitchenService.js`: `markPrepared` added.
+- `CafeKitchenPage.jsx`: `onPrepare`+`preparingId`; "Mark prepared" button REPLACES static
+  "Accepted" tag (Q1); card class placed→amber / accepted+overrun→red / accepted→green
+  (Q4 precedence); "Overrun" pill beside dining badge; NO reorder on overrun (Q3 — red in
+  place, sort untouched); NO confirm (Q2).
+- CSS: `.orderCardOverrun`, `.cardTopRight`, `.overrunPill`, `.prepareBtn` added.
+- Browser-verified: red overrun cards + pill render, dine-in null-pickup renders, Mark
+  prepared drops card off board, legacy-role inheritance works in UI.
+
+**Café window widen/revert (open item #24):** widened again for off-hours testing
+(LEAD_MIN→0, SAMEDAY_LOCKOUT→24*60), REVERTED to 2*60 / 20*60, TEMP comments cleaned.
+Two hand-edit slips occurred during widen (duplicate const, then orphaned usage) — both
+caught by deploy analyzer + grep before reaching anything. Reinforces #24: prefer
+in-place value edits over add/delete lines when widening.
+
+**⚠ RECONCILIATION OWED next session (do these before new work):**
+- §1 Status paragraph is 2 slices stale (still says café "HELD OPEN") — rewrite.
+- Slices table line "Web Slice 4 | Official café meals" is WRONG — Slice 4 became
+  completion; official meals displaced to a later slice. Correct the row.
+- Locked decision "Café `accepted` is terminal (20-Jun)" is SUPERSEDED by Slice 4 —
+  annotate (preserve, don't delete).
+- Open item #17 (sidebar) — already closed 23-Jun, move to Recently Closed.
+- "Last Updated" header → 23-Jun.
+
+**New carry items (Slice 4):**
+- Supervisor/manager have NO history view for prepared (or any past) café orders — they
+  leave the live board and there's no screen to see lifecycle back. Employees have
+  `/cafe/orders/mine`; supervisors have nothing. → NEXT SLICE CANDIDATE: design a SHARED
+  supervisor order-history view (café/teabar/tuckshop/bakery, parameterised by service —
+  every future service hits this same gap). Design-lock open Qs: standalone vs on dashboard;
+  query shape + composite index (tenant+status+date); read-only vs act-on-past; how far
+  back + pagination.
+- `cancelOrder` has NO guard against cancelling a `prepared` order — decide in a future
+  cancel-flow review.
+- Orphaned `.acceptedTag` CSS in `CafeKitchenPage.module.css` (dead, harmless).
+- `cafeOrderService.js` header/scope comments (~lines 13/356/390) say "Slice 4 = official
+  meals" — drifted from actual contents. Cosmetic.

@@ -16,7 +16,7 @@
 // — no real-time listener in this slice (a later enhancement if needed).
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getKitchenOrders, acceptOrder } from '../../services/cafeKitchenService';
+import { getKitchenOrders, acceptOrder, markPrepared } from '../../services/cafeKitchenService';
 import styles from './CafeKitchenPage.module.css';
 
 const REFRESH_MS = 30000;
@@ -38,6 +38,7 @@ export default function CafeKitchenPage({ token }) {
   const [lastRefresh, setLastRefresh] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [acceptingId, setAcceptingId] = useState(null);  // order being accepted (button spinner)
+  const [preparingId, setPreparingId] = useState(null);  // order being marked prepared (button spinner)
 
   const load = useCallback(async () => {
     setError('');
@@ -81,6 +82,22 @@ export default function CafeKitchenPage({ token }) {
       setError(err.message);
     } finally {
       setAcceptingId(null);
+    }
+  };
+
+  // Mark an accepted order prepared (accepted -> prepared). On success the
+  // order leaves the board (backend returns only placed+accepted), so we
+  // reload to drop it. Mirrors onAccept.
+  const onPrepare = async (orderId) => {
+    setPreparingId(orderId);
+    setError('');
+    try {
+      await markPrepared(token, orderId);
+      await load();           // refresh — prepared order falls off the board
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setPreparingId(null);
     }
   };
 
@@ -140,12 +157,19 @@ export default function CafeKitchenPage({ token }) {
         <div className={styles.orderGrid}>
           {orders.map((o) => {
             const isPlaced = o.orderStatus === 'placed';
+            const isOverrun = !isPlaced && o.isOverrun === true; // backend guarantees false for placed
             const forSomeoneElse =
               o.consumerType === 'family_member' && o.consumerName;
+            // placed → amber; accepted+overrun → red (precedence); accepted → green
+            const cardClass = isPlaced
+              ? styles.orderCardPlaced
+              : isOverrun
+                ? styles.orderCardOverrun
+                : styles.orderCardAccepted;
             return (
               <div
                 key={o.orderId}
-                className={`${styles.orderCard} ${isPlaced ? styles.orderCardPlaced : styles.orderCardAccepted}`}
+                className={`${styles.orderCard} ${cardClass}`}
               >
                 {/* Top row: pickup time + dining mode */}
                 <div className={styles.cardTop}>
@@ -153,7 +177,14 @@ export default function CafeKitchenPage({ token }) {
                     <i className="ti ti-clock" />
                     {o.requestedPickupTime || 'Dine-in'}
                   </span>
-                  <span className={styles.diningBadge}>{dilabel(o.diningMode)}</span>
+                  <div className={styles.cardTopRight}>
+                    {isOverrun && (
+                      <span className={styles.overrunPill}>
+                        <i className="ti ti-alert-triangle" /> Overrun
+                      </span>
+                    )}
+                    <span className={styles.diningBadge}>{dilabel(o.diningMode)}</span>
+                  </div>
                 </div>
 
                 {/* Item + qty */}
@@ -182,9 +213,13 @@ export default function CafeKitchenPage({ token }) {
                       {acceptingId === o.orderId ? 'Accepting…' : 'Accept'}
                     </button>
                   ) : (
-                    <span className={styles.acceptedTag}>
-                      <i className="ti ti-circle-check" /> Accepted
-                    </span>
+                    <button
+                      className={styles.prepareBtn}
+                      onClick={() => onPrepare(o.orderId)}
+                      disabled={preparingId === o.orderId}
+                    >
+                      {preparingId === o.orderId ? 'Marking…' : 'Mark prepared'}
+                    </button>
                   )}
                 </div>
               </div>

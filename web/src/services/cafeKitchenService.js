@@ -16,6 +16,7 @@
 // soonest-pickup-first by the backend.
 //   GET   /cafe/kitchen/orders            today's placed+accepted, pickup-sorted
 //   PATCH /cafe/orders/:orderId/accept    placed -> accepted
+//   PATCH /cafe/orders/:orderId/prepared  accepted -> prepared (Slice 4)
 //
 // Roles allowed by the backend on these routes: cafe_supervisor, cafe_waiter,
 // (legacy cafe_bakery_tuckshop_supervisor), admin, super_admin. Employees are
@@ -47,6 +48,7 @@ function authHeader(token) {
 //     requestedPickupTime ('HH:MM' | null),   // null for dine_in
 //     consumerType ('self'|'family_member'), consumerName,
 //     orderStatus ('placed'|'accepted'),
+//     isOverrun (bool — true for accepted orders sat >15min since acceptedAt),
 //     employeeNumber, employeeName,
 //     createdAt, ... }
 export async function getKitchenOrders(token) {
@@ -71,5 +73,23 @@ export async function acceptOrder(token, orderId) {
   });
   const body = await res.json();
   if (!res.ok) throw new Error(body.message || 'Failed to accept order');
+  return body.data;
+}
+
+// ── PATCH /cafe/orders/:orderId/prepared ───────────────────────────────────
+// Kitchen hands over a finished order: accepted -> prepared (V1.2 Slice 4).
+// Terminal state — the order then falls off the board (backend returns only
+// placed+accepted). Backend rejects if the order is not in 'accepted' state
+// (cannot skip placed->prepared), already prepared, cancelled, missing, or
+// another tenant's. We surface backend messages verbatim. NOT a billing event.
+//
+// Returns: data = { message, orderId }
+export async function markPrepared(token, orderId) {
+  const res = await fetch(`${BASE_URL}/cafe/orders/${orderId}/prepared`, {
+    method: 'PATCH',
+    headers: authHeader(token),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.message || 'Failed to mark order prepared');
   return body.data;
 }

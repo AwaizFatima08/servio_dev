@@ -173,6 +173,15 @@
   background: #fbfffe;
 }
 
+/* Accepted but OVERRUN (>15min in kitchen) — red, demands attention.
+   Takes precedence over .orderCardAccepted when applied. Only ever on
+   accepted cards (backend guarantees isOverrun false for placed). */
+.orderCardOverrun {
+  border-color: #dc2626;
+  background: #fffafa;
+  box-shadow: 0 2px 12px rgba(220, 38, 38, 0.10);
+}
+
 /* Top row */
 .cardTop {
   display: flex;
@@ -203,6 +212,31 @@
   padding: 3px 10px;
   border-radius: 20px;
   border: 1px solid #3DBFA0;
+}
+
+/* Wraps the optional Overrun pill + the dining badge on the top-right */
+.cardTopRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Red "Overrun" pill — sits beside the dining badge on overrun cards only */
+.overrunPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #dc2626;
+  background: #fef2f2;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid #f87171;
+}
+
+.overrunPill i {
+  font-size: 12px;
 }
 
 /* Item line */
@@ -268,6 +302,32 @@
 }
 
 .acceptBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Mark-prepared button — sits on accepted cards. Same green action language
+   as Accept (the board's single action colour); the label distinguishes the
+   state. Replaces the old static "Accepted" tag (Slice 4, Q1 lock). */
+.prepareBtn {
+  width: 100%;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 0;
+  background: #0F6E56;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.prepareBtn:hover:not(:disabled) {
+  background: #042C1E;
+}
+
+.prepareBtn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
