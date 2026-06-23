@@ -1,68 +1,69 @@
-#!/usr/bin/env bash
-# ─────────────────────────────────────────
-# Field test v2 — anytime advance-date slice
-# FIX over v1: date arithmetic now uses the SAME pktDateStr-corrected helper
-# as production (v1 had a broken inline helper that returned today+0 for +1).
-# ─────────────────────────────────────────
-set -u
-API="https://asia-south1-servio-dev-55d2d.cloudfunctions.net/api"
-KEY="AIzaSyBXM67atMZEOkRNuxEysH6hVWOGQU7_17o"
+const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
+const readline = require('readline');
 
-read -rsp "Ahmed (test2@fatima-group.com) password: " PW; echo
-TOKEN=$(curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$KEY" \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"test2@fatima-group.com\",\"password\":\"$PW\",\"returnSecureToken\":true}" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin).get('idToken',''))")
-[ -z "$TOKEN" ] && { echo "TOKEN FAIL"; exit 1; }
-echo "token ok"
-AUTH=(-H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json")
+const DEV_KEY_PATH  = '/mnt/storage/projects/servio_dev/core/functions/service-account.json';
+const PROD_KEY_PATH = '/mnt/storage/projects/servio_dev/keys/service-account-prod.json';
+const NAMED_INSTANCE = 'servio-dev';
 
-# CORRECT date helper — mirrors production addDaysToDateStr (pktDateStr-corrected).
-read TODAY TOM CEIL OVER NOWMIN <<<"$(node -e '
-function pktDateStr(d){const p=new Date(d.getTime()+5*36e5);return `${p.getUTCFullYear()}-${String(p.getUTCMonth()+1).padStart(2,"0")}-${String(p.getUTCDate()).padStart(2,"0")}`;}
-function addDays(s,n){const d=new Date(`${s}T00:00:00+05:00`);d.setUTCDate(d.getUTCDate()+n);return pktDateStr(d);}
-const now=new Date(); const today=pktDateStr(now);
-const pkt=new Date(now.getTime()+5*36e5); const nowMin=pkt.getUTCHours()*60+pkt.getUTCMinutes();
-console.log(today, addDays(today,1), addDays(today,7), addDays(today,8), nowMin);
-')"
-echo "PKT today=$TODAY tomorrow=$TOM ceiling(+7)=$CEIL over(+8)=$OVER nowMin=$NOWMIN"
+const COLLECTION = process.argv[2];
+if (!COLLECTION) {
+  console.error('ERROR: Usage: node copy_dev_to_prod.js <collectionName>');
+  process.exit(1);
+}
 
-ITEM=$(curl -s "${AUTH[@]}" "$API/cafe/menu" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['items'][0]['itemId'])")
-echo "item=$ITEM"; echo
+const devKey  = require(DEV_KEY_PATH);
+const prodKey = require(PROD_KEY_PATH);
 
-hhplus(){ node -e "const n=$NOWMIN+$1;const h=Math.floor(n/60)%24,m=n%60;console.log(String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'))"; }
-PICK_3H=$(hhplus 180); PICK_1H=$(hhplus 60)
+const devApp  = admin.initializeApp({ credential: admin.credential.cert(devKey) },  'devApp');
+const prodApp = admin.initializeApp({ credential: admin.credential.cert(prodKey) }, 'prodApp');
 
-pass=0; fail=0
-run(){ local l="$1" e="$2" b="$3"; local r c j
-  r=$(curl -s -w "\n%{http_code}" "${AUTH[@]}" -X POST "$API/cafe/orders" -d "$b")
-  c=$(echo "$r"|tail -1); j=$(echo "$r"|sed '$d')
-  if echo "$j$c"|grep -qi "$e"; then echo "PASS  $l  [$c]"; pass=$((pass+1))
-  else echo "FAIL  $l  [$c] expected~'$e'"; echo "      $j"; fail=$((fail+1)); fi; }
+const devDb  = getFirestore(devApp,  NAMED_INSTANCE);
+const prodDb = getFirestore(prodApp, NAMED_INSTANCE);
 
-echo "── same-day ──"
-run "sameday valid (+3h)" '"success":true' "{\"orderType\":\"anytime_takeaway\",\"menuItemId\":\"$ITEM\",\"quantity\":1,\"diningMode\":\"takeaway\",\"requestedPickupTime\":\"$PICK_3H\",\"requestedPickupDate\":\"$TODAY\",\"consumerType\":\"self\"}"
-run "sameday short lead (+1h) reject" "2 hours lead" "{\"orderType\":\"anytime_takeaway\",\"menuItemId\":\"$ITEM\",\"quantity\":1,\"diningMode\":\"takeaway\",\"requestedPickupTime\":\"$PICK_1H\",\"requestedPickupDate\":\"$TODAY\",\"consumerType\":\"self\"}"
+function ask(q) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise(r => rl.question(q, a => { rl.close(); r(a); }));
+}
 
-echo "── future-date ──"
-run "tomorrow 09:00 lead waived" '"success":true' "{\"orderType\":\"anytime_takeaway\",\"menuItemId\":\"$ITEM\",\"quantity\":1,\"diningMode\":\"takeaway\",\"requestedPickupTime\":\"09:00\",\"requestedPickupDate\":\"$TOM\",\"consumerType\":\"self\"}"
-run "ceiling +7 accepted" '"success":true' "{\"orderType\":\"anytime_takeaway\",\"menuItemId\":\"$ITEM\",\"quantity\":1,\"diningMode\":\"takeaway\",\"requestedPickupTime\":\"12:00\",\"requestedPickupDate\":\"$CEIL\",\"consumerType\":\"self\"}"
-run "over +8 rejected" "7 days" "{\"orderType\":\"anytime_takeaway\",\"menuItemId\":\"$ITEM\",\"quantity\":1,\"diningMode\":\"takeaway\",\"requestedPickupTime\":\"12:00\",\"requestedPickupDate\":\"$OVER\",\"consumerType\":\"self\"}"
-run "tomorrow after 23:00 rejected" "23:00" "{\"orderType\":\"anytime_takeaway\",\"menuItemId\":\"$ITEM\",\"quantity\":1,\"diningMode\":\"takeaway\",\"requestedPickupTime\":\"23:30\",\"requestedPickupDate\":\"$TOM\",\"consumerType\":\"self\"}"
+async function run() {
+  console.log('============================================================');
+  console.log('  Dev -> Prod Copy');
+  console.log('  Collection : ' + COLLECTION);
+  console.log('  READ  from : servio-dev-55d2d (DEV)  / instance ' + NAMED_INSTANCE);
+  console.log('  WRITE to   : servio-prod-3a6de (PROD) / instance ' + NAMED_INSTANCE);
+  console.log('============================================================');
 
-echo
-echo "── FUTURE-DATE CANCEL PATH (the key unproven case) ──"
-P=$(curl -s "${AUTH[@]}" -X POST "$API/cafe/orders" -d "{\"orderType\":\"anytime_takeaway\",\"menuItemId\":\"$ITEM\",\"quantity\":1,\"diningMode\":\"takeaway\",\"requestedPickupTime\":\"10:00\",\"requestedPickupDate\":\"$TOM\",\"consumerType\":\"self\"}")
-OID=$(echo "$P"|python3 -c "import sys,json;print(json.load(sys.stdin).get('data',{}).get('orderId',''))")
-PDATE=$(echo "$P"|python3 -c "import sys,json;print(json.load(sys.stdin).get('data',{}).get('requestedPickupDate','?'))")
-CWIN=$(echo "$P"|python3 -c "import sys,json;print(json.load(sys.stdin).get('data',{}).get('cancellationWindowExpiresAt','?'))")
-echo "placed future order $OID  pickupDate=$PDATE"
-echo "  cancellationWindowExpiresAt=$CWIN  (should be ${TOM}T05:00:00Z = 10:00 PKT, NOT now+1h)"
-if [ -n "$OID" ]; then
-  CR=$(curl -s -w "\n%{http_code}" "${AUTH[@]}" -X PATCH "$API/cafe/orders/$OID/cancel" -d '{"cancellationReason":"employee_request"}')
-  echo "  cancel: $(echo "$CR"|sed '$d')  [$(echo "$CR"|tail -1)]"
-  if echo "$CR"|grep -qi '"success":true'; then echo "  PASS future-date cancel"; pass=$((pass+1)); else echo "  FAIL future-date cancel"; fail=$((fail+1)); fi
-else echo "  FAIL — no orderId (placement failed)"; fail=$((fail+1)); fi
+  console.log('Reading "' + COLLECTION + '" from DEV...');
+  const devSnap = await devDb.collection(COLLECTION).get();
+  console.log('  Found ' + devSnap.size + ' documents in DEV.');
 
-echo
-echo "RESULT: $pass passed, $fail failed"
+  const prodBefore = await prodDb.collection(COLLECTION).get();
+  console.log('  PROD currently has ' + prodBefore.size + ' documents.');
+
+  if (devSnap.size === 0) { console.log('Nothing to copy. Exiting.'); process.exit(0); }
+
+  console.log('');
+  console.log('About to WRITE ' + devSnap.size + ' docs into PROD "' + COLLECTION + '", preserving IDs.');
+  console.log('Same-ID docs are overwritten; other prod docs untouched.');
+  const ans = await ask('Type "yes" to proceed: ');
+  if (ans.trim().toLowerCase() !== 'yes') { console.log('Cancelled. No changes made.'); process.exit(0); }
+
+  console.log('Writing to PROD...');
+  let written = 0, inBatch = 0;
+  let batch = prodDb.batch();
+  for (const d of devSnap.docs) {
+    batch.set(prodDb.collection(COLLECTION).doc(d.id), d.data());
+    inBatch++; written++;
+    if (inBatch === 450) { await batch.commit(); batch = prodDb.batch(); inBatch = 0; console.log('  ...' + written + ' written'); }
+  }
+  if (inBatch > 0) await batch.commit();
+
+  const prodAfter = await prodDb.collection(COLLECTION).get();
+  console.log('============================================================');
+  console.log('  DONE. Read ' + devSnap.size + ' / Wrote ' + written + ' / PROD now has ' + prodAfter.size);
+  console.log('============================================================');
+  process.exit(0);
+}
+
+run().catch(e => { console.error('Fatal:', e); process.exit(1); });
