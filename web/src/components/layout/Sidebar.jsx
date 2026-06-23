@@ -81,6 +81,37 @@ const NAV_CONFIG = {
     },
   ],
 
+  cafe_supervisor: [
+    {
+      section: 'Café Operations',
+      items: [
+        { label: 'Home',          icon: 'home',     to: '/dashboard' },
+        { label: 'Café Kitchen',  icon: 'coffee',   to: '/cafe-kitchen' },
+      ],
+    },
+  ],
+
+  cafe_waiter: [
+    {
+      section: 'Café Operations',
+      items: [
+        { label: 'Home',          icon: 'home',     to: '/dashboard' },
+        { label: 'Café Kitchen',  icon: 'coffee',   to: '/cafe-kitchen' },
+      ],
+    },
+  ],
+
+  // In Sidebar.jsx NAV_CONFIG, add alongside cafe_supervisor/cafe_waiter:
+  cafe_bakery_tuckshop_supervisor: [
+    {
+      section: 'Café Operations',
+      items: [
+        { label: 'Home',          icon: 'home',     to: '/dashboard' },
+        { label: 'Café Kitchen',  icon: 'coffee',   to: '/cafe-kitchen' },
+      ],
+    },
+  ],
+
   manager: [
     {
       section: 'Club Operations',
@@ -89,6 +120,7 @@ const NAV_CONFIG = {
         { label: 'Menu Management',       icon: 'tool',           to: '/menu' },
         { label: 'Templates & Cycles',    icon: 'calendar',       to: '/templates' },
         { label: 'Events',                icon: 'calendar-event', to: '/events' },
+        { label: 'Café Kitchen',          icon: 'coffee',         to: '/cafe-kitchen' },
       ],
     },
     {
@@ -116,6 +148,7 @@ const NAV_CONFIG = {
       section: 'Operations',
       items: [
         { label: 'Events',          icon: 'calendar-event', to: '/events' },
+        { label: 'Café Kitchen',    icon: 'coffee',         to: '/cafe-kitchen' },
         { label: 'Reports',         icon: 'chart-bar',      to: '/reports' },
         { label: 'Feedback Review',      icon: 'message-dots',   to: '/feedback-admin' },
         { label: 'Guest Approvals',      icon: 'user-check',     to: '/guest-approvals' },

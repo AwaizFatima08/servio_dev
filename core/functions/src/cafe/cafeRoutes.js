@@ -12,8 +12,9 @@
 //   POST   /cafe/orders/walk-in            cafe_supervisor | cafe_waiter | admin
 //   GET    /cafe/orders/mine               any authenticated user
 //   PATCH  /cafe/orders/:orderId/cancel    employee (own) | admin
-//   PATCH  /cafe/orders/:orderId/accept    cafe_supervisor | cafe_waiter | admin  (V1.2 Slice 2)
-//   GET    /cafe/kitchen/orders            cafe_supervisor | cafe_waiter | admin  (V1.2 Slice 2)
+//   PATCH  /cafe/orders/:orderId/accept    cafe_supervisor | cafe_waiter | manager | admin
+//   PATCH  /cafe/orders/:orderId/prepared  cafe_supervisor | cafe_waiter | manager | admin
+//   GET    /cafe/kitchen/orders            cafe_supervisor | cafe_waiter | manager | admin
 //   POST   /cafe/admin/rebuild-menu        admin only
 //
 // Specific routes are declared before parameterised :orderId routes
@@ -343,9 +344,8 @@ router.post(
 // PATCH /cafe/orders/:orderId/accept — kitchen acknowledges an order
 // placed -> accepted. No body required.
 //
-// V1.2 Slice 2. 'accepted' is the terminal state — there is no further
-// transition (no 'ready'/'served'). See cafeKitchenService.js header for
-// why this makes the kitchen-orders list's "today only" scope mandatory.
+// 'accepted' is no longer terminal as of Slice 4 — an accepted order is next
+// marked 'prepared' (see the /prepared route below) when handed over.
 // ─────────────────────────────────────────
 router.patch(
   '/orders/:orderId/accept',
@@ -354,6 +354,7 @@ router.patch(
     ROLES.CAFE_SUPERVISOR,
     ROLES.CAFE_WAITER,
     ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+    ROLES.MANAGER,
     ROLES.ADMIN,
     ROLES.SUPER_ADMIN,
   ),
@@ -373,6 +374,40 @@ router.patch(
 );
 
 // ─────────────────────────────────────────
+// PATCH /cafe/orders/:orderId/prepared — kitchen hands over a finished order
+// accepted -> prepared. No body required. Terminal state; the order then
+// falls off the live kitchen board (board fetches placed+accepted only).
+// NOT a billing event. Same role set as /accept — manager included per the
+// locked rule that every operational café route admits manager unless the
+// action is admin-reserved (this is not).
+// ─────────────────────────────────────────
+router.patch(
+  '/orders/:orderId/prepared',
+  verifyToken,
+  verifyRole(
+    ROLES.CAFE_SUPERVISOR,
+    ROLES.CAFE_WAITER,
+    ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+    ROLES.MANAGER,
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      const result = await cafeKitchenService.markPrepared({
+        orderId: req.params.orderId,
+        tenantId: req.tenantId,
+        preparedByUid: req.user.uid,
+      });
+      return successResponse(res, result, result.message);
+    } catch (err) {
+      console.error('[PATCH /cafe/orders/:orderId/prepared] error:', err);
+      return errorResponse(res, err.message || 'Failed to mark order prepared.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
 // GET /cafe/kitchen/orders — today's orders for the kitchen view
 // Returns placed + accepted orders (PKT today only), oldest first,
 // plus unacknowledgedCount. No date parameter — see cafeKitchenService.js
@@ -385,6 +420,7 @@ router.get(
     ROLES.CAFE_SUPERVISOR,
     ROLES.CAFE_WAITER,
     ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+    ROLES.MANAGER,
     ROLES.ADMIN,
     ROLES.SUPER_ADMIN,
   ),

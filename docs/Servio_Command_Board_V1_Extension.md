@@ -925,5 +925,6 @@ Test harness initially used a hand-rolled date helper missing the pktDateStr +5h
 → returned today+0 for "tomorrow", made correct backend look broken across several runs.
 Lesson: test scripts must REUSE production helpers, not re-implement them.
 
-### NEXT (V1.2 remaining): Web Slice 3 — café supervisor/waiter/kitchen dashboards
-(kitchen date semantics decision lands here). Then mobile slice for V1.2.
+V1.2 Café Web Slice 3 — CLOSED 23Jun2026. Kitchen board switched createdAt→requestedPickupDate semantics (advance orders surface on pickup day); in-memory soonest-pickup-first sort, dine-in null-pickup sinks below. Backend deployed + field-tested 6/6. 32 legacy field-less cafeOrders purged from dev. Frontend: new CafeKitchenPage.jsx (pages/admin/) + web cafeKitchenService.js + /cafe-kitchen route + sidebar nav for cafe_supervisor/cafe_waiter/manager/admin/legacy cafe_bakery_tuckshop_supervisor. Manager-inheritance gap fixed (MANAGER added to kitchen accept + orders routes). Card shows item/qty/pickup-time/dining-mode/consumer/employee-number + Accept. Full flow browser-verified: place→board→accept→status-back-to-employee. Open item #17 CLOSED. Role split (cafe_bakery_tuckshop_supervisor → cafe_supervisor + tuckshop_bakery_supervisor) DEFERRED to V1.3. Cosmetic: "Cardimom Tea" typo in seed data (→ Cardamom), non-blocking.
+
+NEXT — Slice 4 (café completion): orderStatus prepared terminal state (handed-over-from-kitchen, NOT billing event) + preparedAt/preparedByUid + "mark prepared" button (cafe_supervisor/cafe_waiter/manager/admin) + overrun timer. Café notification ("order being delivered") deferred to common-services phase, NOT Slice 4.

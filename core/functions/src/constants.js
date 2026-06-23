@@ -415,6 +415,7 @@ const CAFE_ORDER_TYPES = {
 const CAFE_ORDER_STATUS = {
   PLACED:    'placed',
   ACCEPTED:  'accepted',
+  PREPARED:  'prepared',   // V1.2 Slice 4 — terminal "handed over from kitchen". NOT a billing event.
   CANCELLED: 'cancelled',
 };
 
