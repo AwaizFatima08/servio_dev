@@ -93,8 +93,8 @@ const CAFE_HOURS_START       = 18 * 60;        // 18:00 — cafe_hours order win
 const CAFE_ORDER_END         = 22 * 60 + 30;   // 22:30 — cafe_hours order window closes
 const CAFE_SERVICE_END       = 23 * 60;        // 23:00 — cafe physically closes (pickup ceiling)
 const ANYTIME_TA_START       = 8 * 60;         // 08:00 — anytime_takeaway window opens
-const ANYTIME_TA_LEAD_MIN    = 2 * 60;              // TEMP Slice 4 test — REVERT to 2 * 60
-const ANYTIME_TA_SAMEDAY_LOCKOUT  = 20 * 60;   // TEMP Slice 4 test — REVERT to 20 * 60
+const ANYTIME_TA_LEAD_MIN    = 2 * 60;         // 2 hours minimum lead time
+const ANYTIME_TA_SAMEDAY_LOCKOUT  = 20 * 60;   // 20:00 PKT — after this, same-day pickup is locked; pickup must be tomorrow+
 const ANYTIME_TA_CANCEL_MIN  = 60;             // 1 hour cancellation window
 // Advance-date ordering (added in the anytime advance-date slice, 22-Jun-2026)
 const ANYTIME_TA_MAX_ADVANCE_DAYS = 7;         // pickup-date ceiling: today .. today+7 (PKT)
