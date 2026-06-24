@@ -11,7 +11,7 @@
 //
 // Out of scope for Slice 1 (covered in later slices):
 //   - Kitchen dashboard list, supervisor acknowledgement       → Slice 2
-//   - Official cafe meals (OG numbers, Type 1 manual slip)     → Slice 4
+//   - Official cafe meals (OG numbers, Type 1 manual slip)     → Slice 7
 //
 // Schema reference: Servio_V1_Schema_Reference.docx + V1 Extension Scope §V1.2
 // Collection: cafeOrders. Mirrors messReservations with additions/removals
@@ -353,7 +353,7 @@ function _buildOrderDoc({
     bookingSource, // self | proxy | walk_in
 
     // Subject (whose account this hits)
-    subjectType: 'self', // V1.2 Slice 1 — personal only. Official subject types arrive in Slice 4.
+    subjectType: 'self', // V1.2 Slice 1 — personal only. Official subject types arrive in Slice 7.
     employeeNumber,
     employeeName,
 
@@ -639,6 +639,139 @@ async function createSelfOrderBatch({
 }
 
 // ─────────────────────────────────────────
+// createProxyOrderBatch  (V1.2 Slice 5 — supervisor proxy ordering, multi-item)
+// cafe_supervisor / cafe_waiter places a multi-item order ON BEHALF of an
+// employee. Mirrors createSelfOrderBatch exactly, with the target-employee
+// handling of createProxyOrder:
+//   - targetEmployeeNumber is the consumer-side employee (required).
+//   - family member (if any) belongs to the TARGET, so _validateOrderInput is
+//     called with officialEmployeeNumber: targetEmployeeNumber.
+//   - createdByEmployeeNumber = supervisor (creator); employeeNumber = target
+//     (account holder / billing subject).
+//   - bookingSource: PROXY (walk_in is merged under proxy for café — CB 24-Jun).
+//   - No window override: supervisor is time-boxed exactly like an employee;
+//     the café window is physical, not policy (CB 24-Jun).
+// Same session-level validation model, same shared bookingGroupId, same atomic
+// batch, same per-line billing hooks as createSelfOrderBatch.
+//
+// items: [{ menuItemId, quantity }]
+// ─────────────────────────────────────────
+async function createProxyOrderBatch({
+  uid,
+  officialEmployeeNumber,   // supervisor's own number (creator)
+  tenantId,
+  userRole,
+  targetEmployeeNumber,     // consumer-side employee (account holder)
+  orderType,
+  diningMode,
+  requestedPickupTime,
+  requestedPickupDate,
+  consumerType,
+  consumerFamilyMemberId,
+  items,
+}) {
+  if (!targetEmployeeNumber) {
+    throw new Error('targetEmployeeNumber is required for proxy orders.');
+  }
+
+  // --- Array shape (identical to createSelfOrderBatch) ---
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('At least one item must be selected.');
+  }
+  if (items.length > 50) {
+    throw new Error('Too many items in one order (max 50 per order).');
+  }
+  for (const line of items) {
+    if (!line || typeof line.menuItemId !== 'string' || !line.menuItemId) {
+      throw new Error('Each item must have a menuItemId.');
+    }
+    if (!Number.isInteger(line.quantity) || line.quantity < 1) {
+      throw new Error(`Quantity for an item must be a positive integer.`);
+    }
+  }
+
+  // --- Session-level validation (against the TARGET employee) ---
+  const first = items[0];
+  const { familyMember, resolvedPickupDate, pickupDateTime } = await _validateOrderInput({
+    tenantId,
+    officialEmployeeNumber: targetEmployeeNumber, // family member belongs to target
+    orderType,
+    menuItemId: first.menuItemId,
+    quantity: first.quantity,
+    diningMode,
+    requestedPickupTime,
+    requestedPickupDate,
+    consumerType,
+    consumerFamilyMemberId,
+  });
+
+  // --- Resolve every remaining line's menu item ---
+  const resolvedItems = [];
+  for (const line of items) {
+    const menuItem = await _resolveCafeMenuItem(line.menuItemId);
+    resolvedItems.push({ menuItem, quantity: line.quantity });
+  }
+
+  // --- Account holder == TARGET employee (not the creator) ---
+  const targetEmployee = await _getEmployee({
+    tenantId,
+    officialEmployeeNumber: targetEmployeeNumber,
+  });
+
+  const consumerName = consumerType === CAFE_CONSUMER_TYPES.SELF
+    ? targetEmployee.fullName
+    : familyMember.fullName;
+
+  // --- One shared bookingGroupId for the whole session ---
+  const bookingGroupId = db.collection(COLLECTIONS.CAFE_ORDERS).doc().id;
+
+  // --- Build every line and write atomically ---
+  const batch = db.batch();
+  const created = [];
+
+  for (const { menuItem, quantity } of resolvedItems) {
+    const ref = db.collection(COLLECTIONS.CAFE_ORDERS).doc();
+    const doc = _buildOrderDoc({
+      tenantId,
+      bookingGroupId,
+      createdByUid: uid,
+      createdByRole: userRole,
+      createdByEmployeeNumber: officialEmployeeNumber,  // supervisor (creator)
+      employeeNumber: targetEmployeeNumber,             // target (account holder)
+      employeeName: targetEmployee.fullName,
+      bookingSource: BOOKING_SOURCES.PROXY,
+      orderType,
+      menuItem,
+      quantity,
+      diningMode,
+      requestedPickupTime,
+      requestedPickupDate: resolvedPickupDate,
+      pickupDateTime,
+      consumerType,
+      consumerFamilyMemberId,
+      consumerName,
+    });
+
+    batch.set(ref, doc);
+    created.push({
+      orderId: ref.id,
+      menuItemId: menuItem.itemId,
+      itemName: menuItem.itemName,
+      quantity,
+      rateTargetKey: doc.rateTargetKey,
+    });
+  }
+
+  await batch.commit();
+
+  return {
+    bookingGroupId,
+    orderCount: created.length,
+    orders: created,
+  };
+}
+
+// ─────────────────────────────────────────
 // createProxyOrder
 // cafe_supervisor / cafe_waiter places on behalf of an employee.
 // targetEmployeeNumber is the consumer-side employee.
@@ -713,7 +846,7 @@ async function createProxyOrder({
 // Same as proxy mechanically, but bookingSource differs and is recorded
 // for analytics. Per scope doc the supervisor still picks the consumer
 // employee (no walk-in for an unknown employee in V1.2 — that's the OG
-// flow in Slice 4).
+// flow in Slice 7)
 // ─────────────────────────────────────────
 async function createWalkInOrder({
   uid,
@@ -871,6 +1004,7 @@ async function listMyOrders({ tenantId, officialEmployeeNumber, days = 30 }) {
 module.exports = {
   createSelfOrder,
   createSelfOrderBatch,
+  createProxyOrderBatch,
   createProxyOrder,
   createWalkInOrder,
   cancelOrder,

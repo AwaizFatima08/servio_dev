@@ -13,7 +13,7 @@
 | GitHub | `AwaizFatima08/servio_dev` |
 | NAS Path | `/mnt/storage/projects/servio_dev/` |
 | Consolidated on | 20 June 2026 |
-| Last Updated | 22 June 2026 |
+| Last Updated | 24 June 2026 (Slice 5 proxy backend closed + web built/deployed) |
 
 > **Reading note for new sessions.** This is the working command board. Paste it at the start of a new chat to restore context. V1 history lives separately in `Servio_CB_V1.md` — reference that only if a V1-era detail comes up.
 
@@ -21,7 +21,7 @@
 
 ## 1. Current Status (paragraph)
 
-V1 is deployed to prod (frozen for the 15-day tester trial — see V1 CB) and dev development has moved entirely to V1 Extension. **V1.1 Family Member CRUD** is complete on backend + web (mobile deferred to end of V1 Extension per build-order change locked 19-Jun). **V1.2 Café + Outdoor Mini Café + kitchen dashboard** has backend complete (Slices 1 + 2 field-tested 20-Jun) and the **café employee ordering flow built and field-tested 22-Jun** (Web Slices 2.1–2.4: cart → review modal → multi-item submit → consolidated collapsible history → cancel UI). **The café flow is BUILT but HELD OPEN — not yet closed** — pending the **anytime advance-date ordering slice** (next active work). The `anytime_takeaway` cancel path is deployed but unverified by design, because anytime orders can't be meaningfully placed/cancelled until the timing model is fixed; `cafe_hours` ordering (the common path) is complete and working. V1.3 and V1.4 are scope-locked and queued. Mobile build for V1.1–V1.4 is bundled at end of V1 Extension.
+V1 is deployed to prod (frozen for the 15-day tester trial — see V1 CB) and dev development has moved entirely to V1 Extension. **V1.1 Family Member CRUD** is complete on backend + web (mobile deferred to end of V1 Extension per build-order change locked 19-Jun). **V1.2 Café + Outdoor Mini Café + kitchen dashboard:** the full café flow is now complete on backend + web — employee ordering (Web Slices 2.1–2.4), anytime advance-date ordering (closed 22-Jun), kitchen board (Web Slice 3, closed 23-Jun), and café order completion / `prepared` state (Slice 4, closed 23-Jun). Both `cafe_hours` and `anytime_takeaway` paths are placed/cancel-verified on dev. **Café work still open within V1.2:** supervisor proxy/walk-in ordering UI (next active work), supervisor order-history view, official café meals, and universal rate-entry/billing (deferred to V1.5). V1.3 and V1.4 are scope-locked and queued. Mobile build for V1.1–V1.4 is bundled at end of V1 Extension.
 
 ---
 
@@ -42,7 +42,7 @@ firebase use
 
 | Priority | Task | Platform | Notes |
 |----------|------|----------|-------|
-| 1 | **V1.2 anytime advance-date ordering slice** | Dev (Backend + Web) | Backend-first. Adds `requestedPickupDate` to café order schema; `anytime_takeaway` placement allowed 24/7; validate pickup datetime future + ≥2h lead (same-day only); after-20:00 PKT placement locks same-day (pickup must be tomorrow+). `cafe_hours` unchanged. Then web modal date-picker + history display + batch passthrough. **Closes the café flow** — verify `anytime_takeaway` cancel path (per-line + whole-order) as part of this slice. Design-lock open Qs first: 20:00 hardcoded vs appSettings; max advance days; lead-time waiver for future-date orders. See Section 5. |
+| 1 | **Slice 5 close-out (in-window) + Slice 6 design-lock** | Dev (Web) | TWO five-min in-window jobs first (café 18:00–22:30): (a) place a proxy order via the web UI → confirm green success screen; (b) check Majid Ali/CLB00030 `users` doc `role` — if legacy, set to literal `cafe_supervisor` to exercise the new role string. THEN open Slice 6 (supervisor order-history) — design-lock on paper first. |
 | 2 | Test `servio.homilabs.org` hosting (DNS/SSL) | Prod | Confirm login loads + works |
 | 3 | Admin/super_admin bootstrap in PROD | Prod | Deferred delicate step |
 | 4 | V1.1 + V1.2 + V1.3 + V1.4 Mobile build | Mobile | After all four module web builds close. Includes F1/F2 mobile from V1 Enhancement. |
@@ -57,8 +57,8 @@ Reference: `Servio_V1_Extension_Scope_09Jun2026.md` in `docs/`.
 | Version | Scope | Design | Build |
 |---------|-------|--------|-------|
 | V1.1 | Family Member CRUD | 🔒 LOCKED | Backend ✅ · Web complete ✅ · Mobile deferred to end of V1 Extension |
-| V1.2 | Café + Outdoor Mini Café + kitchen dashboard | 🔒 LOCKED | Backend ✅ · Web 1 ✅ · Web 2.1–2.4 ✅ built (café flow HELD OPEN pending advance-date slice) · Web 3 ⏳ · Web 4 ⏳ · Mobile deferred |
-| V1.3 | Tea Bar + Tuck Shop (bakery absorbed) | 🔒 LOCKED | Not started |
+| V1.2 | Café + Outdoor Mini Café + kitchen dashboard | 🔒 LOCKED | Backend ✅ · Web 1–2.4 ✅ · advance-date ✅ · Web 3 kitchen ✅ · Web 4 completion ✅ · Web 5 proxy: backend ✅ + web built/deployed (one in-window placement check left) · Web 6 history ⏳ · Web 7 official meals ⏳ · Mobile deferred |
+| V1.3 | Tea Bar + Tuck Shop + Bakery — own `tuckshop_bakery_supervisor` role, own dashboard, own full order flow (accept → prepared → history), mirroring café | 🔒 LOCKED | Not started. Role split `cafe_bakery_tuckshop_supervisor → cafe_supervisor + tuckshop_bakery_supervisor` lands here. |
 | V1.4 | BBQ | 🔒 LOCKED | Not started |
 | V1.5 | Dashboards + analytics + reporting + billing | Design after V1.4 build | — |
 | V1.6 | Notifications + reporting alignment | Design after V1.4 build | — |
@@ -85,7 +85,10 @@ Reference: `Servio_V1_Extension_Scope_09Jun2026.md` in `docs/`.
 | Web Slice 2 (2.1–2.4) | Café employee ordering: cart + review modal (consumer picker, order-type/dining interlock, conditional pickup) + multi-item batch submit + full success screen + consolidated collapsible order history + cancel UI | ✅ 22-Jun field-tested (BUILT, café flow HELD OPEN) | See 7.2 session log. `anytime_takeaway` cancel path deployed but unverified by design until advance-date slice. |
 | Advance-date ordering | `anytime_takeaway` 24/7 placement + `requestedPickupDate` schema + same-day-after-2000 lockout + modal date-picker | ⏳ NEXT | Backend-first. Closes the café flow + verifies anytime cancel. |
 | Web Slice 3 | Kitchen dashboard UI + supervisor proxy ordering | ⏳ Pending | `cafe_supervisor` / `cafe_waiter` sidebar configs go here. Reuses the order modal (built proxy-reusable in Slice 2.3). |
-| Web Slice 4 | Official café meals | ⏳ Pending | |
+| Web Slice 4 | Café order completion (`prepared` + `isOverrun` + Mark prepared UI) | ✅ 23-Jun closed | Backend 10/10 + isOverrun live; web browser-verified (legacy supervisor role). |
+| Web Slice 5 | Supervisor proxy ordering UI | 🔄 backend ✅ + web built/deployed 24-Jun, ONE in-window placement click left | Backend-first (NOT mostly-web): added `createProxyOrderBatch` + `POST /cafe/orders/proxy/batch` + `GET /family/employee/:employeeNumber` (returns family + employeeName). Backend fully proven in-window 19:43 (4-field console check). Web: `CafeProxyOrderPage.jsx` (emp-number search → family-tree dropdown → cafe_hours-only copied modal → `/proxy/batch`). Renders correctly (0-family + 12-member trees both verified). OPEN: web placement WRITE unconfirmed (out of window both attempts) + new `cafe_supervisor` role string still never exercised (both test accounts show legacy `cafe_bakery_tuckshop_supervisor`). |
+| Web Slice 6 | Supervisor order-history view | ⏳ Pending | Working assumption: lives ON the kitchen dashboard as a second view, built as a shared service-parameterised component (so V1.3 tuckshop/bakery inherit it). Design-lock Qs open: query shape + composite index (`tenant+status+date`), how-far-back, pagination, read-only vs act-on-past. |
+| Web Slice 7 | Official café meals | ⏳ Pending | Displaced from old Slice 4. OG numbers + Type 1 manual slip. |
 | Mobile | Full V1.2 mobile flow | ⏳ Deferred to end of V1 Extension | Web is the design source |
 
 ---
@@ -95,7 +98,7 @@ Reference: `Servio_V1_Extension_Scope_09Jun2026.md` in `docs/`.
 | # | Item | Owner | Priority | Notes |
 |---|------|-------|----------|-------|
 | 2 | Backend cascade asymmetry not surfaced in UI | Dev (Web) | Medium | `setEmployeeStatus` deactivates family but does not reactivate. Admin web UI must warn admins about manual reactivation. Surfaces in admin-side web work. |
-| 3 | Build mode footgun on web | Dev | Medium | `npm run build` defaults to production mode and bakes prod Firebase config into the bundle. Workaround: `npm run build -- --mode development`. The trailing `--mode development` overrides the `--mode production` baked into `package.json`'s `build` script — Vite uses the last flag. **Structural fix:** add `build:dev` and `build:prod` scripts to `web/package.json`. Walked past safely on both 19-Jun and 20-Jun deploys. |
+| 3 | Build mode footgun on web | Dev | **HIGH — bit us 24-Jun (~1hr lost)** | `npm run build` = `--mode production` = loads `.env.production` = PROD Firebase config. Deployed to DEV hosting on 24-Jun → browser authed against prod → "invalid email/password" for EVERY account in EVERY browser (curl/`get_token.js` kept working — hardcoded dev key — which masked it). **`build:dev` and `build:prod` scripts ALREADY EXIST in `package.json`.** RULE: deploying web to dev = ALWAYS `npm run build:dev` then `firebase deploy --only hosting`. Web-side twin of "firebase use before functions deploy." |
 | 4 | Browser cache after deploys | Dev | Low | Hard reload alone may serve stale JS. Use DevTools → Disable cache + hard reload, OR Application → Clear site data, after every web deploy. |
 | 5 | DOB format-only validation | Dev | Low | `^\d{4}-\d{2}-\d{2}$` accepts impossible dates like 2014-13-45. Acceptable while frontend uses a calendar picker. |
 | 6 | Firebase Auth default sender silently dropped | Dev | **HIGH for prod** | No password reset emails received via `firebaseapp.com` sender at Gmail or corporate addresses. Prod risk for 15-tester pilot. Need custom SMTP / SendGrid sender domain before real prod launch. |
@@ -108,7 +111,6 @@ Reference: `Servio_V1_Extension_Scope_09Jun2026.md` in `docs/`.
 | 13 | Audit other readers of `familyMembers` | Dev | Low | If `cafeOrderService` had the wrong field-name assumption (open #12), worth grepping for `memberName` / `relationship` across the codebase to catch any other readers (mess proxy booking, event attendance, etc.) making the same assumption. |
 | 14 | Dev test data cleanup before V1.2 reaches prod | Dev | Before V1.2 → prod | Wipe `CAFE_TEST_*` menuItems, the resulting `serviceMenuConfigs/cafe` resolver output, the 2 legacy items (`Cardimom Tea` — misspelled, should be Cardamom — and `Black Coffee`), and accumulated `cafeOrders` test fixtures. Roll into the existing wipe-prod-after-test-run plan. `unacknowledgedCount` observed at 7 on 20-Jun confirms accumulation across sessions as expected/harmless on dev. |
 | 15 | Utility script bundling in `core/functions/scripts/` | Dev | Low | Now 7 dev-only scripts (`seed_cafe_menu.js`, `list_family_members.js`, `get_token.js`, `test_cafe_slice1.sh`, `test_member_has_transactions.js`, `test_cafe_slice2.sh`, `test_kitchen_today_scope.js`) on top of the original 3. All get bundled into every `firebase deploy --only functions` call. Same relocation thread as the existing V1 open item — now larger. Still not blocking. |
-| 16 | `test_cafe_slice2.sh` has dev test-account credentials in git | Dev | Low | Script auto-fetches admin + employee tokens at startup via hardcoded email/password for the two dev fixtures. Removed token-swapping friction from Slice 1. Tradeoff: live, reusable dev credentials are committed to git in plaintext. Both accounts are throwaway dev fixtures. Accepted as a reasonable tradeoff for dev; flagged rather than decided silently. |
 | 17 | Sidebar configs missing for `cafe_supervisor` and `cafe_waiter` | Dev (Web) | Resolve in V1.2 Web Slice 3 | Both roles exist in `constants.js` (added in V1.2 Backend Slice 1) but `NAV_CONFIG` in `Sidebar.jsx` has no entries for them. Users with either role currently fall through to the default employee nav. Resolve when kitchen dashboard UI ships (V1.2 Web Slice 3). Not blocking Web Slice 2. |
 | 18 | Browser timezone leakage in "Updated" timestamp on Café page | Dev (Web) | Low | Page subtitle shows `updatedAt` rendered via `Date.toLocaleString` with no explicit timezone. Users in different timezones see different times for the same backend write. Acceptable for V1.2 (single-tenant FFL, all PKT users), but worth noting before any multi-tenant deployment. Hard-code to PKT in the formatter if it ever matters. |
 | 19 | Universal rate-entry / billing for café / tea bar / tuck shop / bakery | Dev | V1.5 billing-alignment | Café order lines ship with billing hooks (`rateTargetKey {date}_cafe_{itemId}`, `rateStatus: pending`, `billingDestination: employee_account`, null unitRate/amount) but NO rate-entry mechanism exists yet. Port the mess `mealRates` + applicator model: issued items → next-day per-item report → rate entered once → batch-published by `rateTargetKey` → employee notified → billing-history screen. One slice, all four services, after the order flows are built. Until then every café order shows "Rate pending" indefinitely. |
@@ -128,7 +130,10 @@ Reference: `Servio_V1_Extension_Scope_09Jun2026.md` in `docs/`.
 - ✅ **Open Item #1** — `_memberHasTransactions()` stub fix. Now queries `cafeOrders` for `consumerFamilyMemberId` matches. Verified via `test_member_has_transactions.js` (direct unit test, not used by production code). Closed 20-Jun in V1.2 Backend Slice 1.
 - ✅ V1.1 carry #1 — `setEmployeeStatus` route now includes `familyMembersDeactivated` in HTTP response. Closed 19-Jun in V1.1 Backend Slice 3a.
 - ✅ Service-layer `familyMembersDeactivated` count — was already in service return, never the issue. Closed via discovery 19-Jun.
-
+- ✅ **Open Item #17** — sidebar `NAV_CONFIG` entries for `cafe_supervisor` and `cafe_waiter` (+ legacy `cafe_bakery_tuckshop_supervisor` and `manager`). Added in V1.2 Web Slice 3. Closed 23-Jun.
+- ✅ **V1.2 advance-date ordering + Web Slice 3 (kitchen board) + Web Slice 4 (completion)** — all closed 22–23 Jun. Café flow no longer "held open."
+- ✅ **Slice 5 proxy backend** — `createProxyOrderBatch`, `/cafe/orders/proxy/batch`, `GET /family/employee/:employeeNumber`. Field-tested in-window 24-Jun, 4-field console check passed (bookingSource=proxy, employeeNumber=target, createdByEmployeeNumber=supervisor, shared bookingGroupId). Web built + deployed; placement-click verification pending in-window.
+- ✅ **Open Item #17** — sidebar `NAV_CONFIG` for café roles. Added in Web Slice 3, 23-Jun.
 ---
 
 ## 5. Carry into the anytime advance-date ordering slice
@@ -238,14 +243,19 @@ Two permanent independent Firebase projects. Both use Firestore named instance `
 ### Café roles (20 June 2026)
 
 Add `CAFE_SUPERVISOR` and `CAFE_WAITER` to `ROLES`. Peer roles, own dashboards once V1.2 Web Slice 3 ships. Legacy `CAFE_BAKERY_TUCKSHOP_SUPERVISOR` deprecated in code comment but NOT removed — kept for V1 compatibility; not yet removed from any user document. Will be cleaned up in a later session.
+### Tuck Shop / Bakery — separate service, role, dashboard, flow (24 June 2026)
+
+Tuck Shop and Bakery are NOT folded into café. In V1.3 they get their own `tuckshop_bakery_supervisor` role (the deferred half of the `cafe_bakery_tuckshop_supervisor` split), their own operational dashboard, and their own full order lifecycle — accept → prepared → history — mirroring the café flow shipped in V1.2. Café remains the *evidence base*: its order-lifecycle patterns (kitchen board, accept/prepared transitions, today-only scoping, order-history view) are the proven template tuckshop/bakery copies. OPEN for V1.3 design-lock: whether the order-history view (café Slice 6) is built as a shared service-parameterised component that tuckshop/bakery reuses, or whether tuckshop/bakery carries its own copy. Tuckshop's barcode / numeric-code / return flow genuinely differs from café's kitchen-prep model, so the dashboard is expected to diverge even though the lifecycle states match.
+| Web Slice 6 | Supervisor order-history view | ⏳ Pending | Working assumption (not locked): lives ON the kitchen dashboard screen as a second view, not a standalone page. Build as shared service-parameterised component IF V1.3 reuse is chosen. |
 
 ### Café service-file structure (20 June 2026)
 
 One file per concern in `core/functions/src/cafe/`: `cafeOrderService.js` (order placement + cancellation), `cafeKitchenService.js` (kitchen list + accept), `cafeMenuService.js` (menu read), `cafeMenuResolver.js` (menu write). Mirrors the existing mess precedent where `kitchenService.js` is separate from `messReservationService.js`. Consistency over file-size concerns.
 
-### Café `accepted` is terminal (20 June 2026)
+### Café `accepted` is terminal — SUPERSEDED (20 June 2026 → 23 June 2026)
 
 No `ready` / `served` transition exists in V1.2. Direct consequence: accepted orders never leave the active set on their own. This makes "today only" scoping on the kitchen list a **correctness requirement**, not a convenience. Verified by a dedicated test (`test_kitchen_today_scope.js`) that plants a 2-day-old order and confirms exclusion — code review was deemed insufficient for a load-bearing decision.
+**Superseded by Slice 4 (23-Jun):** `prepared` is now the terminal café status (`accepted → prepared` via `markPrepared`). However, the "today-only kitchen scope is a correctness requirement" conclusion **still holds** — `prepared` orders fall off the board the same way, and an abandoned `placed`/`accepted` order must still not linger across dates. The original reasoning survives the supersession; only the name of the terminal state changed.
 
 ### Café page "no menu" condition collapse (20 June 2026)
 
@@ -983,3 +993,49 @@ in-place value edits over add/delete lines when widening.
 - Orphaned `.acceptedTag` CSS in `CafeKitchenPage.module.css` (dead, harmless).
 - `cafeOrderService.js` header/scope comments (~lines 13/356/390) say "Slice 4 = official
   meals" — drifted from actual contents. Cosmetic.
+
+  ## Session — 24 June 2026 (Slice 5 backend sub-slice)
+
+CB reconciliation completed (the 5 owed edits from 23-Jun closeout: §1 status,
+Slice-4 row corrected to completion, accepted-is-terminal annotated SUPERSEDED,
+#17 → Recently Closed, Last Updated stamped). Tuckshop/bakery separation decision
+recorded as locked (own role + dashboard + full order flow, mirrors café; V1.3).
+3 stale "Slice 4" comments in cafeOrderService.js fixed to Slice 7 (lines
+14/356/849); 383 + 392 correctly left.
+
+SLICE 5 BACKEND SUB-SLICE — built + deployed to dev, PARTIALLY field-verified.
+Two new pieces, both additive:
+  1. GET /family/employee/:employeeNumber (familyService.listFamilyForEmployee +
+     _assertEmployeeExists; familyRoutes cafeOrAdmin gate). Returns SELECTABLE
+     (active, non-deletion-pending) family of a given employee for proxy picker.
+     FULLY field-tested 24-Jun: real family returned w/ correct fullName/relation
+     (no drift), empty-case = count 0 not error, plain-employee = 403, bad number
+     = 404 (live employees field-names confirmed). CLOSED.
+  2. createProxyOrderBatch (cafeOrderService) + POST /cafe/orders/proxy/batch
+     (cafeRoutes). Multi-item proxy order: createdByEmployeeNumber = supervisor,
+     employeeNumber = target, bookingSource = PROXY, one bookingGroupId, atomic
+     batch. Mirror of createSelfOrderBatch + createProxyOrder deltas.
+     VERIFIED out-of-window 24-Jun: no-override window rejection (Q1b holds),
+     targetEmployeeNumber-required guard, empty-items guard, validation ordering
+     (required before window), family-fetch→consumer chain executes.
+     *** ONE OPEN VERIFICATION: the in-window SUCCESS WRITE is unproven — every
+     test rejected before batch.commit() because tested at 16:33 PKT (café window
+     18:00–22:30). Must confirm a placed multi-item proxy order writes N docs with
+     correct bookingSource=proxy / employeeNumber=target / createdByEmployeeNumber
+     =supervisor / shared bookingGroupId. ***
+
+RESUME (in-window, after 18:00 PKT):
+  SUP_TOKEN=$(node scripts/get_token.js 'cafe.supervisor@fatima-group.com' '1234@com')
+  → POST /cafe/orders/proxy/batch, target FFL00003, 2 items, consumerType self
+  → expect success, orderCount 2, one bookingGroupId
+  → repeat with consumerType family_member (spouse brM0OOdPAM7LxGNSnmdz)
+  → Firebase console: open the bookingGroupId's cafeOrders docs, confirm the
+    4 fields above.
+  Then close backend sub-slice → open Slice 5 WEB sub-slice (employee-number
+  search → family-tree picker → existing cart modal → /cafe/orders/proxy/batch;
+  field-test logged in as REAL cafe_supervisor — closes never-tested-role gap).
+
+Test data note: FFL00003 family is polluted (3 spouses, 18× relation-flip on
+Test Son 1) — structurally valid for exercising code, NOT realistic. Consider a
+cleaner target account before web UI screenshots.
+Reminder: Node 20 deprecation warning on every deploy — decommission 30-Oct-2026.

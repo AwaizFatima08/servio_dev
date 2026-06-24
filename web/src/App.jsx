@@ -30,6 +30,7 @@ import MyCafeOrdersPage  from './pages/employee/MyCafeOrdersPage';
 import IssuanceDashboardPage  from './pages/admin/IssuanceDashboardPage';
 import KitchenDashboardPage   from './pages/admin/KitchenDashboardPage';
 import CafeKitchenPage        from './pages/admin/CafeKitchenPage';
+import CafeProxyOrderPage     from './pages/admin/CafeProxyOrderPage';
 import ProxyBookingPage       from './pages/admin/ProxyBookingPage';
 import WalkInPage             from './pages/admin/WalkInPage';
 
@@ -183,6 +184,7 @@ export default function App() {
             <Route path="/issuance"       element={<WithToken Page={IssuanceDashboardPage} />} />
             <Route path="/kitchen"        element={<WithToken Page={KitchenDashboardPage} />} />
             <Route path="/cafe-kitchen"   element={<WithToken Page={CafeKitchenPage} />} />
+            <Route path="/cafe-proxy-order" element={<WithToken Page={CafeProxyOrderPage} />} />
             <Route path="/proxy-booking"  element={<WithToken Page={ProxyBookingPage} />} />
             <Route path="/walk-in"        element={<WithToken Page={WalkInPage} />} />
 

@@ -194,6 +194,46 @@ router.post(
 );
 
 // ─────────────────────────────────────────
+// POST /cafe/orders/proxy/batch — supervisor multi-item proxy order
+// Body: same as /orders/batch plus targetEmployeeNumber
+//   { targetEmployeeNumber, orderType, diningMode, requestedPickupTime?,
+//     consumerType, consumerFamilyMemberId?, items: [{ menuItemId, quantity }] }
+//
+// Multi-item sibling of /orders/proxy. One consumer for the whole session, one
+// shared bookingGroupId, one cafeOrders doc per line — see
+// cafeOrderService.createProxyOrderBatch. walk_in merged under proxy for café.
+// ─────────────────────────────────────────
+router.post(
+  '/orders/proxy/batch',
+  verifyToken,
+  verifyRole(
+    ROLES.CAFE_SUPERVISOR,
+    ROLES.CAFE_WAITER,
+    ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      if (!Array.isArray(req.body.items) || req.body.items.length === 0) {
+        return errorResponse(res, 'items array is required and must not be empty.', 400);
+      }
+      const result = await cafeOrderService.createProxyOrderBatch({
+        uid: req.user.uid,
+        officialEmployeeNumber: req.officialEmployeeNumber,
+        tenantId: req.tenantId,
+        userRole: req.userRole,
+        ...req.body,
+      });
+      return successResponse(res, result, `Proxy order placed. ${result.orderCount} item(s).`, 201);
+    } catch (err) {
+      console.error('[POST /cafe/orders/proxy/batch] error:', err);
+      return errorResponse(res, err.message || 'Failed to place proxy order.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
 // POST /cafe/orders/walk-in — supervisor walk-in order
 // Body: same as /orders plus targetEmployeeNumber
 // ─────────────────────────────────────────

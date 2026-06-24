@@ -196,3 +196,39 @@ export async function createBatchOrder(token, payload) {
   if (!res.ok) throw new Error(body.message || 'Failed to place order');
   return body.data;
 }
+
+// ── POST /cafe/orders/proxy/batch ──────────────────────────────────────────
+// V1.2 Slice 5 — supervisor multi-item PROXY order (on behalf of an employee).
+//
+// Mirrors createBatchOrder exactly but (1) hits the proxy/batch route and
+// (2) the payload carries targetEmployeeNumber (the consumer-side employee).
+// The whole order is one consumer (session-level), one bookingGroupId, one
+// cafeOrders doc per line — same as the employee batch, written atomically by
+// the backend (createProxyOrderBatch). bookingSource is set to 'proxy' by the
+// backend, not here. Proxy UI is cafe_hours only (W4, 24-Jun) — the page sends
+// orderType 'cafe_hours' and omits pickup fields; the backend still accepts
+// anytime proxy orders if ever called directly, but this UI does not offer it.
+//
+// payload = {
+//   targetEmployeeNumber,      (required) the employee the order is FOR
+//   orderType: 'cafe_hours',   (this UI always sends cafe_hours)
+//   diningMode,                'dine_in' | 'takeaway' | 'outdoor_seating'
+//   consumerType,              'self' | 'family_member'
+//   consumerFamilyMemberId,    required iff consumerType is 'family_member'
+//   items,                     [{ menuItemId, quantity }, ...]  (non-empty)
+// }
+//
+// Returns: data = { bookingGroupId, orderCount, orders: [...] }
+// Backend surfaces a specific 400 on any rejection (window closed, bad item,
+// family not owned, missing target, empty items). We surface those verbatim —
+// backend stays the single authority.
+export async function createProxyBatchOrder(token, payload) {
+  const res = await fetch(`${BASE_URL}/cafe/orders/proxy/batch`, {
+    method: 'POST',
+    headers: jsonHeaders(token),
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.message || 'Failed to place proxy order');
+  return body.data;
+}

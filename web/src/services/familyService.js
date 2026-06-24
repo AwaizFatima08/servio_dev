@@ -179,3 +179,24 @@ export const setFamilyMemberStatus = async (familyMemberId, isActive) => {
   if (!res.ok) throw new Error(body.message || 'Failed to update status');
   return body.data;
 };
+
+// ── GET /family/employee/:employeeNumber ──────────────────────────────────
+// V1.2 Slice 5 (proxy ordering). Returns the SELECTABLE family of a GIVEN
+// employee — for a supervisor composing a proxy café order. Café-staff + admin
+// only (backend-gated). 404 if the employee is missing/inactive.
+//
+// Pattern B — token passed IN by the caller (CafeProxyOrderPage is a <WithToken>
+// page), NOT self-fetched like the /me functions above. This matches the café
+// service layer; the proxy page lives on the café side.
+//
+// Backend returns: data = { officialEmployeeNumber, employeeName, count, members }
+// Each member is the same shape as getMyFamily (familyMemberId, relation,
+// fullName, isActive, ...), already filtered to active + non-deletion-pending.
+export const getFamilyForEmployee = async (token, employeeNumber) => {
+  const res = await fetch(`${BASE_URL}/family/employee/${employeeNumber}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.message || 'Failed to load employee family');
+  return body.data;
+};

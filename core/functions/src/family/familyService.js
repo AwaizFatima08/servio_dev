@@ -179,6 +179,73 @@ async function listMyFamily({ uid, tenantId }) {
 }
 
 // ─────────────────────────────────────────
+// _assertEmployeeExists  (V1.2 Slice 5 — proxy support)
+// Confirms an employee exists, is in-tenant, and is active. Throws otherwise.
+// Local to family module to avoid importing from the café module (family is
+// the lower-level domain — café depends on family, never the reverse).
+// Mirrors the existence/active checks in cafeOrderService._getEmployee.
+// ─────────────────────────────────────────
+async function _assertEmployeeExists({ tenantId, officialEmployeeNumber }) {
+  if (!officialEmployeeNumber || typeof officialEmployeeNumber !== 'string') {
+    throw new Error('officialEmployeeNumber is required');
+  }
+  const doc = await db
+    .collection(COLLECTIONS.EMPLOYEES)
+    .doc(officialEmployeeNumber)
+    .get();
+
+  if (!doc.exists) throw new Error(`Employee not found: ${officialEmployeeNumber}`);
+  const data = doc.data();
+  if (data.tenantId !== tenantId) throw new Error(`Employee not found: ${officialEmployeeNumber}`);
+  if (data.isActive !== true) throw new Error(`Employee is inactive: ${officialEmployeeNumber}`);
+  return data;
+}
+
+// ─────────────────────────────────────────
+// listFamilyForEmployee  (V1.2 Slice 5 — supervisor proxy ordering)
+// Returns the SELECTABLE family members of a GIVEN employee — for a supervisor
+// composing a proxy café order. Differs from listMyFamily in two ways:
+//   1. Target is passed in (not derived from the caller's uid).
+//   2. Returns ONLY members an order can actually be placed for:
+//      isActive === true AND not pending deletion. (listMyFamily returns all,
+//      including inactive, so the self-UI can dim them — wrong for a picker.)
+// Validates the employee first (Q-A locked) so a bad/inactive number gives an
+// immediate "not found", not a misleading empty list.
+// Role-gated at the route to café-staff + manager + admin (NOT plain employee).
+// ─────────────────────────────────────────
+async function listFamilyForEmployee({ tenantId, officialEmployeeNumber }) {
+  // Employee must exist + be active first (Q-A). Throws on bad/inactive number.
+  // Capture the employee doc — we surface fullName as employeeName so the
+  // proxy UI can show "Self (<name>)" without a second lookup (W5, 24-Jun).
+  const employee = await _assertEmployeeExists({ tenantId, officialEmployeeNumber });
+
+  const snap = await db.collection(COLLECTIONS.FAMILY_MEMBERS)
+    .where('tenantId', '==', tenantId)
+    .where('officialEmployeeNumber', '==', officialEmployeeNumber)
+    .get();
+
+  // Selectable only: active AND not pending deletion. (cafeOrderService
+  // ._resolveFamilyMember rejects both, so returning them would produce a
+  // late rejection after the supervisor picked one.)
+  const members = snap.docs
+    .map(d => _shape(d.id, d.data()))
+    .filter(m => m.isActive === true && m.deletionRequested !== true);
+
+  // Same stable order as listMyFamily: relation then name (no composite index).
+  members.sort((a, b) => {
+    if (a.relation !== b.relation) return a.relation.localeCompare(b.relation);
+    return (a.fullName || '').localeCompare(b.fullName || '');
+  });
+
+  return {
+    officialEmployeeNumber,
+    employeeName: employee.fullName,
+    count: members.length,
+    members,
+  };
+}
+
+// ─────────────────────────────────────────
 // addFamilyMember
 // Creates a new active family member for the caller.
 // Enforces the per-employee cap (active + inactive counted, deletion-pending excluded).
@@ -493,6 +560,7 @@ async function _memberHasTransactions(tenantId, familyMemberId) {
 
 module.exports = {
   listMyFamily,
+  listFamilyForEmployee,
   addFamilyMember,
   updateFamilyMember,
   setFamilyMemberStatus,

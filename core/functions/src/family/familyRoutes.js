@@ -29,6 +29,7 @@ const { ROLES } = require('../constants');
 const { successResponse, errorResponse } = require('../utils');
 const {
   listMyFamily,
+  listFamilyForEmployee,
   addFamilyMember,
   updateFamilyMember,
   setFamilyMemberStatus,
@@ -59,6 +60,20 @@ const anyAuthenticated = [verifyToken, verifyRole(
 )];
 
 const adminOnly = [verifyToken, verifyRole(
+  ROLES.ADMIN,
+  ROLES.SUPER_ADMIN
+)];
+
+// Café staff + manager + admin. For reading ANOTHER employee's family during
+// proxy café ordering (V1.2 Slice 5). Excludes plain EMPLOYEE — an ordinary
+// employee must not enumerate another employee's dependents. Café staff already
+// know families by long affiliation (privacy non-issue per FFL), so the gate is
+// "staff who serve", not "everyone".
+const cafeOrAdmin = [verifyToken, verifyRole(
+  ROLES.CAFE_SUPERVISOR,
+  ROLES.CAFE_WAITER,
+  ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+  ROLES.MANAGER,
   ROLES.ADMIN,
   ROLES.SUPER_ADMIN
 )];
@@ -104,6 +119,29 @@ router.post('/deletion-requests/:familyMemberId/reject', adminOnly, async (req, 
   } catch (error) {
     console.error('POST /family/deletion-requests/:id/reject error:', error.message);
     return errorResponse(res, error.message, 400);
+  }
+});
+
+// ─────────────────────────────────────────
+// GET /family/employee/:employeeNumber  (V1.2 Slice 5 — proxy ordering)
+// Returns the SELECTABLE (active, non-deletion-pending) family members of the
+// given employee, for a supervisor composing a proxy café order. Café-staff +
+// manager + admin only. 404 if the employee does not exist / is inactive.
+// ─────────────────────────────────────────
+router.get('/employee/:employeeNumber', cafeOrAdmin, async (req, res) => {
+  try {
+    const tenantId = req.tenantId;
+    const { employeeNumber } = req.params;
+    const result = await listFamilyForEmployee({
+      tenantId,
+      officialEmployeeNumber: employeeNumber,
+    });
+    return successResponse(res, result, 'Family members retrieved');
+  } catch (error) {
+    console.error('GET /family/employee/:employeeNumber error:', error.message);
+    // "not found" / "inactive" → 404; anything else → 500.
+    const status = /not found|inactive|required/i.test(error.message) ? 404 : 500;
+    return errorResponse(res, error.message, status);
   }
 });
 

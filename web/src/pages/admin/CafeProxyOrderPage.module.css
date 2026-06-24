@@ -1,0 +1,92 @@
+/* web/src/pages/admin/CafeProxyOrderPage.module.css
+   Search-step only — menu/cart/modal styling is reused from CafePage.module.css. */
+
+.searchCard {
+  background: #fff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 14px;
+  padding: 24px;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.searchLabel {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6B8F7E;
+}
+
+.searchRow {
+  display: flex;
+  gap: 10px;
+}
+
+.searchInput {
+  flex: 1;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  padding: 11px 14px;
+  border: 1.5px solid #C6F0E5;
+  border-radius: 8px;
+  color: #042C1E;
+  background: #fff;
+  outline: none;
+  text-transform: uppercase;
+}
+.searchInput:focus { border-color: #0F6E56; }
+
+.searchBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #0F6E56;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.searchBtn:hover:not(:disabled) { background: #0A5340; }
+.searchBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.searchError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.changeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid #C6F0E5;
+  border-radius: 8px;
+  background: #fff;
+  color: #0F6E56;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.changeBtn:hover { background: #EBF9F4; border-color: #0F6E56; }

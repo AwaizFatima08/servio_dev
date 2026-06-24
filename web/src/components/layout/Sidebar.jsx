@@ -87,6 +87,7 @@ const NAV_CONFIG = {
       items: [
         { label: 'Home',          icon: 'home',     to: '/dashboard' },
         { label: 'Café Kitchen',  icon: 'coffee',   to: '/cafe-kitchen' },
+        { label: 'Proxy Order',   icon: 'shopping-bag', to: '/cafe-proxy-order' },
       ],
     },
   ],
@@ -97,6 +98,7 @@ const NAV_CONFIG = {
       items: [
         { label: 'Home',          icon: 'home',     to: '/dashboard' },
         { label: 'Café Kitchen',  icon: 'coffee',   to: '/cafe-kitchen' },
+        { label: 'Proxy Order',   icon: 'shopping-bag', to: '/cafe-proxy-order' },
       ],
     },
   ],
@@ -108,6 +110,7 @@ const NAV_CONFIG = {
       items: [
         { label: 'Home',          icon: 'home',     to: '/dashboard' },
         { label: 'Café Kitchen',  icon: 'coffee',   to: '/cafe-kitchen' },
+        { label: 'Proxy Order',   icon: 'shopping-bag', to: '/cafe-proxy-order' },
       ],
     },
   ],
@@ -121,6 +124,7 @@ const NAV_CONFIG = {
         { label: 'Templates & Cycles',    icon: 'calendar',       to: '/templates' },
         { label: 'Events',                icon: 'calendar-event', to: '/events' },
         { label: 'Café Kitchen',          icon: 'coffee',         to: '/cafe-kitchen' },
+        { label: 'Proxy Order',           icon: 'shopping-bag',   to: '/cafe-proxy-order' },
       ],
     },
     {
@@ -149,6 +153,7 @@ const NAV_CONFIG = {
       items: [
         { label: 'Events',          icon: 'calendar-event', to: '/events' },
         { label: 'Café Kitchen',    icon: 'coffee',         to: '/cafe-kitchen' },
+        { label: 'Proxy Order',     icon: 'shopping-bag',   to: '/cafe-proxy-order' },
         { label: 'Reports',         icon: 'chart-bar',      to: '/reports' },
         { label: 'Feedback Review',      icon: 'message-dots',   to: '/feedback-admin' },
         { label: 'Guest Approvals',      icon: 'user-check',     to: '/guest-approvals' },
