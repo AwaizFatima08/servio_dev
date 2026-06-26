@@ -17,6 +17,8 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getKitchenOrders, acceptOrder, markPrepared } from '../../services/cafeKitchenService';
+import { cancelOrder } from '../../services/cafeService';
+import { useAuth } from '../../context/AuthContext';
 import styles from './CafeKitchenPage.module.css';
 
 const REFRESH_MS = 30000;
@@ -32,6 +34,18 @@ function dilabel(mode) {
 }
 
 export default function CafeKitchenPage({ token }) {
+  const { userProfile } = useAuth();
+  const role = userProfile?.user?.role || '';
+  // Who may cancel a placed cafe order from the board. Mirrors the backend 1b
+  // rule (cafe_supervisor + manager can cancel placed cafe_hours; admin god-mode).
+  // cafe_waiter sees the board but NOT the cancel control. Backend is the real
+  // authority — this only governs whether the button is offered.
+  const canCancel =
+    role === 'cafe_supervisor' ||
+    role === 'manager' ||
+    role === 'admin' ||
+    role === 'super_admin';
+
   const [board, setBoard] = useState(null);      // full response: { date, orders, ... }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -39,6 +53,8 @@ export default function CafeKitchenPage({ token }) {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [acceptingId, setAcceptingId] = useState(null);  // order being accepted (button spinner)
   const [preparingId, setPreparingId] = useState(null);  // order being marked prepared (button spinner)
+  const [cancelTarget, setCancelTarget] = useState(null); // order pending cancel-confirm
+  const [cancellingId, setCancellingId] = useState(null); // order being cancelled (spinner)
 
   const load = useCallback(async () => {
     setError('');
@@ -103,6 +119,25 @@ export default function CafeKitchenPage({ token }) {
 
   const unack = board?.unacknowledgedCount ?? 0;
   const total = board?.totalCount ?? 0;
+
+  // Supervisor/manager cancels a PLACED order from the board (1b). Always sends
+  // 'employee_request' — cancellation only ever happens on an employee's verbal
+  // request (locked: keep reason simple). Backend enforces the real rules
+  // (placed-only for cafe_hours, the accepted/prepared walls). On success the
+  // order leaves the board, so we reload. Two-step: click → confirm → cancel.
+  const onCancel = async (orderId) => {
+    setCancellingId(orderId);
+    setError('');
+    try {
+      await cancelOrder(token, orderId, 'employee_request', null);
+      setCancelTarget(null);
+      await load();           // refresh — cancelled order falls off the board
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   return (
     <div className={styles.page}>
@@ -220,6 +255,40 @@ export default function CafeKitchenPage({ token }) {
                     >
                       {preparingId === o.orderId ? 'Marking…' : 'Mark prepared'}
                     </button>
+                  )}
+
+                  {/* Supervisor/manager cancel — placed cards only, role-gated.
+                      Subordinate to Accept (small link), with an inline confirm
+                      to prevent mis-click. cafe_waiter never sees this. */}
+                  {isPlaced && canCancel && (
+                    cancelTarget === o.orderId ? (
+                      <div className={styles.cancelConfirm}>
+                        <span className={styles.cancelConfirmText}>Cancel this order?</span>
+                        <div className={styles.cancelConfirmBtns}>
+                          <button
+                            className={styles.cancelConfirmYes}
+                            onClick={() => onCancel(o.orderId)}
+                            disabled={cancellingId === o.orderId}
+                          >
+                            {cancellingId === o.orderId ? 'Cancelling…' : 'Yes, cancel'}
+                          </button>
+                          <button
+                            className={styles.cancelConfirmNo}
+                            onClick={() => setCancelTarget(null)}
+                            disabled={cancellingId === o.orderId}
+                          >
+                            Keep
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className={styles.cancelLink}
+                        onClick={() => setCancelTarget(o.orderId)}
+                      >
+                        <i className="ti ti-x" /> Cancel order
+                      </button>
+                    )
                   )}
                 </div>
               </div>

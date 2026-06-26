@@ -341,6 +341,77 @@
   color: #0F6E56;
 }
 
+/* ── Supervisor cancel (1b) — deliberately subordinate to Accept ──
+   A small quiet link, not a second prominent button, so the primary
+   action (Accept) stays dominant and Cancel is a deliberate choice. */
+.cancelLink {
+  width: 100%;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 0;
+  background: none;
+  color: #b91c1c;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cancelLink:hover { background: #fef2f2; }
+
+/* Inline confirm — replaces the link in place once armed */
+.cancelConfirm {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cancelConfirmText {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+}
+.cancelConfirmBtns {
+  display: flex;
+  gap: 6px;
+}
+.cancelConfirmYes {
+  flex: 1;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 0;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cancelConfirmYes:hover:not(:disabled) { background: #b91c1c; }
+.cancelConfirmYes:disabled { opacity: 0.6; cursor: not-allowed; }
+.cancelConfirmNo {
+  flex: 1;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 0;
+  background: white;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cancelConfirmNo:hover:not(:disabled) { background: #f9fafb; }
+.cancelConfirmNo:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* Refresh note */
 .refreshNote {
   font-family: 'DM Sans', sans-serif;

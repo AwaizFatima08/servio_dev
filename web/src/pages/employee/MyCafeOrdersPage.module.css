@@ -460,6 +460,15 @@
 }
 .cancelOrderBtn:hover { background: #fef2f2; }
 
+/* Disabled "cancellation closed" state — past the 3h-before-pickup cutoff
+   (Decision 4). Greyed, inert; the title attribute carries the reason. */
+.cancelOrderBtnDisabled {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+  padding: 6px 12px; background: #f9fafb; color: #9ca3af;
+  border: 1px solid #e5e7eb; border-radius: 8px; cursor: not-allowed;
+}
+
 /* Expanded line list */
 .orderLines {
   border-top: 1px solid #f3f4f6;

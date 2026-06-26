@@ -31,6 +31,7 @@ const {
   BOOKING_SOURCES,
   BILLING_DESTINATIONS,
   FEEDBACK_STATUS,
+  ROLES,
 } = require('../constants');
 
 const { pktDateStr } = require('../utils');
@@ -95,7 +96,11 @@ const CAFE_SERVICE_END       = 23 * 60;        // 23:00 — cafe physically clos
 const ANYTIME_TA_START       = 8 * 60;         // 08:00 — anytime_takeaway window opens
 const ANYTIME_TA_LEAD_MIN    = 2 * 60;         // 2 hours minimum lead time
 const ANYTIME_TA_SAMEDAY_LOCKOUT  = 20 * 60;   // 20:00 PKT — after this, same-day pickup is locked; pickup must be tomorrow+
-const ANYTIME_TA_CANCEL_MIN  = 60;             // 1 hour cancellation window
+const ANYTIME_TA_CANCEL_MIN  = 60;             // (superseded by ANYTIME_TA_CANCEL_CUTOFF_HOURS_BEFORE_PICKUP, 1b 26-Jun) — retained pending unused-check
+// Cancellation cutoff (1b, 26-Jun-2026): an anytime_takeaway order is cancellable
+// until this many hours BEFORE its pickup time — universal, same-day and advance
+// alike (replaces the old split: same-day 1h-from-placement / advance until-pickup).
+const ANYTIME_TA_CANCEL_CUTOFF_HOURS_BEFORE_PICKUP = 3;
 // Advance-date ordering (added in the anytime advance-date slice, 22-Jun-2026)
 const ANYTIME_TA_MAX_ADVANCE_DAYS = 7;         // pickup-date ceiling: today .. today+7 (PKT)
 
@@ -323,21 +328,17 @@ function _buildOrderDoc({
   const now = new Date();
   const orderDate = pktDateStr(now);
 
-  // Cancellation window (anytime_takeaway only):
-  //   same-day pickup  → 1 hour from placement (unchanged original rule)
-  //   future-date pickup → cancellable until pickup (Option B, locked 22-Jun)
-  // For future-date orders this field holds the PICKUP datetime, not a
-  // placement-based window. The cancelOrder check ("now > expiresAt → reject")
-  // works unchanged for both cases.
+  // Cancellation window (anytime_takeaway only) — 1b, 26-Jun-2026:
+  // Universal rule, same-day and advance alike: cancellable until
+  // ANYTIME_TA_CANCEL_CUTOFF_HOURS_BEFORE_PICKUP hours before the pickup time.
+  // Stamp the cutoff at creation (Option X) so cancelOrder's existing
+  // "now > expiresAt → reject" check works unchanged — only this value changes.
+  // (Replaces the old split: same-day 1h-from-placement / advance until-pickup.)
   let cancellationWindowExpiresAt = null;
-  if (orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY) {
-    const isSameDay = !requestedPickupDate || requestedPickupDate === orderDate;
-    if (isSameDay) {
-      cancellationWindowExpiresAt = new Date(now.getTime() + ANYTIME_TA_CANCEL_MIN * 60 * 1000);
-    } else {
-      // future-date: cancellable right up to pickup time
-      cancellationWindowExpiresAt = pickupDateTime || new Date(now.getTime() + ANYTIME_TA_CANCEL_MIN * 60 * 1000);
-    }
+  if (orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY && pickupDateTime) {
+    cancellationWindowExpiresAt = new Date(
+      pickupDateTime.getTime() - ANYTIME_TA_CANCEL_CUTOFF_HOURS_BEFORE_PICKUP * 60 * 60 * 1000
+    );
   }
 
   return {
@@ -970,12 +971,24 @@ async function cancelOrder({
     throw new Error('You can only cancel your own orders.');
   }
 
-  // cafe_hours: only admin can cancel
-  if (order.orderType === CAFE_ORDER_TYPES.CAFE_HOURS && !isAdmin) {
-    throw new Error('Cafe hours orders cannot be cancelled. They are charged regardless.');
+  // cafe_hours cancellation (1b, 26-Jun-2026):
+  //   - admin: anytime (god-mode, down to accepted per 1a wall above)
+  //   - cafe_supervisor / manager: placed orders only. The status bound is NOT
+  //     re-checked here — the 1a accepted/prepared walls above already reject
+  //     non-admins on accepted/prepared, so any non-admin reaching this line is
+  //     on a PLACED order by elimination. Supervisor watches the board (placed =
+  //     not yet cooking = safe to pull on an employee's verbal request).
+  //   - employee / cafe_waiter / others: never (charged regardless).
+  const isCafeFloorCanceller =
+    isAdmin ||
+    cancelledByRole === ROLES.CAFE_SUPERVISOR ||
+    cancelledByRole === ROLES.MANAGER;
+  if (order.orderType === CAFE_ORDER_TYPES.CAFE_HOURS && !isCafeFloorCanceller) {
+    throw new Error("Can't be cancelled.");
   }
 
-  // anytime_takeaway: window check for employee
+  // anytime_takeaway: cancellation cutoff for non-admin (3 hours before pickup,
+  // stamped at creation into cancellationWindowExpiresAt — 1b). Admin bypasses.
   if (
     order.orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY &&
     !isAdmin
@@ -983,7 +996,7 @@ async function cancelOrder({
     const expires = order.cancellationWindowExpiresAt;
     const expiresMs = expires && expires.toMillis ? expires.toMillis() : new Date(expires).getTime();
     if (Date.now() > expiresMs) {
-      throw new Error('Cancellation window has passed (1 hour from order time).');
+      throw new Error('Cancellation window has passed (closes 3 hours before pickup).');
     }
   }
 

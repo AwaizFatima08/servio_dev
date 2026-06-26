@@ -82,6 +82,23 @@ const isCancellable = (order) => {
   return Date.now() < exp.getTime();
 };
 
+// Anytime order that WAS employee-cancellable but whose cancellation window
+// (3 hours before pickup — 1b) has now passed. Distinct from:
+//   - cafe_hours      → never employee-cancellable, no button at all
+//   - cancelled       → terminal, nothing to show
+//   - accepted        → kitchen took it; that's not a "window" matter
+// Only a still-placed anytime order past its cutoff lands here. Drives the
+// DISABLED "cancellation closed" button (Decision 4, 26-Jun) — shown, not
+// hidden, so the employee understands WHY they can no longer cancel.
+const isCancelWindowPassed = (order) => {
+  if (order.orderType !== 'anytime_takeaway') return false;
+  if (order.orderStatus === 'cancelled') return false;
+  if (order.orderStatus === 'accepted') return false;
+  const exp = toDate(order.cancellationWindowExpiresAt);
+  if (!exp) return false;
+  return Date.now() >= exp.getTime();
+};
+
 // Short, human-ish order reference from the (long) Firestore id.
 const shortRef = (id) => (id ? `#${String(id).slice(-6).toUpperCase()}` : '#——————');
 
@@ -262,6 +279,9 @@ export default function MyCafeOrdersPage({ token }) {
             const totalQty  = g.lines.reduce((s, l) => s + (l.quantity || 0), 0);
             const proxy     = isProxyRole(g.createdByRole);
             const orderCancellable = g.lines.some(isCancellable);
+            // Order has anytime lines whose cancel window has passed, and none
+            // still cancellable → show the disabled "closed" state (Decision 4).
+            const orderWindowPassed = !orderCancellable && g.lines.some(isCancelWindowPassed);
 
             // Consumer label: only show when NOT a plain self order (the case the
             // label was designed to surface). Self orders stay clean.
@@ -296,15 +316,24 @@ export default function MyCafeOrdersPage({ token }) {
                   </div>
                 </button>
 
-                {/* Collapsed-line Cancel (whole order) — anytime_takeaway in window only */}
-                {orderCancellable && (
+                {/* Collapsed-line Cancel (whole order) — anytime_takeaway in window only.
+                    Past the 3h-before-pickup cutoff: show DISABLED with reason
+                    (Decision 4) instead of hiding, so the employee understands why. */}
+                {orderCancellable ? (
                   <div className={styles.orderHeadActions}>
                     <button type="button" className={styles.cancelOrderBtn}
                       onClick={(e) => { e.stopPropagation(); openCancelOrder(g); }}>
                       <i className="ti ti-x" /> Cancel order
                     </button>
                   </div>
-                )}
+                ) : orderWindowPassed ? (
+                  <div className={styles.orderHeadActions}>
+                    <button type="button" className={styles.cancelOrderBtnDisabled} disabled
+                      title="Cancellation closes 3 hours before pickup">
+                      <i className="ti ti-clock-off" /> Cancellation closed
+                    </button>
+                  </div>
+                ) : null}
 
                 {/* Expanded detail */}
                 {isOpen && (
