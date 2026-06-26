@@ -1059,3 +1059,64 @@ cafeOrders now holds proxy orders under BOTH legacy (cafe_bakery_tuckshop_superv
 Seeded test items use readable IDs (CAFE_TEST_SANDWICH/FRIES/COFFEE) — keep out of prod menu seed.
 
 V1.2 status: Slice 5 closed. Next: Slice 6 (supervisor order-history view) — design-lock on paper FIRST, no code until locked.
+V1.2 Café — Slice 6 (Supervisor Order-History View): CLOSED — 26 Jun 2026
+Backend built, deployed, field-tested end-to-end, committed + pushed.
+
+Design: read-only paginated past-order list (dispute-lookup + audit). Café-only,
+NOT built shared (extract for V1.3 tuckshop/bakery when a real 2nd caller exists).
+Design-locked on paper 25-Jun, zero open Qs; built this session.
+
+Two additive pieces:
+  1. listCafeOrderHistory (cafeKitchenService.js) — read-only, cursor-paginated.
+     Params: tenantId, lookbackDays(7 default), day(YYYY-MM-DD single-pick, wins
+     over lookback), includeCancelled(false default), cursorCreatedAt.
+     Sort createdAt DESC. Status `in` [placed,accepted,prepared], +cancelled on
+     toggle. Page size 25 via limit(26) probe → hasMore w/o 2nd query. Cursor =
+     createdAt-only (single orderBy field, simplest index; orderId tiebreak
+     DEFERRED — add only if a real same-ms dup surfaces). Date math self-contained
+     inline (did NOT reach into cafeOrderService's local addDaysToDateStr — see
+     deferred-util carry).
+  2. GET /cafe/history (cafeRoutes.js) — verifyRole supervisor/waiter/legacy/
+     manager/admin/super_admin. includeCancelled parsed string→bool (=== 'true';
+     raw forward would make toggle always-on). days→parseInt, service guards NaN/range.
+
+NEW INFRA: composite index cafeOrders (orderStatus ASC, tenantId ASC, createdAt
+DESC, __name__ DESC) — index ID CICAgJjFx5sK, built + Enabled. Captured from
+Firestore's emitted error link, NOT hand-authored.
+
+Field-tested live (supervisor token, FFL tenant, real data):
+  Page 1: count 25, hasMore true, nextCursor = last row createdAt. Sort verified
+    newest-first (25-Jun → 22-Jun). 7-day window held. Zero cancelled (default set
+    correct). Read-only.
+  Page 2 (cursor fed back): count 8, hasMore false, nextCursor null, first row
+    OLDER than page-1 cursor — startAfter correct, no skip/repeat. 33 orders total
+    in window across 2 pages.
+  (Branch tests ?day= and ?includeCancelled=true: not run — simple variants,
+   optional polish.)
+
+Code: cafeKitchenService.js + cafeRoutes.js committed + pushed (fc956b0 covered
+indexes; code commit pending this session-close).
+
+MAJOR DRIFT CAUGHT this session (worth more than the slice): firebase.json deploys
+firestore indexes from core/functions/firestore.indexes.json — that file was a
+STALE 12-index (default)-db export (May 28), while live servio-dev has 25. Bare
+`firebase firestore:indexes` reads (default) not the named servio-dev db → all
+past index drift traces here. FIXED: exported live with --database=servio-dev (25
+incl. the 3 cafeOrders), synced BOTH the root file and the deploy-target
+core/functions file, committed. .bak copies kept (firestore.indexes.json.bak,
+core/functions/firestore.indexes.json.bak-12idx-may28).
+*** DO NOT `firebase deploy --only firestore:indexes` without reading the
+add/delete preview — confirm 25, never fewer. ***
+
+New carry items (Slice 6):
+- Two firestore.indexes.json files (root + core/functions) now in sync but WILL
+  drift again — structural cleanup: keep one, point firebase.json at it. Own slice.
+- DEFERRED: promote addDaysToDateStr (local in cafeOrderService.js) → utils.js,
+  switch both callers to import. Own slice (own backup, grep, field-test existing
+  callers). Extract-when-two-real-callers — do NOT bundle into a feature build.
+- Node 20 deprecation: decommission 30-Oct-2026 — runtime upgrade before then.
+
+V1.2 status: Slice 6 BACKEND closed. Next: Slice 6 WEB sub-slice — own component,
+own route/tab, NO live-board state leak (design-lock hard condition), build:dev,
+field-test as real cafe_supervisor. Backend contract fixed: consumes
+{ orders, count, hasMore, nextCursor }.
