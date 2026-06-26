@@ -945,6 +945,26 @@ async function cancelOrder({
     throw new Error('Order is already cancelled.');
   }
 
+  // ── Terminal-state walls (V1.2 Slice 1a, 26-Jun) ──
+  // Checked up-front, before any order-type / role branching, mirroring how
+  // markPrepared/acceptOrder gate on status first. Closes the hole where a
+  // PREPARED (made + handed over) order could be flipped to cancelled — a lie
+  // about what physically happened, and a billing-integrity gap (café bills on
+  // placement; a served order showing cancelled = a free, unbilled coffee).
+  //
+  //   prepared  → HARD WALL for everyone, INCLUDING admin. Once served, there
+  //               is no real-world cancellation; a genuine data error here is
+  //               corrected by other means, never by flipping to cancelled.
+  //   accepted  → kitchen has started cooking (ingredients committed). Blocked
+  //               for non-admin. Admin god-mode still passes (Q2 lock, 26-Jun)
+  //               for genuine corrections down to — but not past — accepted.
+  if (order.orderStatus === CAFE_ORDER_STATUS.PREPARED) {
+    throw new Error('Cannot cancel an order that has already been prepared and handed over.');
+  }
+  if (order.orderStatus === CAFE_ORDER_STATUS.ACCEPTED && !isAdmin) {
+    throw new Error('Cannot cancel an order the kitchen has started preparing.');
+  }
+
   // Ownership: non-admin can only cancel own orders
   if (!isAdmin && order.employeeNumber !== cancelledByEmployeeNumber) {
     throw new Error('You can only cancel your own orders.');
