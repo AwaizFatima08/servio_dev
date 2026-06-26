@@ -26,3 +26,5 @@ npm-debug.log*
 employee_upload/serviceAccountKey.json
 keys/
 .~lock.*#
+*.bak
+*.bak-*
