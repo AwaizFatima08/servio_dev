@@ -1,0 +1,285 @@
+/* web/src/pages/admin/CafeHistoryPage.module.css */
+/* Café History — V1.2 Slice 6. Shares the café design language with
+   CafeKitchenPage.module.css (Playfair headings, DM Sans body, #0F6E56 green)
+   so the live board and its history read as one product. The board is cards;
+   history is a table — different jobs, different layout, same vocabulary. */
+
+.page {
+  padding: 28px 32px;
+  min-height: 100%;
+}
+
+/* ─── Header (same pattern as the board) ─── */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #042C1E;
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  background: #0F6E56;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.refreshBtn:hover:not(:disabled) {
+  background: #042C1E;
+}
+
+.refreshBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─── Error ─── */
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ─── Loading ─── */
+.detailLoading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  color: #6b7280;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #0F6E56;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Empty state ─── */
+.emptyState {
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 48px 24px;
+  text-align: center;
+  color: #9ca3af;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.emptyState i {
+  font-size: 36px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.emptyState p {
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ─── Table ─── */
+.tableWrap {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  overflow: hidden;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table thead th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  background: #F2F8F5;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151;
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: #fbfffe;
+}
+
+.createdCell {
+  white-space: nowrap;
+  color: #6b7280;
+}
+
+.itemCell {
+  font-weight: 600;
+  color: #042C1E;
+}
+
+.qtyCol {
+  width: 56px;
+  text-align: center;
+  font-weight: 700;
+  color: #0F6E56;
+}
+
+.forCell {
+  color: #374151;
+}
+
+.viaEmp {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+/* ─── Status pills ─── */
+.statusPill {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+/* placed — amber (awaiting), matches the board's "needs attention" accent */
+.status_placed {
+  color: #d97706;
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+
+/* accepted — green (in progress) */
+.status_accepted {
+  color: #0F6E56;
+  background: #EBF9F4;
+  border-color: #3DBFA0;
+}
+
+/* prepared — deep green (done / handed over) */
+.status_prepared {
+  color: #042C1E;
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+
+/* cancelled — red (only ever shown once the toggle slice lands) */
+.status_cancelled {
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+/* ─── Footer / load-more ─── */
+.footerRow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px 0 4px 0;
+}
+
+.loadMoreBtn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 28px;
+  background: #0F6E56;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.loadMoreBtn:hover:not(:disabled) {
+  background: #042C1E;
+}
+
+.loadMoreBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.endNote {
+  font-size: 12px;
+  color: #9ca3af;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 640px) {
+  .page {
+    padding: 20px 16px;
+  }
+  /* let the table scroll sideways rather than crush columns on a phone */
+  .tableWrap {
+    overflow-x: auto;
+  }
+  .table {
+    min-width: 560px;
+  }
+}

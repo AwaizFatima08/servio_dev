@@ -87,6 +87,7 @@ const NAV_CONFIG = {
       items: [
         { label: 'Home',          icon: 'home',     to: '/dashboard' },
         { label: 'Café Kitchen',  icon: 'coffee',   to: '/cafe-kitchen' },
+        { label: 'Café History',  icon: 'history',  to: '/cafe-history' },
         { label: 'Proxy Order',   icon: 'shopping-bag', to: '/cafe-proxy-order' },
       ],
     },
@@ -124,6 +125,7 @@ const NAV_CONFIG = {
         { label: 'Templates & Cycles',    icon: 'calendar',       to: '/templates' },
         { label: 'Events',                icon: 'calendar-event', to: '/events' },
         { label: 'Café Kitchen',          icon: 'coffee',         to: '/cafe-kitchen' },
+        { label: 'Café History',          icon: 'history',        to: '/cafe-history' },
         { label: 'Proxy Order',           icon: 'shopping-bag',   to: '/cafe-proxy-order' },
       ],
     },
