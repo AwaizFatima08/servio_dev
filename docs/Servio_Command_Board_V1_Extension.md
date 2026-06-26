@@ -1039,3 +1039,23 @@ Test data note: FFL00003 family is polluted (3 spouses, 18× relation-flip on
 Test Son 1) — structurally valid for exercising code, NOT realistic. Consider a
 cleaner target account before web UI screenshots.
 Reminder: Node 20 deprecation warning on every deploy — decommission 30-Oct-2026.
+V1.2 Café — Slice 5 (Proxy Ordering): CLOSED — 25 Jun 2026, ~21:25 PKT
+Both remaining jobs proven, data-layer verified (not UI-only).
+Job 1 — web proxy placement, end-to-end: Logged in as Majid (CLB00030, cafe_supervisor) → /cafe-proxy-order → searched FFL00003 (Ahmed Khan, 12-member tree) → placed multi-item dine-in proxy orders for self + family members. Green success screen confirmed ("Order placed for Ahmed Khan"). Orders appeared correctly on: café kitchen board (consumer-tagged "For [member]"), and Ahmed's own "My Café Orders" ("Order placed by – [member] · through proxy booking"). Lifecycle proven: placed → accepted → prepared.
+Job 2 — cafe_supervisor role: closed within Job 1, not separately. cafeOrders docs show createdByRole: "cafe_supervisor" — the role exercised through the real proxy flow, not just a badge check.
+Data-layer proof (5 cafeOrders docs inspected in Firestore):
+
+Proxy order (Club Sandwich): bookingSource:"proxy", createdByEmployeeNumber:"CLB00030" ≠ employeeNumber:"FFL00003", createdByRole:"cafe_supervisor", consumerType:"family_member", consumerName:"Test Spouse 2". Creator≠holder = genuine proxy (the load-bearing check).
+Self-order control (Cappuccino): bookingSource:"self", createdByEmployeeNumber:"FFL00003", createdByRole:"employee", consumerType:"self". Proves proxy/self paths write distinctly.
+All: billingDestination:"employee_account", rates pending (correct — café bills next day).
+
+Code change this session: web/src/pages/admin/UserManagementPage.jsx — added cafe_supervisor + cafe_waiter to ROLES array and ROLE_LABELS map (the role-split missed this file when constants/routes/sidebar got the new strings). Grep-verified (4 hits), build:dev, deployed to dev hosting, committed (81eed02) + pushed.
+Hygiene carry-items (none blocking; address before/at prod-wipe):
+
+Test-account emails crossed: Rashid (now Sports Supervisor) holds cafe.supervisor@...; actual café supervisor Majid holds supervisor.cafe@.... Cosmetic on dev; clean up before test-run.
+New test account CLB00040 (Nadir Shah, café waiter) — created mid-session.
+Rashid (CLB00020) moved legacy café → Sports Supervisor — confirm intentional.
+cafeOrders now holds proxy orders under BOTH legacy (cafe_bakery_tuckshop_supervisor, CLB00020, 24 Jun) and new (cafe_supervisor, 25 Jun) roles — mixed test data, clear at prod-wipe.
+Seeded test items use readable IDs (CAFE_TEST_SANDWICH/FRIES/COFFEE) — keep out of prod menu seed.
+
+V1.2 status: Slice 5 closed. Next: Slice 6 (supervisor order-history view) — design-lock on paper FIRST, no code until locked.

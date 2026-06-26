@@ -216,8 +216,150 @@ async function markPrepared({ orderId, tenantId, preparedByUid }) {
   return { message: 'Order marked prepared.', orderId };
 }
 
+// ─────────────────────────────────────────
+// listCafeOrderHistory  — V1.2 Slice 6 (Café Supervisor Order-History View)
+//
+// READ-ONLY. The supervisor's "what happened?" tool: a paginated, date-bounded
+// list of PAST café orders, newest-placed first. Distinct from getKitchenOrders
+// (the live board): this spans days, paginates with a cursor, sorts by
+// createdAt (placement) DESC, and never mutates. See Servio_Slice6_DesignLock.md.
+//
+// PARAMS:
+//   tenantId         (required) — tenant scope, equality filter.
+//   lookbackDays     (default 7) — default window: createdAt >= today-Ndays.
+//   day              (YYYY-MM-DD | null) — if set, WINS over lookbackDays and
+//                    bounds to that single PKT day (half-open range, see below).
+//   includeCancelled (default false) — false: show placed+accepted+prepared.
+//                    true: also include cancelled (often the answer to a dispute).
+//   cursorCreatedAt  (ISO string | null) — load-more cursor. The createdAt of the
+//                    LAST row the client already has. null = first page.
+//
+// DATE FILTER — two shapes, both range-on-createdAt (one composite index covers both):
+//   • default window  → single lower bound: createdAt >= since
+//   • single-day pick → half-open range:    dayStart <= createdAt < nextDayStart
+//     (createdAt is a timestamp, NOT a YYYY-MM-DD string, so a picked day must
+//      become a [00:00 that day, 00:00 next day) window in PKT. The +05:00 anchor
+//      makes the day boundaries unambiguous without any tz-library parsing.)
+//
+// STATUS — Firestore `in` filter. Default 3 values; +1 when includeCancelled.
+//   Well under the 30-value `in` ceiling. Named array, single toggle branch.
+//
+// SORT + CURSOR — orderBy('createdAt','desc'); startAfter(cursorDate) when paging.
+//   createdAt-ONLY cursor (single orderBy field → simplest index, single-value
+//   cursor, no field-order trap). Exact-same-millisecond collisions in a single
+//   café are near-impossible; if a real duplicate ever surfaces in field-test,
+//   add an orderId tiebreak THEN (deferred by decision, 26-Jun).
+//
+// PAGE SIZE 25 — fetched as limit(26): the 26th row, if present, only tells us
+//   hasMore. We return at most 25 and never expose the probe row. This avoids a
+//   second count query.
+//
+// COMPOSITE INDEX — this query (tenantId == , orderStatus in , createdAt range +
+//   orderBy createdAt desc) REQUIRES a composite index. Do NOT hand-author it:
+//   run the query once in dev, capture the exact definition from Firestore's
+//   emitted error link, deploy that index, confirm applied (deploy ≠ apply).
+// ─────────────────────────────────────────
+
+// Default status set: what actually got served. Cancelled added only on toggle.
+const HISTORY_DEFAULT_STATUSES = [
+  CAFE_ORDER_STATUS.PLACED,
+  CAFE_ORDER_STATUS.ACCEPTED,
+  CAFE_ORDER_STATUS.PREPARED,
+];
+
+const HISTORY_PAGE_SIZE = 25;
+
+async function listCafeOrderHistory({
+  tenantId,
+  lookbackDays = 7,
+  day = null,
+  includeCancelled = false,
+  cursorCreatedAt = null,
+}) {
+  // ── status set ──
+  const statuses = includeCancelled
+    ? [...HISTORY_DEFAULT_STATUSES, CAFE_ORDER_STATUS.CANCELLED]
+    : HISTORY_DEFAULT_STATUSES;
+
+  // ── date bounds (range on createdAt) ──
+  // Single-day pick → half-open [dayStart, nextDayStart). Default → lower bound only.
+  let lowerBound;          // createdAt >= lowerBound (always present)
+  let upperBound = null;   // createdAt <  upperBound (single-day only)
+
+  if (day) {
+    // Validate YYYY-MM-DD before trusting it in a date anchor.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+      throw new Error('day must be in YYYY-MM-DD format.');
+    }
+    // PKT day window via the +05:00 anchor (same technique as cafeOrderService).
+    lowerBound = new Date(`${day}T00:00:00+05:00`);
+    const next = new Date(`${day}T00:00:00+05:00`);
+    next.setUTCDate(next.getUTCDate() + 1);     // first instant of the NEXT PKT day
+    upperBound = next;
+  } else {
+    // Default window: now - lookbackDays. Guard the input.
+    let n = parseInt(lookbackDays, 10);
+    if (!Number.isFinite(n) || n < 1) n = 7;
+    if (n > 90) n = 90;                          // hard ceiling — history is dispute-lookup, not archive
+    lowerBound = new Date();
+    lowerBound.setDate(lowerBound.getDate() - n);
+  }
+
+  // ── build query ──
+  let q = db
+    .collection(COLLECTIONS.CAFE_ORDERS)
+    .where('tenantId', '==', tenantId)
+    .where('orderStatus', 'in', statuses)
+    .where('createdAt', '>=', lowerBound);
+
+  if (upperBound) {
+    q = q.where('createdAt', '<', upperBound);
+  }
+
+  q = q.orderBy('createdAt', 'desc');
+
+  // Cursor: start AFTER the last row the client already holds.
+  if (cursorCreatedAt) {
+    const cursorDate = new Date(cursorCreatedAt);
+    if (Number.isNaN(cursorDate.getTime())) {
+      throw new Error('cursorCreatedAt must be a valid date.');
+    }
+    q = q.startAfter(cursorDate);
+  }
+
+  // Fetch one extra (the probe row) to compute hasMore without a second query.
+  q = q.limit(HISTORY_PAGE_SIZE + 1);
+
+  const snap = await q.get();
+  const docs = snap.docs;
+
+  const hasMore = docs.length > HISTORY_PAGE_SIZE;
+  const pageDocs = hasMore ? docs.slice(0, HISTORY_PAGE_SIZE) : docs;
+
+  const orders = pageDocs.map((d) => ({ orderId: d.id, ...d.data() }));
+
+  // nextCursor = the last returned row's createdAt as ISO (what the client sends
+  // back as cursorCreatedAt for the next page). null when there is no next page.
+  let nextCursor = null;
+  if (hasMore && orders.length > 0) {
+    const last = orders[orders.length - 1].createdAt;
+    // createdAt may be a Firestore Timestamp ({toDate}) or already a Date/ISO.
+    nextCursor = last && last.toDate
+      ? last.toDate().toISOString()
+      : new Date(last).toISOString();
+  }
+
+  return {
+    orders,
+    count: orders.length,
+    hasMore,
+    nextCursor,
+  };
+}
+
 module.exports = {
   getKitchenOrders,
   acceptOrder,
   markPrepared,
+  listCafeOrderHistory,
 };

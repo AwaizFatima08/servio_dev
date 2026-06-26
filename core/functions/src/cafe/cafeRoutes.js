@@ -477,4 +477,51 @@ router.get(
   }
 );
 
+// ─────────────────────────────────────────
+// GET /cafe/history — café supervisor order-history view (V1.2 Slice 6)
+//
+// READ-ONLY paginated list of PAST orders (dispute-lookup + audit). Distinct
+// from /cafe/kitchen/orders (live board). See Servio_Slice6_DesignLock.md.
+//
+// Query params (all optional):
+//   days             default 7  — lookback window (createdAt >= today-days)
+//   day              YYYY-MM-DD — single-day pick; WINS over days when present
+//   includeCancelled "true"     — widen status set to include cancelled
+//   cursor           ISO string — load-more: createdAt of the last row held
+//
+// NOTE: req.query values are STRINGS. includeCancelled must be compared to the
+// literal 'true' — forwarding the raw string would make the toggle always-on.
+// ─────────────────────────────────────────
+router.get(
+  '/history',
+  verifyToken,
+  verifyRole(
+    ROLES.CAFE_SUPERVISOR,
+    ROLES.CAFE_WAITER,
+    ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+    ROLES.MANAGER,
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      const { day, cursor } = req.query;
+      const lookbackDays = parseInt(req.query.days, 10); // service guards NaN/range
+      const includeCancelled = req.query.includeCancelled === 'true'; // string → bool
+
+      const result = await cafeKitchenService.listCafeOrderHistory({
+        tenantId: req.tenantId,
+        lookbackDays,
+        day: day || null,
+        includeCancelled,
+        cursorCreatedAt: cursor || null,
+      });
+      return successResponse(res, result, 'Order history retrieved.');
+    } catch (err) {
+      console.error('[GET /cafe/history] error:', err);
+      return errorResponse(res, err.message || 'Failed to retrieve order history.', 500, err);
+    }
+  }
+);
+
 module.exports = router;
