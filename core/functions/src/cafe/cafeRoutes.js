@@ -265,6 +265,107 @@ router.post(
 );
 
 // ─────────────────────────────────────────
+// POST /cafe/orders/official — supervisor/manager places an official café meal
+// Billed to an official account; anchored to a sponsoring employee.
+// Body: { sponsoringEmployeeNumber, orderType, menuItemId, quantity, diningMode,
+//         requestedPickupTime?, requestedPickupDate?, costCentreCode?, officialGuestName? }
+// cafe_waiter EXCLUDED (no defined role yet). Mirrors mess supervisorAndAbove.
+// ─────────────────────────────────────────
+router.post(
+  '/orders/official',
+  verifyToken,
+  verifyRole(
+    ROLES.CAFE_SUPERVISOR,
+    ROLES.MANAGER,
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      const result = await cafeOrderService.createOfficialCafeMeal({
+        uid: req.user.uid,
+        officialEmployeeNumber: req.officialEmployeeNumber,
+        tenantId: req.tenantId,
+        userRole: req.userRole,
+        ...req.body,
+      });
+      return successResponse(res, result, 'Official café meal placed. Pending billing approval.', 201);
+    } catch (err) {
+      console.error('[POST /cafe/orders/official] error:', err);
+      return errorResponse(res, err.message || 'Failed to place official café meal.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// GET /cafe/orders/official-pending — admin: official meals awaiting approval
+// Query: ?date=YYYY-MM-DD (optional). Specific route — declared before params.
+// ─────────────────────────────────────────
+router.get(
+  '/orders/official-pending',
+  verifyToken,
+  verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  async (req, res) => {
+    try {
+      const result = await cafeOrderService.listOfficialPending({
+        tenantId: req.tenantId,
+        day: req.query.date || null,
+      });
+      return successResponse(res, result, 'Pending official café meals retrieved.');
+    } catch (err) {
+      console.error('[GET /cafe/orders/official-pending] error:', err);
+      return errorResponse(res, err.message || 'Failed to retrieve pending official meals.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// PATCH /cafe/orders/:orderId/approve-official — admin approves billing
+// ─────────────────────────────────────────
+router.patch(
+  '/orders/:orderId/approve-official',
+  verifyToken,
+  verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  async (req, res) => {
+    try {
+      const result = await cafeOrderService.approveOfficialCafeMeal({
+        orderId: req.params.orderId,
+        tenantId: req.tenantId,
+        approvedByUid: req.user.uid,
+      });
+      return successResponse(res, result, 'Official café meal approved.');
+    } catch (err) {
+      console.error('[PATCH /cafe/orders/:orderId/approve-official] error:', err);
+      return errorResponse(res, err.message || 'Failed to approve official café meal.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// PATCH /cafe/orders/:orderId/reject-official — admin rejects billing
+// Body: { approvalNote? }
+// ─────────────────────────────────────────
+router.patch(
+  '/orders/:orderId/reject-official',
+  verifyToken,
+  verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  async (req, res) => {
+    try {
+      const result = await cafeOrderService.rejectOfficialCafeMeal({
+        orderId: req.params.orderId,
+        tenantId: req.tenantId,
+        rejectedByUid: req.user.uid,
+        approvalNote: req.body.approvalNote,
+      });
+      return successResponse(res, result, 'Official café meal rejected.');
+    } catch (err) {
+      console.error('[PATCH /cafe/orders/:orderId/reject-official] error:', err);
+      return errorResponse(res, err.message || 'Failed to reject official café meal.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
 // GET /cafe/orders/mine — list caller's own orders (last 30 days)
 // Query: ?days=N (optional, default 30, max 90)
 // ─────────────────────────────────────────

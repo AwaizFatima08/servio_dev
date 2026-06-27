@@ -11,7 +11,9 @@
 //
 // Out of scope for Slice 1 (covered in later slices):
 //   - Kitchen dashboard list, supervisor acknowledgement       → Slice 2
-//   - Official cafe meals (OG numbers, Type 1 manual slip)     → Slice 7
+//   - Official cafe meals (official_account billing + approval) → Slice 7 (built)
+//       NOTE: official-GUEST IDENTITY (registered OG numbers, guest-house
+//       linkage) is OUT of Slice 7 — deferred to the guest-house module slice.
 //
 // Schema reference: Servio_V1_Schema_Reference.docx + V1 Extension Scope §V1.2
 // Collection: cafeOrders. Mirrors messReservations with additions/removals
@@ -30,6 +32,7 @@ const {
   DINING_MODES,
   BOOKING_SOURCES,
   BILLING_DESTINATIONS,
+  SUBJECT_TYPES,
   FEEDBACK_STATUS,
   ROLES,
 } = require('../constants');
@@ -324,6 +327,14 @@ function _buildOrderDoc({
   consumerType,
   consumerFamilyMemberId,
   consumerName,
+  // Slice 7 — official café meals. Defaults preserve the personal/employee
+  // path exactly, so every existing caller is unchanged (none pass these).
+  subjectType = SUBJECT_TYPES.SELF,
+  billingDestination = BILLING_DESTINATIONS.EMPLOYEE_ACCOUNT,
+  costCentreCode = null,
+  sponsoringEmployeeNumber = null,
+  sponsoringEmployeeName = null,
+  officialGuestName = null,
 }) {
   const now = new Date();
   const orderDate = pktDateStr(now);
@@ -354,7 +365,8 @@ function _buildOrderDoc({
     bookingSource, // self | proxy | walk_in
 
     // Subject (whose account this hits)
-    subjectType: 'self', // V1.2 Slice 1 — personal only. Official subject types arrive in Slice 7.
+    // Slice 7: defaults to 'self'; official café meals pass 'official_meal'.
+    subjectType,
     employeeNumber,
     employeeName,
 
@@ -396,8 +408,27 @@ function _buildOrderDoc({
     amount: null,
     rateStatus: 'pending', // RATE_STATUS enum has no PENDING — literal matches mess pattern
     rateAppliedAt: null,
-    billingDestination: BILLING_DESTINATIONS.EMPLOYEE_ACCOUNT,
-    costCentreCode: null,
+    // Slice 7: default 'employee_account'/null; official meals override these.
+    billingDestination,
+    costCentreCode,
+
+    // Official meal (Slice 7) — null/absent on personal orders.
+    // sponsoringEmployeeNumber: the employee who vouches (required for official).
+    // costCentreCode: optional free-text note for accounts-supervisor report —
+    //   NEVER a key, never validated, never auto-billed.
+    // officialGuestName: descriptive only — NOT a registered identity (that
+    //   defers to the guest-house module slice).
+    // approvalStatus: billing approval, parallel to orderStatus (Option A —
+    //   meal is served regardless; approval governs billing only).
+    sponsoringEmployeeNumber,
+    sponsoringEmployeeName,
+    officialGuestName,
+    approvalStatus: subjectType === SUBJECT_TYPES.OFFICIAL_MEAL ? 'pending_approval' : null,
+    approvedByUid: null,
+    approvedAt: null,
+    rejectedByUid: null,
+    rejectedAt: null,
+    approvalNote: null,
 
     // Feedback
     feedbackStatus: FEEDBACK_STATUS.PENDING,
@@ -1034,6 +1065,191 @@ async function listMyOrders({ tenantId, officialEmployeeNumber, days = 30 }) {
   return { orders, count: orders.length };
 }
 
+// ─────────────────────────────────────────
+// createOfficialCafeMeal — Slice 7
+// Supervisor/manager places a café order billed to an OFFICIAL account.
+// Modeled on createProxyOrder. Reuses _validateOrderInput unchanged.
+// Option A: starts 'placed', flows through the kitchen like any order;
+// approvalStatus runs in parallel (billing only). Single item.
+// The "account holder" on the doc is the sponsoring employee (the anchor),
+// mirroring how mess puts the sponsoring employee on official_guest records.
+// ─────────────────────────────────────────
+async function createOfficialCafeMeal({
+  uid,
+  officialEmployeeNumber,   // creator's own number (the placing supervisor)
+  tenantId,
+  userRole,
+  sponsoringEmployeeNumber, // required — the employee who vouches
+  orderType,
+  menuItemId,
+  quantity,
+  diningMode,
+  requestedPickupTime,
+  requestedPickupDate,
+  costCentreCode,           // optional free-text note
+  officialGuestName,        // optional descriptive text
+}) {
+  if (!sponsoringEmployeeNumber) {
+    throw new Error('sponsoringEmployeeNumber is required for official café meals.');
+  }
+
+  // consumerType is always 'self' for an official meal — the consumer is the
+  // official context, not a family member. We do not accept a family member here.
+  const consumerType = CAFE_CONSUMER_TYPES.SELF;
+
+  const { menuItem, resolvedPickupDate, pickupDateTime } = await _validateOrderInput({
+    tenantId,
+    officialEmployeeNumber: sponsoringEmployeeNumber,
+    orderType,
+    menuItemId,
+    quantity,
+    diningMode,
+    requestedPickupTime,
+    requestedPickupDate,
+    consumerType,
+    consumerFamilyMemberId: null,
+  });
+
+  // Validate the sponsoring employee exists, is active, same tenant.
+  // _getEmployee throws if not found / wrong tenant (mirrors mess sponsor check).
+  const sponsor = await _getEmployee({
+    tenantId,
+    officialEmployeeNumber: sponsoringEmployeeNumber,
+  });
+  if (sponsor.isActive === false) {
+    throw new Error(`Sponsoring employee ${sponsoringEmployeeNumber} is inactive.`);
+  }
+
+  const doc = _buildOrderDoc({
+    tenantId,
+    createdByUid: uid,
+    createdByRole: userRole,
+    createdByEmployeeNumber: officialEmployeeNumber,
+    // Account holder on the doc = sponsoring employee (the anchor).
+    employeeNumber: sponsoringEmployeeNumber,
+    employeeName: sponsor.fullName,
+    bookingSource: BOOKING_SOURCES.OFFICIAL,
+    orderType,
+    menuItem,
+    quantity,
+    diningMode,
+    requestedPickupTime,
+    requestedPickupDate: resolvedPickupDate,
+    pickupDateTime,
+    consumerType,
+    consumerFamilyMemberId: null,
+    consumerName: sponsor.fullName,
+    // Official overrides:
+    subjectType: SUBJECT_TYPES.OFFICIAL_MEAL,
+    billingDestination: BILLING_DESTINATIONS.OFFICIAL_ACCOUNT,
+    costCentreCode: costCentreCode || null,
+    sponsoringEmployeeNumber,
+    sponsoringEmployeeName: sponsor.fullName,
+    officialGuestName: officialGuestName || null,
+  });
+
+  const ref = await db.collection(COLLECTIONS.CAFE_ORDERS).add(doc);
+
+  // HOOK (deferred — café notification slice): notify admin of official meal
+  // pending approval. Mirrors mess 'official_guest_meal_pending_approval'
+  // (messReservationService.js createOfficialGuestWalkIn → createNotification).
+  // Endpoint + approvalStatus already in place; only the createNotification
+  // call is pending. Do NOT wire until the café notification slice.
+
+  return { orderId: ref.id, ...doc };
+}
+
+// ─────────────────────────────────────────
+// approveOfficialCafeMeal — Slice 7 (admin only; enforced at route)
+// Flips approvalStatus pending_approval → approved. Billing tag only.
+// Mirrors messReservationService.approveOfficialGuestMeal.
+// ─────────────────────────────────────────
+async function approveOfficialCafeMeal({ orderId, tenantId, approvedByUid }) {
+  const ref = db.collection(COLLECTIONS.CAFE_ORDERS).doc(orderId);
+  const snap = await ref.get();
+
+  if (!snap.exists) throw new Error('Order not found.');
+  const data = snap.data();
+  if (data.tenantId !== tenantId) throw new Error('Tenant mismatch.');
+  if (data.subjectType !== SUBJECT_TYPES.OFFICIAL_MEAL) {
+    throw new Error('This order is not an official café meal.');
+  }
+  if (data.approvalStatus !== 'pending_approval') {
+    throw new Error(`Cannot approve — current status is ${data.approvalStatus}.`);
+  }
+
+  await ref.update({
+    approvalStatus: 'approved',
+    approvedByUid,
+    approvedAt: new Date(),
+    updatedAt: new Date(),
+  });
+
+  // HOOK (deferred — café notification slice): notify placing supervisor /
+  // sponsor that billing was approved. Mirrors mess approval notification.
+
+  return { orderId, approvalStatus: 'approved' };
+}
+
+// ─────────────────────────────────────────
+// rejectOfficialCafeMeal — Slice 7 (admin only; enforced at route)
+// Flips approvalStatus pending_approval → rejected (+ note). Billing tag only.
+// The meal was still served (Option A); what to do about the charge is the
+// accounts-supervisor manual ERP-step call. Mirrors mess reject.
+// ─────────────────────────────────────────
+async function rejectOfficialCafeMeal({ orderId, tenantId, rejectedByUid, approvalNote }) {
+  const ref = db.collection(COLLECTIONS.CAFE_ORDERS).doc(orderId);
+  const snap = await ref.get();
+
+  if (!snap.exists) throw new Error('Order not found.');
+  const data = snap.data();
+  if (data.tenantId !== tenantId) throw new Error('Tenant mismatch.');
+  if (data.subjectType !== SUBJECT_TYPES.OFFICIAL_MEAL) {
+    throw new Error('This order is not an official café meal.');
+  }
+  if (data.approvalStatus !== 'pending_approval') {
+    throw new Error(`Cannot reject — current status is ${data.approvalStatus}.`);
+  }
+
+  await ref.update({
+    approvalStatus: 'rejected',
+    rejectedByUid,
+    rejectedAt: new Date(),
+    approvalNote: approvalNote || null,
+    updatedAt: new Date(),
+  });
+
+  // HOOK (deferred — café notification slice): notify placing supervisor /
+  // sponsor that billing was rejected. Mirrors mess reject notification.
+
+  return { orderId, approvalStatus: 'rejected' };
+}
+
+// ─────────────────────────────────────────
+// listOfficialPending — Slice 7 (admin only; enforced at route)
+// All official café meals awaiting billing approval. Feeds the admin's
+// approve/reject view. Mirrors mess GET /official-guest-pending.
+// Composite index required (see firestore.indexes.json edit).
+// ─────────────────────────────────────────
+async function listOfficialPending({ tenantId, day = null }) {
+  let q = db
+    .collection(COLLECTIONS.CAFE_ORDERS)
+    .where('tenantId', '==', tenantId)
+    .where('subjectType', '==', SUBJECT_TYPES.OFFICIAL_MEAL)
+    .where('approvalStatus', '==', 'pending_approval');
+
+  if (day) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+      throw new Error('Invalid date format. Use YYYY-MM-DD.');
+    }
+    q = q.where('requestedPickupDate', '==', day);
+  }
+
+  const snap = await q.orderBy('createdAt', 'desc').get();
+  const orders = snap.docs.map((d) => ({ orderId: d.id, ...d.data() }));
+  return { orders, count: orders.length };
+}
+
 module.exports = {
   createSelfOrder,
   createSelfOrderBatch,
@@ -1042,4 +1258,9 @@ module.exports = {
   createWalkInOrder,
   cancelOrder,
   listMyOrders,
+  // Slice 7 — official café meals
+  createOfficialCafeMeal,
+  approveOfficialCafeMeal,
+  rejectOfficialCafeMeal,
+  listOfficialPending,
 };
