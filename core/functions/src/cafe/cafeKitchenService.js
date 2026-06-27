@@ -46,7 +46,7 @@
 const { getFirestore } = require('firebase-admin/firestore');
 const db = getFirestore('servio-dev');
 
-const { COLLECTIONS, CAFE_ORDER_STATUS } = require('../constants');
+const { COLLECTIONS, CAFE_ORDER_STATUS, CAFE_ORDER_TYPES } = require('../constants');
 const { pktDateStr } = require('../utils');
 
 // Minutes an ACCEPTED order may sit in the kitchen (since acceptedAt) before
@@ -54,7 +54,7 @@ const { pktDateStr } = require('../utils');
 // constants in cafeOrderService.js conceptually — kept local to the kitchen
 // because only the board consumes it. Promote to appSettings only when a café
 // admin-settings screen exists to tune it (Slice 4 design lock, 23-Jun).
-const CAFE_OVERRUN_MINUTES = 15;
+const CAFE_OVERRUN_MINUTES = 30;
 
 // ─────────────────────────────────────────
 // getKitchenOrders
@@ -118,7 +118,11 @@ async function getKitchenOrders({ tenantId }) {
   const now = Date.now();
   for (const o of orders) {
     const acc = acceptedMs(o);
+    // Overrun applies ONLY to cafe_hours (dine-in / live takeaway), where the
+    // kitchen owes a ≤30-min turnaround from acceptance. anytime_takeaway is
+    // prepared to its scheduled pickup time, not a dwell clock — never overrun.
     o.isOverrun =
+      o.orderType === CAFE_ORDER_TYPES.CAFE_HOURS &&
       o.orderStatus === CAFE_ORDER_STATUS.ACCEPTED &&
       acc !== null &&
       (now - acc) > overrunMs;
