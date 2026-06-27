@@ -1120,3 +1120,92 @@ V1.2 status: Slice 6 BACKEND closed. Next: Slice 6 WEB sub-slice — own compone
 own route/tab, NO live-board state leak (design-lock hard condition), build:dev,
 field-test as real cafe_supervisor. Backend contract fixed: consumes
 { orders, count, hasMore, nextCursor }.
+V1.2 Café — Slice 6 WEB + Cancellation Flow (1a, 1b, Cancel UI): 26–27 Jun 2026
+
+SLICE 6 WEB — CLOSED 26-Jun (field-tested, committed bca7b5a + hygiene f1ff569):
+  NEW cafeHistoryService.js (own service, Pattern B, separate from kitchen
+  service — no live-board state leak). NEW CafeHistoryPage.jsx (TABLE not cards,
+  read-only, load-more via nextCursor, 7-day default only). NEW .module.css
+  (café palette, status pills). App.jsx +1 import +1 route /cafe-history.
+  Sidebar.jsx (at web/src/components/layout/Sidebar.jsx) +1 entry in
+  cafe_supervisor + manager ONLY (cafe_waiter/legacy/admin reach via URL, no nav
+  — deliberate). Field-tested as real cafe_supervisor (Majid CLB00030): nav
+  placement, 7-day newest-first list, status pills, family-member "For" column
+  all correct. Hygiene commit f1ff569 untracked 2 stray .bak files + added .bak
+  gitignore rules (the .bak files had ridden along in bca7b5a — caught at
+  git status, cleaned).
+  Slice 6 web DEFERRED → "history filters" sub-slice: single-day date picker
+  (backend ready, web-only), employeeNumber filter (BACKEND-FIRST — needs new
+  where() + new composite index; client-side .filter() is WRONG, only filters
+  loaded 25), includeCancelled toggle (backend ready). All 3 share one page
+  region, build as one designed sub-slice. = "piece 2" after cancel flow.
+
+CANCELLATION FLOW — 3 pieces, sequenced 1a→1b→cancel-UI:
+
+  1a CLOSED 26-Jun (commit 211cdb8, curl-proven): terminal-state walls in
+  cafeOrderService.cancelOrder. PREPARED = HARD WALL incl. admin (closes
+  billing-lie: a served order can never be flipped cancelled). ACCEPTED =
+  blocked non-admin, admin god-mode passes down to accepted. Guards sit ABOVE
+  order-type logic, additive. Curl-proven dev: admin+prepared→REJECTED;
+  employee+placed-anytime→cancels; already-cancelled→REJECTED.
+
+  1b BUILT+DEPLOYED 26-Jun (committed this session, pending in-window test):
+  TWO changes, service-only (NO route change needed — route already passes
+  cancelledByRole). Change 1: cafe_hours now cancellable by cafe_supervisor +
+  manager (+admin), PLACED-only — the placed-bound is guaranteed by 1a's
+  accepted-wall sitting above, so no explicit status check needed. employee +
+  cafe_waiter still blocked ("Can't be cancelled."). Change 2: anytime cancel
+  cutoff replaced 1hr-from-placement → UNIVERSAL 3hr-before-pickup (Option X:
+  stamped at creation into cancellationWindowExpiresAt, cancelOrder check
+  unchanged). New const ANYTIME_TA_CANCEL_CUTOFF_HOURS_BEFORE_PICKUP=3;
+  ANYTIME_TA_CANCEL_MIN now orphaned (kept, marked superseded — sweep in cleanup
+  slice). Curl-proven dev: anytime stamp = pickup−3hr exact (17:00 pickup →
+  14:00 stamp), >3hr-out cancel succeeds. PENDING IN-WINDOW: <3hr boundary
+  reject, all cafe_hours supervisor-override paths.
+
+  CANCEL UI BUILT+DEPLOYED 26–27-Jun (committed this session, pending in-window):
+  Employee side (MyCafeOrdersPage.jsx) — was ALREADY BUILT (Slice 2.4, reason
+  dropdown kept per Homi). ONE edit: past-cutoff anytime orders show DISABLED
+  "Cancellation closed" button (isCancelWindowPassed helper) instead of hiding
+  (Decision 4). cafe_hours / accepted / cancelled still hidden (correct).
+  Supervisor side (CafeKitchenPage.jsx) — the real build: useAuth role gate
+  canCancel = cafe_supervisor/manager/admin/super_admin (cafe_waiter EXCLUDED);
+  subordinate "Cancel order" link on PLACED cards only → inline two-step confirm
+  → cancelOrder(employee_request) → board refresh. Reuses cafeService.cancelOrder
+  (no new service). Reason ALWAYS employee_request, no dropdown on board (locked:
+  cancellation only ever on employee's verbal request; employee gets notified +
+  can challenge to admin = the safeguard). Notification on cancel DEFERRED to
+  notification slice.
+
+INCIDENT (27-Jun, recovered clean): accidentally placed cafeOrderService.js
+  content INTO web/src/App.jsx → build:dev failed (require/../constants in a
+  React file). Caught by the build gate. Restored App.jsx from GDrive backup
+  (Slice 6 version — correct, App.jsx had no cancel-flow changes). Rebuilt clean
+  (186 modules, index-CFOlvZSv.js), redeployed. Both cancel-flow files survived
+  (grep 2/2/0 confirmed). Lesson: when placing multiple files manually, head -3
+  each after placement to confirm right-content-right-target.
+
+CANCEL FLOW FIELD-TEST (PENDING — next in-window session, café 18:00–22:30):
+  Supervisor: (1) placed cafe_hours → Cancel link → confirm → cancels+drops off
+  [keystone: proves 1b backend + UI together]; (2) accepted order → NO cancel
+  link [1a wall visible in UI]; (3) cafe_waiter → no cancel link anywhere.
+  Employee: (4) anytime placed >3hr → active cancel works; (5) anytime placed
+  <3hr → DISABLED "Cancellation closed"; (6) cafe_hours → no button.
+
+V1.2 status: cancel flow BUILT+DEPLOYED end-to-end (1a closed; 1b + UI pending
+in-window field-test). After field-test closes → piece 2 = history filters
+(date picker + employeeNumber backend-first + includeCancelled). Then Slice 7
+official café meals. SEPARATE queued: strip café (Café Kitchen + Proxy Order)
+from ADMIN sidebar — nav-only, backend access stays (admin god-mode) —
+deliberate "admin = decisive/reports/feedback only" call.
+
+Carry items added/active:
+- cancelOrder accepted-guard non-admin proven only for cafe_hours (masked by
+  cafe_hours rule); prove on anytime at cancel-UI field-test.
+- orphaned ANYTIME_TA_CANCEL_MIN const + orphaned .acceptedTag CSS (CafeKitchen)
+  + addDaysToDateStr→utils.js promotion + two firestore.indexes.json → ONE
+  cleanup slice.
+- cafeService.js cancelOrder header comment stale (describes pre-1a/1b rules) —
+  cosmetic, fix opportunistically.
+
+Last Updated line → bump to: 27 June 2026 (cancel flow built/deployed, pending in-window field-test)
