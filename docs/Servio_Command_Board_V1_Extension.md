@@ -1209,3 +1209,154 @@ Carry items added/active:
   cosmetic, fix opportunistically.
 
 Last Updated line → bump to: 27 June 2026 (cancel flow built/deployed, pending in-window field-test)
+---
+
+## Session — 27 June 2026 (evening + late) — CANCEL-FLOW FIELD-TEST + 2 FIXES + SLICE 7 BACKEND
+
+### SLICE 7 (Official Café Meals) — BACKEND CLOSED. Commit a9f4e79. Web NOT built.
+
+Design-locked on paper first (no code until locked), backend-first, mirrors the
+mess official-guest flow. It is a BILLING-BRANCH on the existing café order — NOT
+a new path, NOT a new collection, NOT official-guest *identity* (that defers to
+the guest-house module).
+
+Scope answers (locked with Homi this session):
+- WHO places: cafe_supervisor + manager + admin/super_admin. cafe_waiter EXCLUDED
+  (no defined role yet — revisit after real-use data). Mirrors mess
+  supervisorAndAbove (verified on disk against messRoutes, not memory).
+- BILLING-BRANCH not new path: _buildOrderDoc gained defaulted params
+  subjectType / billingDestination / costCentreCode (defaults = self /
+  employee_account / null) — proven safe: grep confirmed NO existing caller passes
+  them, so all 5 existing builder callers unchanged. Plus sponsoring/official/
+  approval fields, null on normal orders.
+- COST CENTRE: optional free-text note, entered at placement by the placing
+  supervisor (who holds the approved mail). A NOTE for the accounts-supervisor
+  audit/report — NEVER a key, never validated, never auto-billed. No edit-later
+  endpoint (supervisor holds the code at placement; accounts supervisor audits at
+  ERP-charging time, which is always manual by design). officialAccounts
+  collection still does NOT exist (constant present) — validated cost-centre flow
+  is V4 (financial/procurement).
+- LIFECYCLE (Option A, as in mess): official meal starts orderStatus=placed,
+  flows placed→accepted→prepared through the kitchen identically; approvalStatus
+  (pending_approval→approved|rejected) runs in PARALLEL, billing-only. A rejected
+  meal was still served; what to do about the charge is the accounts-supervisor
+  manual ERP call. Zero kitchen-code change.
+- HEADCOUNT: no cap; reuse quantity. (Mess officialMealMaxHeadcount not imported.)
+
+Three core values (all PRE-EXISTING constants — verified in constants.js):
+bookingSource=OFFICIAL ('official'), subjectType=OFFICIAL_MEAL ('official_meal'),
+billingDestination=OFFICIAL_ACCOUNT ('official_account').
+
+Backend surface (additive, in cafeOrderService.js + cafeRoutes.js):
+- _buildOrderDoc: 3 fields promoted to defaulted params + sponsoring/official/
+  approval fields added (null at creation; approvalStatus='pending_approval' only
+  when subjectType=official_meal).
+- createOfficialCafeMeal (modeled on createProxyOrder; sponsor validated active+
+  same-tenant; account holder on the doc = sponsoring employee, the anchor).
+- approveOfficialCafeMeal / rejectOfficialCafeMeal (admin-only; guard on
+  subjectType=official_meal && approvalStatus=pending_approval).
+- listOfficialPending (admin-only; the queue the admin approves from).
+- Routes: POST /cafe/orders/official (sup/mgr/admin); GET /cafe/orders/
+  official-pending (admin); PATCH /cafe/orders/:id/approve-official + /reject-
+  official (admin). Specific-before-parameterised confirmed.
+- New composite index on cafeOrders (tenantId+subjectType+approvalStatus+
+  createdAt DESC) for the pending list. (JSON missing-comma error caught + fixed
+  before deploy.)
+- Stale line-14 comment fixed (Slice 7 = billing, NOT "OG numbers/Type 1 slip").
+
+NOTIFICATION DEFERRED (Homi: keep hooks open for notification/feedback/rate/
+billing flows across V1.2; café notification will mirror mess in its own slice).
+NO live createNotification wired. HOOK (deferred — café notification slice)
+markers left at placement / approve / reject — grep that string to find all sites
+when the notification slice opens.
+
+Curl-proven on dev (T1–T8 all pass): official meal writes all 3 core values +
+sponsor + optional cost centre + pending_approval + placed; admin pending-list
+shows it; employee REFUSED (403); missing-sponsor REFUSED (400); approve flips +
+leaves pending; reject flips + note; double-approve guarded; REGRESSION (T8):
+normal self order still writes self/employee_account/null/null-approval (builder
+defaults held). Test orders cleaned up after (cancelled via API).
+
+### BUG FIX 1 — cancelOrder ownership guard (cafe_supervisor/manager). Commit aad5ac0.
+
+Found in tonight's field-test: supervisor cancelling an EMPLOYEE's placed order
+was rejected "You can only cancel your own orders." Cause: ownership guard
+exempted only isAdmin and ran ABOVE the supervisor-permission branch. Fix: moved
+isCafeFloorCanceller (admin|cafe_supervisor|manager) ABOVE the ownership guard and
+reused it there; removed the duplicate definition below (single source of truth).
+Walls intact (sit above ownership check): curl T-2 supervisor+accepted still
+REJECTED ("kitchen has started preparing"); T-3 employee+others'-placed-order
+still REJECTED ("only cancel your own"); T-1 supervisor cancel confirmed in
+browser. Why curl missed it originally: admin-token tests bypass the guard via
+isAdmin — the non-admin path was structurally never exercised (this exact gap was
+a pre-existing carry note).
+
+### BUG FIX 2 — overrun flag cafe_hours-only + 30-min threshold. Commit cde626e.
+
+Found in field-test: anytime_takeaway orders accepted >15min ago were wrongly
+flagged Overrun on the kitchen board. Cause: isOverrun computed for ANY accepted
+order, ignoring orderType. Fix (cafeKitchenService.getKitchenOrders): gated
+isOverrun on orderType===CAFE_HOURS; raised CAFE_OVERRUN_MINUTES 15→30 (the
+defined accept→prepared SLA for dine-in/live takeaway). anytime is prepared to a
+scheduled pickup time, not a dwell clock — never overrun. Imported CAFE_ORDER_TYPES
+into the kitchen service (was not present). Proven at data + UI: 3 anytime
+accepted → False; 2 cafe_hours accepted >30min → True; recent/placed → False.
+THRESHOLD CHANGE: overrun is now 30 min, not 15 (supersedes Slice 4's
+CAFE_OVERRUN_MINUTES=15).
+
+### CANCEL-FLOW FIELD-TEST RESULTS (27-Jun café window):
+
+ROOT CAUSE of the all-evening "no cancel button on kitchen board" blocker:
+STALE WEB BUNDLE. CafeKitchenPage.jsx had the full, correct cancel code on disk
+(git-dated 01:49, Slice 5 commit) but the deployed bundle predated the cancel
+work. npm run build:dev + firebase deploy --only hosting fixed it — the cancel
+button (and the employee "Cancellation closed" indicator) both appeared.
+LESSON: build:dev + deploy hosting BEFORE field-testing web. Web-side twin of
+deploy≠apply. (A grep of the page on disk at the START would have shown the code
+present and pointed straight at deploy-vs-runtime — the grep was skipped under
+field-test momentum.)
+
+- Test 1 (SUP placed cafe_hours → cancel): PASS after bundle redeploy + Fix 1.
+- Test 2 (SUP accepted → no cancel / rejected): PASS (1a wall holds, curl T-2).
+- Test 3 (cafe_waiter): SKIPPED — role undefined, Homi's call.
+- Test 4 (EMP anytime >3hr → active cancel): PASS, end-to-end with reason modal.
+- Test 5 (EMP anytime <3hr → "Cancellation closed"): PASS after redeploy.
+  *** Decision 4 reconciliation: live behaviour is HIDDEN when pickup <3hr away;
+      greyed "Cancellation closed" shows for past-cutoff PLACED anytime. Homi
+      accepts either hidden-or-disabled; current state stands. (Earlier CB note
+      said "disabled, not hidden" — this supersedes that for the <3hr-pickup case.)
+- Test 6 (EMP cafe_hours → no button): PASS.
+
+CANCEL FLOW: field-tested + both surfaced bugs fixed/committed. Anytime
+cancellation: employee-only, no supervisor/manager override (anytime can't be
+proxy-placed, so can't be proxy-cancelled — Homi locked). cafe_hours cancellation:
+reserved to supervisor/manager (they judge live prep state); employee never.
+
+### STILL OPEN (next session):
+- **Café History tab not opening** — NEW, surfaced this session, NOT yet
+  diagnosed. First step: browser console error + `curl -s -i "$BASE/history"`
+  to split frontend-vs-backend. Suspect: missing/disturbed composite index for
+  listCafeOrderHistory (the Slice 6 query needs one; the indexes.json had a
+  missing-comma error this session and there are two index files).
+- **Multi-item kitchen tiles** — screenshots suggest the board splits a multi-item
+  order into one tile per item (each item its own card). Confirm whether per-item
+  split is intended; if so the earlier "kitchen sees incomplete order" worry is
+  unfounded.
+- Strip café (Café Kitchen + Proxy Order) from ADMIN sidebar — nav-only, backend
+  access stays (admin god-mode). Confirmed still present this session.
+- SLICE 7 WEB unbuilt: supervisor official-meal form + admin pending-approval
+  view. Stays behind cancel-flow closure + History fix in priority.
+
+### Carry items updated:
+- cancelOrder accepted-guard non-admin path: now PROVEN on anytime + cafe_hours
+  (curl T-2/T-3 this session). Carry note CLOSED.
+- ANYTIME_TA_CANCEL_MIN orphaned const · .acceptedTag CSS · addDaysToDateStr→utils
+  · TWO firestore.indexes.json → ONE → still one cleanup slice. ADD: stale café
+  cancel comment in constants.js (~lines 427–429, "1-hour window" superseded by
+  1b 3hr-before-pickup) + cafeService.js cancelOrder header comment.
+- Mess official-guest flow gaps (no cost centre captured; officialMealMaxHeadcount
+  unenforced) — for the post-V1.2 system-improvement drive (self-audit + customer
+  trial). officialAccounts collection + validated cost-centre flow → V4.
+
+Last Updated line → bump to: 27 June 2026 (Slice 7 backend closed; cancel-flow
+field-tested + 2 fixes committed; Café History tab bug open)
