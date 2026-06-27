@@ -997,8 +997,18 @@ async function cancelOrder({
     throw new Error('Cannot cancel an order the kitchen has started preparing.');
   }
 
-  // Ownership: non-admin can only cancel own orders
-  if (!isAdmin && order.employeeNumber !== cancelledByEmployeeNumber) {
+// Café-floor cancellers (admin god-mode, or supervisor/manager on the floor)
+  // may cancel orders that are NOT their own — that is the whole point of the
+  // supervisor cancel (pulling an employee's placed order on verbal request).
+  // Defined here, above the ownership guard, because the guard must respect it.
+  const isCafeFloorCanceller =
+    isAdmin ||
+    cancelledByRole === ROLES.CAFE_SUPERVISOR ||
+    cancelledByRole === ROLES.MANAGER;
+
+  // Ownership: a plain employee can only cancel their own orders. Café-floor
+  // cancellers are exempt (they cancel on an employee's behalf).
+  if (!isCafeFloorCanceller && order.employeeNumber !== cancelledByEmployeeNumber) {
     throw new Error('You can only cancel your own orders.');
   }
 
@@ -1010,10 +1020,6 @@ async function cancelOrder({
   //     on a PLACED order by elimination. Supervisor watches the board (placed =
   //     not yet cooking = safe to pull on an employee's verbal request).
   //   - employee / cafe_waiter / others: never (charged regardless).
-  const isCafeFloorCanceller =
-    isAdmin ||
-    cancelledByRole === ROLES.CAFE_SUPERVISOR ||
-    cancelledByRole === ROLES.MANAGER;
   if (order.orderType === CAFE_ORDER_TYPES.CAFE_HOURS && !isCafeFloorCanceller) {
     throw new Error("Can't be cancelled.");
   }
