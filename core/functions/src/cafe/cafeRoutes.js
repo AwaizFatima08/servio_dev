@@ -579,6 +579,71 @@ router.get(
 );
 
 // ─────────────────────────────────────────
+// PATCH /cafe/kitchen/group/:groupKey/accept — whole-order accept
+// placed -> accepted for every doc in the group, atomically. No body.
+// groupKey = bookingGroupId for batch orders, or the orderId for single
+// orders (28-Jun whole-order model lock). Kitchen role set — same as the
+// single-doc /orders/:orderId/accept route.
+// ─────────────────────────────────────────
+router.patch(
+  '/kitchen/group/:groupKey/accept',
+  verifyToken,
+  verifyRole(
+    ROLES.CAFE_SUPERVISOR,
+    ROLES.CAFE_WAITER,
+    ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+    ROLES.MANAGER,
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      const result = await cafeKitchenService.acceptOrderGroup({
+        groupKey: req.params.groupKey,
+        tenantId: req.tenantId,
+        acceptedByUid: req.user.uid,
+      });
+      return successResponse(res, result, result.message);
+    } catch (err) {
+      console.error('[PATCH /cafe/kitchen/group/:groupKey/accept] error:', err);
+      return errorResponse(res, err.message || 'Failed to accept order.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// PATCH /cafe/kitchen/group/:groupKey/prepared — whole-order prepared
+// accepted -> prepared for every doc in the group, atomically. No body.
+// Terminal kitchen state; the order then falls off the live board. Same
+// kitchen role set as /accept and the single-doc /prepared route.
+// ─────────────────────────────────────────
+router.patch(
+  '/kitchen/group/:groupKey/prepared',
+  verifyToken,
+  verifyRole(
+    ROLES.CAFE_SUPERVISOR,
+    ROLES.CAFE_WAITER,
+    ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+    ROLES.MANAGER,
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      const result = await cafeKitchenService.markOrderGroupPrepared({
+        groupKey: req.params.groupKey,
+        tenantId: req.tenantId,
+        preparedByUid: req.user.uid,
+      });
+      return successResponse(res, result, result.message);
+    } catch (err) {
+      console.error('[PATCH /cafe/kitchen/group/:groupKey/prepared] error:', err);
+      return errorResponse(res, err.message || 'Failed to mark order prepared.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
 // GET /cafe/history — café supervisor order-history view (V1.2 Slice 6)
 //
 // READ-ONLY paginated list of PAST orders (dispute-lookup + audit). Distinct

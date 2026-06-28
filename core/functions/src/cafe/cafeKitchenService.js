@@ -361,9 +361,141 @@ async function listCafeOrderHistory({
   };
 }
 
+// ─────────────────────────────────────────
+// _resolveOrderGroup  — V1.2 whole-order kitchen model (28-Jun lock)
+// Resolves a groupKey to the set of cafeOrders docs it covers.
+//
+// groupKey = order.bookingGroupId || order.orderId (derived at read by the
+// board). Batch orders share a real bookingGroupId across N docs; single
+// orders carry bookingGroupId = null, so their groupKey IS their orderId.
+//
+// Resolution (no client-trust about which kind of key it is):
+//   1. Try where('bookingGroupId','==',groupKey) — finds all N docs of a batch.
+//   2. If that returns zero docs, treat groupKey as a lone orderId and fetch
+//      that single document (the single-order / legacy-null path).
+//
+// Returns an array of { ref, id, data } for the docs in the group. Throws if
+// nothing is found or any doc is a different tenant.
+// ─────────────────────────────────────────
+async function _resolveOrderGroup({ groupKey, tenantId }) {
+  if (!groupKey || typeof groupKey !== 'string') {
+    throw new Error('groupKey is required.');
+  }
+
+  // 1) batch path — docs sharing a real bookingGroupId
+  const snap = await db
+    .collection(COLLECTIONS.CAFE_ORDERS)
+    .where('tenantId', '==', tenantId)
+    .where('bookingGroupId', '==', groupKey)
+    .get();
+
+  let docs = snap.docs.map((d) => ({ ref: d.ref, id: d.id, data: d.data() }));
+
+  // 2) single-order / legacy-null path — groupKey is actually an orderId
+  if (docs.length === 0) {
+    const single = await db.collection(COLLECTIONS.CAFE_ORDERS).doc(groupKey).get();
+    if (single.exists) {
+      const data = single.data();
+      // Tenant check here (the batch query already filtered by tenant; the
+      // direct doc fetch did not, so guard it explicitly).
+      if (data.tenantId === tenantId) {
+        docs = [{ ref: single.ref, id: single.id, data }];
+      }
+    }
+  }
+
+  if (docs.length === 0) {
+    throw new Error('Order not found.');
+  }
+
+  return docs;
+}
+
+// ─────────────────────────────────────────
+// acceptOrderGroup  — whole-order accept (placed -> accepted), atomic.
+// Verifies EVERY doc in the group is 'placed' (don't assume uniformity, even
+// though the whole-order model should guarantee it — 28-Jun lock). Rejects the
+// whole operation if any doc is not 'placed'. Shared acceptedAt across the group
+// so the board's overrun clock is one clock for the order.
+// ─────────────────────────────────────────
+async function acceptOrderGroup({ groupKey, tenantId, acceptedByUid }) {
+  const docs = await _resolveOrderGroup({ groupKey, tenantId });
+
+  // Verify-don't-assume: every doc must be 'placed'.
+  for (const { data } of docs) {
+    if (data.orderStatus === CAFE_ORDER_STATUS.CANCELLED) {
+      throw new Error('Cannot accept a cancelled order.');
+    }
+    if (data.orderStatus === CAFE_ORDER_STATUS.ACCEPTED) {
+      throw new Error('Order is already accepted.');
+    }
+    if (data.orderStatus === CAFE_ORDER_STATUS.PREPARED) {
+      throw new Error('Order is already prepared.');
+    }
+    if (data.orderStatus !== CAFE_ORDER_STATUS.PLACED) {
+      throw new Error(`Unexpected order status: ${data.orderStatus}`);
+    }
+  }
+
+  const now = new Date();
+  const batch = db.batch();
+  for (const { ref } of docs) {
+    batch.update(ref, {
+      orderStatus: CAFE_ORDER_STATUS.ACCEPTED,
+      acceptedAt: now,
+      acceptedByUid,
+      updatedAt: now,
+    });
+  }
+  await batch.commit();
+
+  return { message: 'Order accepted.', groupKey, count: docs.length };
+}
+
+// ─────────────────────────────────────────
+// markOrderGroupPrepared  — whole-order prepared (accepted -> prepared), atomic.
+// Verifies EVERY doc is 'accepted'. Mirrors markPrepared's strict guard: an
+// order cannot skip placed -> prepared. Rejects the whole op if any doc isn't
+// 'accepted'.
+// ─────────────────────────────────────────
+async function markOrderGroupPrepared({ groupKey, tenantId, preparedByUid }) {
+  const docs = await _resolveOrderGroup({ groupKey, tenantId });
+
+  for (const { data } of docs) {
+    if (data.orderStatus === CAFE_ORDER_STATUS.CANCELLED) {
+      throw new Error('Cannot prepare a cancelled order.');
+    }
+    if (data.orderStatus === CAFE_ORDER_STATUS.PREPARED) {
+      throw new Error('Order is already prepared.');
+    }
+    if (data.orderStatus === CAFE_ORDER_STATUS.PLACED) {
+      throw new Error('Order must be accepted before it can be marked prepared.');
+    }
+    if (data.orderStatus !== CAFE_ORDER_STATUS.ACCEPTED) {
+      throw new Error(`Unexpected order status: ${data.orderStatus}`);
+    }
+  }
+
+  const now = new Date();
+  const batch = db.batch();
+  for (const { ref } of docs) {
+    batch.update(ref, {
+      orderStatus: CAFE_ORDER_STATUS.PREPARED,
+      preparedAt: now,
+      preparedByUid,
+      updatedAt: now,
+    });
+  }
+  await batch.commit();
+
+  return { message: 'Order marked prepared.', groupKey, count: docs.length };
+}
+
 module.exports = {
   getKitchenOrders,
   acceptOrder,
   markPrepared,
   listCafeOrderHistory,
+  acceptOrderGroup,
+  markOrderGroupPrepared,
 };
