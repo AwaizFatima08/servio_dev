@@ -1576,3 +1576,50 @@ closed now (8062537). The 28-Jun whole-order lock is fully delivered.
   through cafeKitchenService.cancelOrderGroup). cafeService.cancelOrder is still
   used elsewhere (employee MyCafeOrdersPage) — do NOT delete it in cleanup; only
   the kitchen-board single-doc path is dead.
+
+## Update — 28-Jun-2026 (café history filters — sub-slice closed)
+
+### Done this session (1 commit, pushed)
+- `<HASH>` — café history filters. Backend-first: employeeNumber server-side
+  filter + new composite index; then web filter bar. Six files.
+  - BACKEND: `listCafeOrderHistory` +optional `employeeNumber` equality clause
+    (server-side where(), NOT a client .filter() — the CB-flagged wrong approach).
+    Absent → query unchanged (existing index). `cafeRoutes` GET /cafe/history
+    +employeeNumber query passthrough.
+  - INDEX: +composite `cafeOrders(tenantId, orderStatus, employeeNumber,
+    createdAt desc)` in `core/functions/firestore.indexes.json` (the AUTHORITATIVE
+    file — firebase.json points there). Deployed INDEX-FIRST, confirmed Enabled in
+    console BEFORE deploying the function (the footgun: function-first would 500
+    every employeeNumber query until the index built).
+  - WEB: `cafeHistoryService` +employeeNumber param. `CafeHistoryPage` rebuilt
+    with filter bar (Apply-button model — NOT live/on-change, so the free-text
+    employeeNumber doesn't fire per keystroke). Single `buildOpts()` is read by
+    BOTH loadFirst and loadMore, so paged results stay filtered. day picker +
+    includeCancelled toggle (both already backend-supported since Slice 6) wired
+    in alongside. Subtitle reflects active filters. +filter-bar CSS (additive).
+
+### Proven
+- Backend curl, 4 cases: baseline (no filter, 25/hasMore, 3 employees) ·
+  employeeNumber=CLB00030 (9, only CLB00030) · nonsense (0, no crash) ·
+  employeeNumber+day (rides the new index, no 500).
+- Frontend field-tested in-window (cafe_supervisor, Majid/CLB00030): each filter
+  alone, all three combined, cancelled red pills shown, accurate subtitle, AND
+  the cursor+filter case — Load more on a cancelled-inclusive window appended
+  page 2 that STAYED cancelled-inclusive (the path most likely to hide a bug).
+
+### Note for next session / cleanup slice
+- The orphan ROOT `firestore.indexes.json` is now one index further out of sync
+  (we added the new index ONLY to the authoritative core/functions file, which is
+  correct). firebase.json deploys `core/functions/firestore.indexes.json` only —
+  the root file is DEAD. In the cleanup slice it can simply be DELETED, not merged.
+
+### V1.2 café sequence — remaining
+1. ✅ Kitchen whole-order frontend (prev session, 8062537).
+2. ✅ History filters (this slice).
+3. Slice 7 WEB — supervisor official-meal form + admin pending-approval view
+   (backend done, a9f4e79). ← NEXT
+4. Strip café from ADMIN sidebar — nav-only; backend access stays.
+5. Cleanup slice — retire single-doc accept/prepared/cancel routes+web fns ·
+   DELETE orphan root firestore.indexes.json · orphaned ANYTIME_TA_CANCEL_MIN ·
+   stale .acceptedTag CSS · addDaysToDateStr→utils · stale comments. NOTE: keep
+   cafeService.cancelOrder (still used by employee MyCafeOrdersPage).
