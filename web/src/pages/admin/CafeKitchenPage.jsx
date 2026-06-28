@@ -1,23 +1,38 @@
 // web/src/pages/admin/CafeKitchenPage.jsx
-// Café Kitchen Board — V1.2 Web Slice 3
+// Café Kitchen Board — V1.2 whole-order model (28-Jun lock)
 // Role: cafe_supervisor | cafe_waiter | manager | admin | super_admin
 // Path: /cafe-kitchen
 //
-// A live, today-only working board for the café kitchen. Distinct from the
-// mess KitchenDashboardPage (combos/headcount/issuance) — café is a flat list
-// of individual orders, each acknowledged with "Accept".
+// A live, today-only working board for the café kitchen. ONE CARD PER ORDER,
+// grouped by groupKey (= bookingGroupId for batch orders, or the orderId for
+// single orders). Every item in the order is listed inside its one card, and
+// Accept / Mark Prepared / Cancel act on the WHOLE order atomically via the
+// backend group routes. Nothing is per-item (28-Jun whole-order lock).
 //
-// Data: GET /cafe/kitchen/orders returns today's placed+accepted orders, keyed
-// off requestedPickupDate (pickup day), already sorted soonest-pickup-first by
-// the backend. We additionally float still-unaccepted ('placed') orders above
-// accepted ones, preserving pickup order within each group (Q3 design lock).
+// Data: GET /cafe/kitchen/orders returns today's placed+accepted order DOCS
+// (one per line), already sorted soonest-pickup-first by the backend. We group
+// them in memory by groupKey, inheriting that sort (a group takes the position
+// of its first-seen line), then float still-unaccepted ('placed') groups above
+// accepted ones.
 //
-// Refresh: 30s fixed-interval auto-refresh (toggle) + manual button. REST only
-// — no real-time listener in this slice (a later enhancement if needed).
+// Within one groupKey, consumer / employee / pickup time / dining mode are
+// uniform by construction (the order modal picks one consumer + one
+// order-type/dining/pickup for the whole batch; proxy batches likewise stamp
+// one consumer per session). So we read those from the group's first doc.
+//
+// Group status is uniform too: every backend transition is atomic over the
+// whole group, so all docs in a group share one orderStatus. Overrun is
+// per-order (one shared acceptedAt clock) — one pill per card.
+//
+// Refresh: 30s fixed-interval auto-refresh (toggle) + manual button. REST only.
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getKitchenOrders, acceptOrder, markPrepared } from '../../services/cafeKitchenService';
-import { cancelOrder } from '../../services/cafeService';
+import {
+  getKitchenOrders,
+  acceptOrderGroup,
+  markOrderGroupPrepared,
+  cancelOrderGroup,
+} from '../../services/cafeKitchenService';
 import { useAuth } from '../../context/AuthContext';
 import styles from './CafeKitchenPage.module.css';
 
@@ -36,10 +51,10 @@ function dilabel(mode) {
 export default function CafeKitchenPage({ token }) {
   const { userProfile } = useAuth();
   const role = userProfile?.user?.role || '';
-  // Who may cancel a placed cafe order from the board. Mirrors the backend 1b
-  // rule (cafe_supervisor + manager can cancel placed cafe_hours; admin god-mode).
-  // cafe_waiter sees the board but NOT the cancel control. Backend is the real
-  // authority — this only governs whether the button is offered.
+  // Who may cancel a placed café order from the board. Mirrors the backend 1b
+  // rule (cafe_supervisor + manager can cancel placed cafe_hours; admin
+  // god-mode). cafe_waiter sees the board but NOT the cancel control. Backend
+  // is the real authority — this only governs whether the button is offered.
   const canCancel =
     role === 'cafe_supervisor' ||
     role === 'manager' ||
@@ -51,10 +66,10 @@ export default function CafeKitchenPage({ token }) {
   const [error, setError] = useState('');
   const [lastRefresh, setLastRefresh] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [acceptingId, setAcceptingId] = useState(null);  // order being accepted (button spinner)
-  const [preparingId, setPreparingId] = useState(null);  // order being marked prepared (button spinner)
-  const [cancelTarget, setCancelTarget] = useState(null); // order pending cancel-confirm
-  const [cancellingId, setCancellingId] = useState(null); // order being cancelled (spinner)
+  const [acceptingKey, setAcceptingKey] = useState(null);  // group being accepted (spinner)
+  const [preparingKey, setPreparingKey] = useState(null);  // group being marked prepared (spinner)
+  const [cancelTarget, setCancelTarget] = useState(null);  // groupKey pending cancel-confirm
+  const [cancellingKey, setCancellingKey] = useState(null); // group being cancelled (spinner)
 
   const load = useCallback(async () => {
     setError('');
@@ -79,65 +94,92 @@ export default function CafeKitchenPage({ token }) {
     return () => clearInterval(id);
   }, [autoRefresh, load]);
 
-  // Float unaccepted ('placed') orders above accepted ones, keeping the
-  // backend's soonest-pickup-first order within each group.
-  const orders = useMemo(() => {
+  // Group the flat order-doc array into one entry per groupKey, preserving the
+  // backend's soonest-pickup-first order (a group takes the slot of its
+  // first-seen line). Then float unaccepted ('placed') groups above accepted
+  // ones. Each group: { groupKey, items[], head, status, isOverrun }.
+  const groups = useMemo(() => {
     const list = board?.orders || [];
-    const placed = list.filter((o) => o.orderStatus === 'placed');
-    const accepted = list.filter((o) => o.orderStatus !== 'placed');
+    const map = new Map();
+    for (const o of list) {
+      const groupKey = o.bookingGroupId || o.orderId;
+      if (!map.has(groupKey)) {
+        map.set(groupKey, { groupKey, items: [o] });
+      } else {
+        map.get(groupKey).items.push(o);
+      }
+    }
+    const built = [];
+    for (const g of map.values()) {
+      const head = g.items[0];
+      built.push({
+        groupKey: g.groupKey,
+        items: g.items,
+        head,
+        status: head.orderStatus,                       // uniform across the group
+        isOverrun: g.items.some((it) => it.isOverrun),  // one pill if any line overran
+      });
+    }
+    const placed = built.filter((g) => g.status === 'placed');
+    const accepted = built.filter((g) => g.status !== 'placed');
     return [...placed, ...accepted];
   }, [board]);
 
-  const onAccept = async (orderId) => {
-    setAcceptingId(orderId);
+  const onAccept = async (groupKey) => {
+    setAcceptingKey(groupKey);
     setError('');
     try {
-      await acceptOrder(token, orderId);
+      await acceptOrderGroup(token, groupKey);
       await load();           // refresh to reflect new status + re-sort
     } catch (err) {
       setError(err.message);
     } finally {
-      setAcceptingId(null);
+      setAcceptingKey(null);
     }
   };
 
-  // Mark an accepted order prepared (accepted -> prepared). On success the
-  // order leaves the board (backend returns only placed+accepted), so we
-  // reload to drop it. Mirrors onAccept.
-  const onPrepare = async (orderId) => {
-    setPreparingId(orderId);
+  // Mark an accepted order prepared (accepted -> prepared) for the whole group.
+  // On success the order leaves the board (backend returns only placed+accepted),
+  // so we reload to drop it. Mirrors onAccept.
+  const onPrepare = async (groupKey) => {
+    setPreparingKey(groupKey);
     setError('');
     try {
-      await markPrepared(token, orderId);
+      await markOrderGroupPrepared(token, groupKey);
       await load();           // refresh — prepared order falls off the board
     } catch (err) {
       setError(err.message);
     } finally {
-      setPreparingId(null);
+      setPreparingKey(null);
     }
   };
 
-  const unack = board?.unacknowledgedCount ?? 0;
-  const total = board?.totalCount ?? 0;
-
-  // Supervisor/manager cancels a PLACED order from the board (1b). Always sends
+  // Supervisor/manager cancels a PLACED order from the board. Always sends
   // 'employee_request' — cancellation only ever happens on an employee's verbal
   // request (locked: keep reason simple). Backend enforces the real rules
-  // (placed-only for cafe_hours, the accepted/prepared walls). On success the
-  // order leaves the board, so we reload. Two-step: click → confirm → cancel.
-  const onCancel = async (orderId) => {
-    setCancellingId(orderId);
+  // (placed-only for cafe_hours, the accepted/prepared walls) atomically over
+  // the whole group. On success the order leaves the board, so we reload.
+  // Two-step: click → confirm → cancel.
+  const onCancel = async (groupKey) => {
+    setCancellingKey(groupKey);
     setError('');
     try {
-      await cancelOrder(token, orderId, 'employee_request', null);
+      await cancelOrderGroup(token, groupKey, 'employee_request', null);
       setCancelTarget(null);
       await load();           // refresh — cancelled order falls off the board
     } catch (err) {
       setError(err.message);
     } finally {
-      setCancellingId(null);
+      setCancellingKey(null);
     }
   };
+
+  // total = doc count (units of food). orderCount = card count (grouped orders).
+  // toAccept = placed ORDERS (cards), derived here so every count on the
+  // subtitle line counts orders, except the explicit "items" (doc count).
+  const total = board?.totalCount ?? 0;
+  const orderCount = groups.length;
+  const toAccept = groups.filter((g) => g.status === 'placed').length;
 
   return (
     <div className={styles.page}>
@@ -149,8 +191,8 @@ export default function CafeKitchenPage({ token }) {
           <p className={styles.subtitle}>
             Today's orders{board?.date ? ` · ${board.date}` : ''}
             {total > 0 && (
-              <> · {total} order{total === 1 ? '' : 's'}
-                {unack > 0 && <span className={styles.unackInline}> · {unack} to accept</span>}
+              <> · {orderCount} order{orderCount === 1 ? '' : 's'} · {total} item{total === 1 ? '' : 's'}
+                {toAccept > 0 && <span className={styles.unackInline}> · {toAccept} to accept</span>}
               </>
             )}
           </p>
@@ -183,16 +225,17 @@ export default function CafeKitchenPage({ token }) {
           <div className={styles.spinner} />
           <span>Loading orders…</span>
         </div>
-      ) : orders.length === 0 ? (
+      ) : groups.length === 0 ? (
         <div className={styles.emptyState}>
           <i className="ti ti-coffee-off" />
           <p>No orders for pickup today yet.</p>
         </div>
       ) : (
         <div className={styles.orderGrid}>
-          {orders.map((o) => {
-            const isPlaced = o.orderStatus === 'placed';
-            const isOverrun = !isPlaced && o.isOverrun === true; // backend guarantees false for placed
+          {groups.map((g) => {
+            const o = g.head;
+            const isPlaced = g.status === 'placed';
+            const isOverrun = !isPlaced && g.isOverrun === true; // backend guarantees false for placed
             const forSomeoneElse =
               o.consumerType === 'family_member' && o.consumerName;
             // placed → amber; accepted+overrun → red (precedence); accepted → green
@@ -203,10 +246,10 @@ export default function CafeKitchenPage({ token }) {
                 : styles.orderCardAccepted;
             return (
               <div
-                key={o.orderId}
+                key={g.groupKey}
                 className={`${styles.orderCard} ${cardClass}`}
               >
-                {/* Top row: pickup time + dining mode */}
+                {/* Top row: pickup time + dining mode (uniform across the group) */}
                 <div className={styles.cardTop}>
                   <span className={styles.pickupTime}>
                     <i className="ti ti-clock" />
@@ -222,13 +265,15 @@ export default function CafeKitchenPage({ token }) {
                   </div>
                 </div>
 
-                {/* Item + qty */}
-                <div className={styles.itemLine}>
-                  <span className={styles.itemName}>{o.itemName}</span>
-                  <span className={styles.qty}>×{o.quantity}</span>
-                </div>
+                {/* Every item in the order, one line each */}
+                {g.items.map((it) => (
+                  <div className={styles.itemLine} key={it.orderId}>
+                    <span className={styles.itemName}>{it.itemName}</span>
+                    <span className={styles.qty}>×{it.quantity}</span>
+                  </div>
+                ))}
 
-                {/* Who it's for */}
+                {/* Who it's for (uniform across the group) */}
                 <div className={styles.consumerLine}>
                   {forSomeoneElse ? (
                     <><i className="ti ti-user" /> For {o.consumerName} <span className={styles.viaEmp}>({o.employeeName} · {o.employeeNumber})</span></>
@@ -237,23 +282,23 @@ export default function CafeKitchenPage({ token }) {
                   )}
                 </div>
 
-                {/* Status / action */}
+                {/* Status / action — whole-order */}
                 <div className={styles.cardActions}>
                   {isPlaced ? (
                     <button
                       className={styles.acceptBtn}
-                      onClick={() => onAccept(o.orderId)}
-                      disabled={acceptingId === o.orderId}
+                      onClick={() => onAccept(g.groupKey)}
+                      disabled={acceptingKey === g.groupKey}
                     >
-                      {acceptingId === o.orderId ? 'Accepting…' : 'Accept'}
+                      {acceptingKey === g.groupKey ? 'Accepting…' : 'Accept'}
                     </button>
                   ) : (
                     <button
                       className={styles.prepareBtn}
-                      onClick={() => onPrepare(o.orderId)}
-                      disabled={preparingId === o.orderId}
+                      onClick={() => onPrepare(g.groupKey)}
+                      disabled={preparingKey === g.groupKey}
                     >
-                      {preparingId === o.orderId ? 'Marking…' : 'Mark prepared'}
+                      {preparingKey === g.groupKey ? 'Marking…' : 'Mark prepared'}
                     </button>
                   )}
 
@@ -261,21 +306,21 @@ export default function CafeKitchenPage({ token }) {
                       Subordinate to Accept (small link), with an inline confirm
                       to prevent mis-click. cafe_waiter never sees this. */}
                   {isPlaced && canCancel && (
-                    cancelTarget === o.orderId ? (
+                    cancelTarget === g.groupKey ? (
                       <div className={styles.cancelConfirm}>
                         <span className={styles.cancelConfirmText}>Cancel this order?</span>
                         <div className={styles.cancelConfirmBtns}>
                           <button
                             className={styles.cancelConfirmYes}
-                            onClick={() => onCancel(o.orderId)}
-                            disabled={cancellingId === o.orderId}
+                            onClick={() => onCancel(g.groupKey)}
+                            disabled={cancellingKey === g.groupKey}
                           >
-                            {cancellingId === o.orderId ? 'Cancelling…' : 'Yes, cancel'}
+                            {cancellingKey === g.groupKey ? 'Cancelling…' : 'Yes, cancel'}
                           </button>
                           <button
                             className={styles.cancelConfirmNo}
                             onClick={() => setCancelTarget(null)}
-                            disabled={cancellingId === o.orderId}
+                            disabled={cancellingKey === g.groupKey}
                           >
                             Keep
                           </button>
@@ -284,7 +329,7 @@ export default function CafeKitchenPage({ token }) {
                     ) : (
                       <button
                         className={styles.cancelLink}
-                        onClick={() => setCancelTarget(o.orderId)}
+                        onClick={() => setCancelTarget(g.groupKey)}
                       >
                         <i className="ti ti-x" /> Cancel order
                       </button>

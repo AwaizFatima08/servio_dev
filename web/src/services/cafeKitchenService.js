@@ -93,3 +93,56 @@ export async function markPrepared(token, orderId) {
   if (!res.ok) throw new Error(body.message || 'Failed to mark order prepared');
   return body.data;
 }
+// ─────────────────────────────────────────
+// GROUP (whole-order) operations — V1.2 kitchen whole-order model (28-Jun lock)
+//
+// The kitchen board operates on the ORDER as one unit, grouped by groupKey
+// (= bookingGroupId for batch orders, or the orderId for single orders). These
+// call the backend group routes, which act atomically over every doc in the
+// group (all-or-nothing). Backend contract (cafeRoutes.js, proven 28-Jun):
+//   PATCH /cafe/kitchen/group/:groupKey/accept    placed   -> accepted  (no body)
+//   PATCH /cafe/kitchen/group/:groupKey/prepared  accepted -> prepared  (no body)
+//   PATCH /cafe/kitchen/group/:groupKey/cancel    -> cancelled (body: reason+note)
+// Returns: data = { message, groupKey, count }
+// ─────────────────────────────────────────
+
+// Whole-order accept. Mirrors acceptOrder (no body, authHeader only).
+export async function acceptOrderGroup(token, groupKey) {
+  const res = await fetch(`${BASE_URL}/cafe/kitchen/group/${groupKey}/accept`, {
+    method: 'PATCH',
+    headers: authHeader(token),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.message || 'Failed to accept order');
+  return body.data;
+}
+
+// Whole-order mark-prepared. Mirrors markPrepared (no body, authHeader only).
+export async function markOrderGroupPrepared(token, groupKey) {
+  const res = await fetch(`${BASE_URL}/cafe/kitchen/group/${groupKey}/prepared`, {
+    method: 'PATCH',
+    headers: authHeader(token),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.message || 'Failed to mark order prepared');
+  return body.data;
+}
+
+// Whole-order cancel. Sends a JSON body (reason + note), so it needs a
+// Content-Type header — built inline here since this file otherwise only does
+// header-less PATCHes. Reason is always 'employee_request' from the board (the
+// locked rule: cancel only ever on an employee's verbal request). Backend walls
+// (_assertCafeOrderCancellable) do the real enforcement.
+export async function cancelOrderGroup(token, groupKey, reason, note) {
+  const res = await fetch(`${BASE_URL}/cafe/kitchen/group/${groupKey}/cancel`, {
+    method: 'PATCH',
+    headers: { ...authHeader(token), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      cancellationReason: reason,
+      cancellationNote: note || null,
+    }),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.message || 'Failed to cancel order');
+  return body.data;
+}
