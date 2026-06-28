@@ -1486,3 +1486,93 @@ Header "Last Updated" + §1 Status paragraph are several slices stale (still des
 - Café window 18:00–22:30 PKT (whole-order accept/prepare/cancel field-tests need the live window).
 
 Last Updated line → bump to: 28 June 2026 (Slice 7 backend closed; 3 field-test fixes; kitchen whole-order model locked for next slice)
+## Update — 28-Jun-2026 (kitchen whole-order BACKEND complete)
+
+### Done this session (2 commits, pushed)
+- `3195549` — acceptOrderGroup + markOrderGroupPrepared. groupKey = bookingGroupId || orderId
+  (derived at read; single order = group of N=1 via .doc() fallback). 2 routes under
+  /cafe/kitchen/group/:groupKey/{accept,prepared} (kitchen role set). Curl-proven N=1 and N=2.
+  Accept guard polished to friendly "already prepared" message.
+- `5e493b1` — cancelOrderGroup + extracted shared wall helper _assertCafeOrderCancellable.
+  Wall stack lifted VERBATIM out of cancelOrder into the helper; cancelOrder refactored to
+  call it; cancelOrderGroup (in cafeKitchenService) calls the SAME helper — one copy of the
+  walls for single + group. Helper exported from cafeOrderService, imported into
+  cafeKitchenService (1b: group ops live together; pure validator crosses the module edge,
+  no circular dep). 1 route /cafe/kitchen/group/:groupKey/cancel (broad role set, option b).
+
+### Proven (curl, dev, out of window)
+- Group accept/prepared: N=1 and N=2, atomic, status guards, not-found, already-prepared msg.
+- Refactor faithfulness (single cancelOrder unchanged): ownership, prepared-hard-wall (vs admin),
+  anytime cutoff (non-admin), already-cancelled (the moved check), admin anytime-bypass.
+- Group cancel: admin batch cancel (count:2), re-cancel already-cancelled, employee ownership
+  reject, N=1 via group route, prepared-hard-wall on a group.
+
+### WALL 5 — PROVEN (live, 28-Jun window)
+- Supervisor cancels placed cafe_hours GROUP → count:2, cancelled. ✓
+- Employee OWNER (proxy-placed cafe_hours, FFL00002) cancels own group → "Can't be cancelled." ✓
+  (Note: required a PROXY-placed order so employee = owner; a plain employee hitting a
+  supervisor-placed cafe_hours order trips the ownership wall first, not the cafe_hours wall.)
+- Kitchen whole-order BACKEND now 100% closed — every wall, both order types, N=1 + N=2,
+  single + group. No open backend verification remains.
+
+### NEXT (frontend, fresh session recommended)
+- CafeKitchenPage regroup: one-card-per-groupKey (group the flat board array in memory),
+  items listed inside one card, order-level Accept / Mark Prepared / Cancel, one overrun pill
+  per card. READ CafeKitchenPage on disk FIRST. build:dev (NEVER bare build) + hosting deploy.
+- Then remaining V1.2 sequence: history filters → Slice 7 web → strip café from admin sidebar
+  → cleanup slice (retire single-doc accept/prepared/cancel routes now that group path proven).
+
+### Dev test fixtures left on disk (anytime orders, today) — harmless, wiped pre-prod.
+## Update — 28-Jun-2026 (kitchen whole-order FRONTEND complete — slice closed)
+
+### Done this session (1 commit, pushed)
+- `8062537` — Café kitchen board regrouped to one-card-per-order (frontend half
+  of the 28-Jun whole-order model). Two web files, additive service + page rewrite.
+  - web `cafeKitchenService.js`: +`acceptOrderGroup`, `markOrderGroupPrepared`,
+    `cancelOrderGroup` (call the proven group routes; additive — single-doc
+    `acceptOrder`/`markPrepared` retained, `cancelOrder` still in cafeService;
+    all three single-doc paths retire in the cleanup slice).
+  - `CafeKitchenPage.jsx`: `orders` memo → `groups` memo. Groups the flat board
+    array by groupKey (= bookingGroupId || orderId) in memory, inheriting the
+    backend's pickup-sort (group takes its first-seen line's slot), floats placed
+    groups above accepted. One card per order; every item listed inside; consumer
+    / pickup time / dining mode read from the group's head doc (uniform per group
+    by construction — confirmed against live data 28-Jun); one overrun pill per
+    card (items.some(isOverrun)). Accept / Mark Prepared / Cancel act on groupKey
+    via the group routes; spinner + cancel-confirm state keyed on groupKey.
+  - Subtitle now "N orders · N items · N to accept": orders = card count
+    (groups.length), items = doc count (totalCount), to accept = placed CARDS
+    (groups filtered to status placed) — every count is order-denominated except
+    the explicit "items". Replaced the old `unack`/`total` derivation.
+
+### Field-tested in-window (28-Jun, cafe_supervisor — Majid/CLB00030, live)
+- Grouping: 6 docs → 4 cards; N=1 singles and N=2 batches both render correctly.
+- Whole-order Accept (N=2): both lines flip together, card → green, button →
+  "Mark prepared", "to accept" ticks down. Atomic.
+- Whole-order Mark Prepared: accepted card falls off the board on reload.
+- Whole-order Cancel (placed): inline 2-step confirm → card leaves board.
+- Subtitle verified reading "5 orders · 10 items · 2 to accept" against board.
+- **`cafe_supervisor` role string exercised live** — closes the long-standing
+  gap (CB §3 Slice 5 note: new role never field-exercised; both test accounts
+  previously showed legacy `cafe_bakery_tuckshop_supervisor`).
+
+### Kitchen whole-order model — NOW FULLY COMPLETE (backend + frontend)
+Backend closed earlier today (3195549 + 5e493b1, every wall proven). Frontend
+closed now (8062537). The 28-Jun whole-order lock is fully delivered.
+
+### NEXT (remaining V1.2 café sequence — unchanged)
+1. History filters — single-day date picker (web) + employeeNumber (BACKEND-FIRST,
+   new composite index) + includeCancelled toggle. One designed sub-slice.
+2. Slice 7 web — supervisor official-meal form + admin pending-approval view
+   (backend done, a9f4e79).
+3. Strip café from ADMIN sidebar — nav-only; backend access stays.
+4. Cleanup slice — RETIRE single-doc /accept /prepared /cancel routes + web fns
+   (now dead; group path proven) · orphaned ANYTIME_TA_CANCEL_MIN · stale
+   .acceptedTag CSS · addDaysToDateStr→utils · two firestore.indexes.json→one
+   · stale comments.
+
+### Note for next session
+- The `cancelOrder` import was dropped from CafeKitchenPage (cancel now goes
+  through cafeKitchenService.cancelOrderGroup). cafeService.cancelOrder is still
+  used elsewhere (employee MyCafeOrdersPage) — do NOT delete it in cleanup; only
+  the kitchen-board single-doc path is dead.
