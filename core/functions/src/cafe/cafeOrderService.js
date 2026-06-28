@@ -946,8 +946,66 @@ async function createWalkInOrder({
 }
 
 // ─────────────────────────────────────────
+// _assertCafeOrderCancellable  — shared cancellation wall stack (28-Jun)
+// Pure decision: given an order's data + the canceller's identity, throws if
+// cancellation is not allowed, returns silently if allowed. No fetch, no write.
+// Lifted VERBATIM from cancelOrder's wall stack so single + group cancel share
+// ONE copy of the rules. Single cancelOrder and cancelOrderGroup both call this.
+//
+// Walls (unchanged from Slice 1a/1b, 26-Jun + ownership fix aad5ac0):
+//   already-cancelled → reject (moved here so single + group agree)
+//   prepared          → HARD WALL for everyone, including admin
+//   accepted          → blocked for non-admin (admin god-mode passes)
+//   ownership         → non-floor-cancellers may only cancel their own orders
+//   cafe_hours        → floor cancellers only (admin/supervisor/manager)
+//   anytime_takeaway  → non-admin bound by cancellationWindowExpiresAt
+// ─────────────────────────────────────────
+function _assertCafeOrderCancellable({
+  order,
+  isAdmin,
+  cancelledByRole,
+  cancelledByEmployeeNumber,
+}) {
+  if (order.orderStatus === CAFE_ORDER_STATUS.CANCELLED) {
+    throw new Error('Order is already cancelled.');
+  }
+
+  if (order.orderStatus === CAFE_ORDER_STATUS.PREPARED) {
+    throw new Error('Cannot cancel an order that has already been prepared and handed over.');
+  }
+  if (order.orderStatus === CAFE_ORDER_STATUS.ACCEPTED && !isAdmin) {
+    throw new Error('Cannot cancel an order the kitchen has started preparing.');
+  }
+
+  const isCafeFloorCanceller =
+    isAdmin ||
+    cancelledByRole === ROLES.CAFE_SUPERVISOR ||
+    cancelledByRole === ROLES.MANAGER;
+
+  if (!isCafeFloorCanceller && order.employeeNumber !== cancelledByEmployeeNumber) {
+    throw new Error('You can only cancel your own orders.');
+  }
+
+  if (order.orderType === CAFE_ORDER_TYPES.CAFE_HOURS && !isCafeFloorCanceller) {
+    throw new Error("Can't be cancelled.");
+  }
+
+  if (
+    order.orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY &&
+    !isAdmin
+  ) {
+    const expires = order.cancellationWindowExpiresAt;
+    const expiresMs = expires && expires.toMillis ? expires.toMillis() : new Date(expires).getTime();
+    if (Date.now() > expiresMs) {
+      throw new Error('Cancellation window has passed (closes 3 hours before pickup).');
+    }
+  }
+}
+
+// ─────────────────────────────────────────
 // cancelOrder
-// Rules:
+// Single-order cancel. Wall stack lives in _assertCafeOrderCancellable (shared
+// with cancelOrderGroup). This function = reason-check + fetch + walls + write.
 //   - cafe_hours orders: cannot be cancelled by employee. Admin can.
 //   - anytime_takeaway: employee can cancel if now < cancellationWindowExpiresAt.
 //                       Admin can cancel anytime.
@@ -973,69 +1031,13 @@ async function cancelOrder({
   const order = doc.data();
 
   if (order.tenantId !== tenantId) throw new Error('Order not found.');
-  if (order.orderStatus === CAFE_ORDER_STATUS.CANCELLED) {
-    throw new Error('Order is already cancelled.');
-  }
 
-  // ── Terminal-state walls (V1.2 Slice 1a, 26-Jun) ──
-  // Checked up-front, before any order-type / role branching, mirroring how
-  // markPrepared/acceptOrder gate on status first. Closes the hole where a
-  // PREPARED (made + handed over) order could be flipped to cancelled — a lie
-  // about what physically happened, and a billing-integrity gap (café bills on
-  // placement; a served order showing cancelled = a free, unbilled coffee).
-  //
-  //   prepared  → HARD WALL for everyone, INCLUDING admin. Once served, there
-  //               is no real-world cancellation; a genuine data error here is
-  //               corrected by other means, never by flipping to cancelled.
-  //   accepted  → kitchen has started cooking (ingredients committed). Blocked
-  //               for non-admin. Admin god-mode still passes (Q2 lock, 26-Jun)
-  //               for genuine corrections down to — but not past — accepted.
-  if (order.orderStatus === CAFE_ORDER_STATUS.PREPARED) {
-    throw new Error('Cannot cancel an order that has already been prepared and handed over.');
-  }
-  if (order.orderStatus === CAFE_ORDER_STATUS.ACCEPTED && !isAdmin) {
-    throw new Error('Cannot cancel an order the kitchen has started preparing.');
-  }
-
-// Café-floor cancellers (admin god-mode, or supervisor/manager on the floor)
-  // may cancel orders that are NOT their own — that is the whole point of the
-  // supervisor cancel (pulling an employee's placed order on verbal request).
-  // Defined here, above the ownership guard, because the guard must respect it.
-  const isCafeFloorCanceller =
-    isAdmin ||
-    cancelledByRole === ROLES.CAFE_SUPERVISOR ||
-    cancelledByRole === ROLES.MANAGER;
-
-  // Ownership: a plain employee can only cancel their own orders. Café-floor
-  // cancellers are exempt (they cancel on an employee's behalf).
-  if (!isCafeFloorCanceller && order.employeeNumber !== cancelledByEmployeeNumber) {
-    throw new Error('You can only cancel your own orders.');
-  }
-
-  // cafe_hours cancellation (1b, 26-Jun-2026):
-  //   - admin: anytime (god-mode, down to accepted per 1a wall above)
-  //   - cafe_supervisor / manager: placed orders only. The status bound is NOT
-  //     re-checked here — the 1a accepted/prepared walls above already reject
-  //     non-admins on accepted/prepared, so any non-admin reaching this line is
-  //     on a PLACED order by elimination. Supervisor watches the board (placed =
-  //     not yet cooking = safe to pull on an employee's verbal request).
-  //   - employee / cafe_waiter / others: never (charged regardless).
-  if (order.orderType === CAFE_ORDER_TYPES.CAFE_HOURS && !isCafeFloorCanceller) {
-    throw new Error("Can't be cancelled.");
-  }
-
-  // anytime_takeaway: cancellation cutoff for non-admin (3 hours before pickup,
-  // stamped at creation into cancellationWindowExpiresAt — 1b). Admin bypasses.
-  if (
-    order.orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY &&
-    !isAdmin
-  ) {
-    const expires = order.cancellationWindowExpiresAt;
-    const expiresMs = expires && expires.toMillis ? expires.toMillis() : new Date(expires).getTime();
-    if (Date.now() > expiresMs) {
-      throw new Error('Cancellation window has passed (closes 3 hours before pickup).');
-    }
-  }
+  _assertCafeOrderCancellable({
+    order,
+    isAdmin,
+    cancelledByRole,
+    cancelledByEmployeeNumber,
+  });
 
   const now = new Date();
   await ref.update({
@@ -1263,6 +1265,7 @@ module.exports = {
   createProxyOrder,
   createWalkInOrder,
   cancelOrder,
+  _assertCafeOrderCancellable,
   listMyOrders,
   // Slice 7 — official café meals
   createOfficialCafeMeal,

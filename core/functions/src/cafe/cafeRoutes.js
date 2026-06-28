@@ -644,6 +644,56 @@ router.patch(
 );
 
 // ─────────────────────────────────────────
+// PATCH /cafe/kitchen/group/:groupKey/cancel — whole-order cancel
+// Cancels every doc in the group atomically (or none). Body:
+// { cancellationReason, cancellationNote? }. Broad role set (locked option b,
+// 28-Jun) — the wall logic in _assertCafeOrderCancellable does the real
+// enforcement, identical to the single-doc /orders/:orderId/cancel route. An
+// employee reaching this on a cafe_hours group is rejected by the walls (400),
+// not the door.
+// ─────────────────────────────────────────
+router.patch(
+  '/kitchen/group/:groupKey/cancel',
+  verifyToken,
+  verifyRole(
+    ROLES.EMPLOYEE,
+    ROLES.MESS_SUPERVISOR,
+    ROLES.CAFE_SUPERVISOR,
+    ROLES.CAFE_WAITER,
+    ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR,
+    ROLES.ACCOUNTS_SUPERVISOR,
+    ROLES.GH_SUPERVISOR,
+    ROLES.BOQ_SUPERVISOR,
+    ROLES.STORE_SUPERVISOR,
+    ROLES.PURCHASER,
+    ROLES.SPORTS_SUPERVISOR,
+    ROLES.MANAGER,
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      const isAdmin = req.userRole === ROLES.ADMIN || req.userRole === ROLES.SUPER_ADMIN;
+
+      const result = await cafeKitchenService.cancelOrderGroup({
+        groupKey: req.params.groupKey,
+        tenantId: req.tenantId,
+        cancelledByUid: req.user.uid,
+        cancelledByRole: req.userRole,
+        cancelledByEmployeeNumber: req.officialEmployeeNumber,
+        isAdmin,
+        cancellationReason: req.body.cancellationReason,
+        cancellationNote: req.body.cancellationNote,
+      });
+      return successResponse(res, result, result.message);
+    } catch (err) {
+      console.error('[PATCH /cafe/kitchen/group/:groupKey/cancel] error:', err);
+      return errorResponse(res, err.message || 'Failed to cancel order.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
 // GET /cafe/history — café supervisor order-history view (V1.2 Slice 6)
 //
 // READ-ONLY paginated list of PAST orders (dispute-lookup + audit). Distinct

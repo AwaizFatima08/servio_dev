@@ -45,9 +45,9 @@
 
 const { getFirestore } = require('firebase-admin/firestore');
 const db = getFirestore('servio-dev');
-
-const { COLLECTIONS, CAFE_ORDER_STATUS, CAFE_ORDER_TYPES } = require('../constants');
+const { COLLECTIONS, CAFE_ORDER_STATUS, CAFE_ORDER_TYPES, CAFE_CANCELLATION_REASONS } = require('../constants');
 const { pktDateStr } = require('../utils');
+const { _assertCafeOrderCancellable } = require('./cafeOrderService');
 
 // Minutes an ACCEPTED order may sit in the kitchen (since acceptedAt) before
 // it is flagged isOverrun. A named constant beside the café time-window
@@ -491,6 +491,65 @@ async function markOrderGroupPrepared({ groupKey, tenantId, preparedByUid }) {
   return { message: 'Order marked prepared.', groupKey, count: docs.length };
 }
 
+// ─────────────────────────────────────────
+// cancelOrderGroup  — whole-order cancel (28-Jun lock), atomic.
+// The cancel sibling of acceptOrderGroup/markOrderGroupPrepared. Cancels every
+// doc in the group in one batch — or none, if any doc fails the wall checks.
+//
+// Wall logic is NOT duplicated here: it calls _assertCafeOrderCancellable
+// (imported from cafeOrderService — the SAME validator the single cancelOrder
+// uses), so single + group cancel enforce one identical rule set. See
+// cafeOrderService.cancelOrder for the single-order counterpart.
+//
+// Verify-all-then-act: every doc is run through the walls BEFORE any write.
+// If any doc is rejected, nothing is cancelled (atomic, no partial group).
+// ─────────────────────────────────────────
+async function cancelOrderGroup({
+  groupKey,
+  tenantId,
+  cancelledByUid,
+  cancelledByRole,
+  cancelledByEmployeeNumber,
+  isAdmin,
+  cancellationReason,
+  cancellationNote,
+}) {
+  if (!Object.values(CAFE_CANCELLATION_REASONS).includes(cancellationReason)) {
+    throw new Error(`Invalid cancellationReason: ${cancellationReason}`);
+  }
+
+  const docs = await _resolveOrderGroup({ groupKey, tenantId });
+
+  // Verify-all-then-act: run EVERY doc through the shared walls first.
+  // Any rejection throws here, before a single write — so the group is
+  // all-or-nothing (no partially-cancelled order).
+  for (const { data } of docs) {
+    _assertCafeOrderCancellable({
+      order: data,
+      isAdmin,
+      cancelledByRole,
+      cancelledByEmployeeNumber,
+    });
+  }
+
+  const now = new Date();
+  const batch = db.batch();
+  for (const { ref } of docs) {
+    batch.update(ref, {
+      orderStatus: CAFE_ORDER_STATUS.CANCELLED,
+      cancelledAt: now,
+      cancelledByUid,
+      cancelledByRole,
+      cancellationReason,
+      cancellationNote: (cancellationNote || '').trim() || null,
+      updatedAt: now,
+    });
+  }
+  await batch.commit();
+
+  return { message: 'Order cancelled.', groupKey, count: docs.length };
+}
+
 module.exports = {
   getKitchenOrders,
   acceptOrder,
@@ -498,4 +557,6 @@ module.exports = {
   listCafeOrderHistory,
   acceptOrderGroup,
   markOrderGroupPrepared,
+  cancelOrderGroup,
+
 };
