@@ -721,7 +721,7 @@ router.get(
   ),
   async (req, res) => {
     try {
-      const { day, cursor } = req.query;
+      const { day, cursor, employeeNumber } = req.query;
       const lookbackDays = parseInt(req.query.days, 10); // service guards NaN/range
       const includeCancelled = req.query.includeCancelled === 'true'; // string → bool
 
@@ -731,6 +731,7 @@ router.get(
         day: day || null,
         includeCancelled,
         cursorCreatedAt: cursor || null,
+        employeeNumber: employeeNumber || null,
       });
       return successResponse(res, result, 'Order history retrieved.');
     } catch (err) {

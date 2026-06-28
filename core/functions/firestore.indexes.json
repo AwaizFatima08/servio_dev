@@ -647,21 +647,48 @@
       "collectionGroup": "cafeOrders",
       "queryScope": "COLLECTION",
       "fields": [
-        { 
-          "fieldPath": "tenantId", 
-          "order": "ASCENDING" 
+        {
+          "fieldPath": "tenantId",
+          "order": "ASCENDING"
         },
-        { 
-          "fieldPath": "subjectType", 
-          "order": "ASCENDING" 
+        {
+          "fieldPath": "subjectType",
+          "order": "ASCENDING"
         },
-        { 
-          "fieldPath": "approvalStatus", 
-          "order": "ASCENDING" 
+        {
+          "fieldPath": "approvalStatus",
+          "order": "ASCENDING"
         },
-        { 
-          "fieldPath": "createdAt", 
-          "order": "DESCENDING" 
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "cafeOrders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tenantId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "orderStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "employeeNumber",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
         }
       ],
       "density": "SPARSE_ALL"

@@ -279,6 +279,7 @@ async function listCafeOrderHistory({
   day = null,
   includeCancelled = false,
   cursorCreatedAt = null,
+  employeeNumber = null,
 }) {
   // ── status set ──
   const statuses = includeCancelled
@@ -315,6 +316,15 @@ async function listCafeOrderHistory({
     .where('tenantId', '==', tenantId)
     .where('orderStatus', 'in', statuses)
     .where('createdAt', '>=', lowerBound);
+
+  // Optional employee filter (equality). When set, the query needs the
+  // tenantId+orderStatus+employeeNumber+createdAt(desc) composite index
+  // (firestore.indexes.json). When absent, the query is unchanged and uses
+  // the existing orderStatus+tenantId+createdAt index. Server-side filter —
+  // NOT a client .filter(), which would only narrow the loaded page.
+  if (employeeNumber) {
+    q = q.where('employeeNumber', '==', employeeNumber);
+  }
 
   if (upperBound) {
     q = q.where('createdAt', '<', upperBound);

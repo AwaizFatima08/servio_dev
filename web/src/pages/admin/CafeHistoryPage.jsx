@@ -1,5 +1,5 @@
 // web/src/pages/admin/CafeHistoryPage.jsx
-// Café Order History — V1.2 Web Slice 6
+// Café Order History — V1.2 Web Slice 6 (+ filters sub-slice)
 // Role (nav): cafe_supervisor | manager.  Backend also admits cafe_waiter,
 // legacy, admin, super_admin — they can reach this via URL; the API is the
 // access authority. Path: /cafe-history
@@ -7,15 +7,18 @@
 // READ-ONLY. The supervisor's "what happened?" tool — a paginated, newest-first
 // list of PAST café orders for dispute-lookup and audit. Deliberately distinct
 // from CafeKitchenPage (the live board): NO auto-refresh, NO 30s interval, NO
-// accept/prepare actions, NO pickup-sort, NO overrun flag. None of the live
-// board's state machine leaks in here (Slice 6 design-lock).
+// accept/prepare actions, NO pickup-sort, NO overrun flag.
 //
-// This sub-slice: DEFAULTS ONLY — 7-day window, cancelled excluded. The
-// single-day picker and include-cancelled toggle are the next sub-slice.
+// FILTERS (Apply-button model): a single-day date pick, an employeeNumber
+// free-text filter, and an include-cancelled toggle. Filters are read from the
+// controls only when "Apply" is pressed — no live/on-change reload (a free-text
+// employeeNumber must not fire per keystroke). buildOpts() is the SINGLE source
+// of request params, read by BOTH loadFirst (page 1) and loadMore (cursor page)
+// so paged results stay filtered. The employeeNumber filter is server-side
+// (backend where() + composite index) — NOT a client .filter() on the page.
 //
-// Paging: cursor-based "Load more". Each page of 25 is APPENDED to what we
-// already show; nextCursor/hasMore come from the backend. "Refresh" resets to
-// page 1. No infinite scroll — one explicit button, one page at a time.
+// Paging: cursor-based "Load more". Each page of 25 is APPENDED. "Apply" /
+// "Clear" / "Refresh" reset to page 1.
 
 import { useState, useEffect, useCallback } from 'react';
 import { getCafeOrderHistory } from '../../services/cafeHistoryService';
@@ -46,8 +49,6 @@ function dilabel(mode) {
 // the wire. Render defensively: show a readable PKT date-time, or '—' if absent.
 function fmtCreatedAt(createdAt) {
   if (!createdAt) return '—';
-  // Over REST, Firestore Timestamps usually serialise to ISO strings or
-  // { _seconds, _nanoseconds }. Handle both, plus a plain Date/ISO.
   let d;
   if (typeof createdAt === 'string') {
     d = new Date(createdAt);
@@ -66,6 +67,13 @@ function fmtCreatedAt(createdAt) {
 }
 
 export default function CafeHistoryPage({ token }) {
+  // Filter controls (drafts). Read into a request only on Apply / Refresh.
+  const [filters, setFilters] = useState({
+    day: '',              // 'YYYY-MM-DD' from the date input; '' = 7-day default
+    employeeNumber: '',   // free text; '' = no employee filter
+    includeCancelled: false,
+  });
+
   const [orders, setOrders] = useState([]);       // accumulated across pages
   const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
@@ -73,12 +81,26 @@ export default function CafeHistoryPage({ token }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
 
-  // Load page 1 (cursor = null). Replaces the list. Used on mount + Refresh.
+  // The SINGLE source of request params, from the current filters. Both
+  // loadFirst and loadMore read this so a paged result stays filtered.
+  // day set → send day (backend ignores days when day present). day empty →
+  // send nothing for date (backend's 7-day default). employeeNumber trimmed,
+  // sent only when non-empty. includeCancelled sent only when true.
+  const buildOpts = useCallback(() => {
+    const opts = {};
+    if (filters.day) opts.day = filters.day;
+    const emp = filters.employeeNumber.trim();
+    if (emp) opts.employeeNumber = emp;
+    if (filters.includeCancelled) opts.includeCancelled = true;
+    return opts;
+  }, [filters]);
+
+  // Load page 1 (no cursor). Replaces the list. Used on mount, Apply, Refresh.
   const loadFirst = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await getCafeOrderHistory(token); // defaults: 7d, no cancelled
+      const data = await getCafeOrderHistory(token, buildOpts());
       setOrders(data.orders || []);
       setNextCursor(data.nextCursor || null);
       setHasMore(!!data.hasMore);
@@ -87,15 +109,15 @@ export default function CafeHistoryPage({ token }) {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, buildOpts]);
 
-  // Load the next page using the held cursor. APPENDS to the list.
+  // Load the next page using the held cursor + the SAME filters. APPENDS.
   const loadMore = async () => {
     if (!nextCursor) return;
     setLoadingMore(true);
     setError('');
     try {
-      const data = await getCafeOrderHistory(token, { cursor: nextCursor });
+      const data = await getCafeOrderHistory(token, { ...buildOpts(), cursor: nextCursor });
       setOrders((prev) => [...prev, ...(data.orders || [])]);
       setNextCursor(data.nextCursor || null);
       setHasMore(!!data.hasMore);
@@ -106,7 +128,29 @@ export default function CafeHistoryPage({ token }) {
     }
   };
 
-  useEffect(() => { loadFirst(); }, [loadFirst]);
+  // Initial load only. Apply/Clear drive subsequent loads explicitly (we do
+  // NOT auto-reload on every filter keystroke — Apply is the trigger).
+  useEffect(() => { loadFirst(); }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const onApply = () => {
+    setOrders([]);        // clear stale rows so they don't flash under the spinner
+    loadFirst();
+  };
+
+  const onClear = () => {
+    setFilters({ day: '', employeeNumber: '', includeCancelled: false });
+    setOrders([]);
+    // loadFirst reads buildOpts() which reads filters; setState is async, so
+    // defer the reload to the next tick after filters reset.
+    setTimeout(loadFirst, 0);
+  };
+
+  // Subtitle reflects the active (applied-on-last-load) window. We derive it
+  // from the live filters — accurate immediately after a load.
+  const windowLabel = filters.day ? filters.day : 'last 7 days';
+  const empLabel = filters.employeeNumber.trim()
+    ? ` · for ${filters.employeeNumber.trim()}`
+    : '';
 
   return (
     <div className={styles.page}>
@@ -116,7 +160,8 @@ export default function CafeHistoryPage({ token }) {
         <div className={styles.headerLeft}>
           <h1 className={styles.title}>Café History</h1>
           <p className={styles.subtitle}>
-            Past orders · last 7 days
+            Past orders · {windowLabel}{empLabel}
+            {filters.includeCancelled ? ' · incl. cancelled' : ''}
             {orders.length > 0 && <> · {orders.length} shown</>}
           </p>
         </div>
@@ -124,6 +169,49 @@ export default function CafeHistoryPage({ token }) {
           <button className={styles.refreshBtn} onClick={loadFirst} disabled={loading}>
             <i className="ti ti-refresh" />
             {loading ? 'Loading…' : 'Refresh'}
+          </button>
+        </div>
+      </div>
+
+      {/* Filter bar */}
+      <div className={styles.filterBar}>
+        <div className={styles.filterField}>
+          <label className={styles.filterLabel}>Day</label>
+          <input
+            type="date"
+            className={styles.filterInput}
+            value={filters.day}
+            onChange={(e) => setFilters((f) => ({ ...f, day: e.target.value }))}
+          />
+        </div>
+
+        <div className={styles.filterField}>
+          <label className={styles.filterLabel}>Employee number</label>
+          <input
+            type="text"
+            className={styles.filterInput}
+            placeholder="e.g. FFL00002"
+            value={filters.employeeNumber}
+            onChange={(e) => setFilters((f) => ({ ...f, employeeNumber: e.target.value }))}
+            onKeyDown={(e) => { if (e.key === 'Enter') onApply(); }}
+          />
+        </div>
+
+        <label className={styles.cancelledToggle}>
+          <input
+            type="checkbox"
+            checked={filters.includeCancelled}
+            onChange={(e) => setFilters((f) => ({ ...f, includeCancelled: e.target.checked }))}
+          />
+          Include cancelled
+        </label>
+
+        <div className={styles.filterActions}>
+          <button className={styles.applyBtn} onClick={onApply} disabled={loading}>
+            <i className="ti ti-filter" /> Apply
+          </button>
+          <button className={styles.clearBtn} onClick={onClear} disabled={loading}>
+            Clear
           </button>
         </div>
       </div>
@@ -143,7 +231,7 @@ export default function CafeHistoryPage({ token }) {
       ) : orders.length === 0 ? (
         <div className={styles.emptyState}>
           <i className="ti ti-history-off" />
-          <p>No café orders in the last 7 days.</p>
+          <p>No café orders for this filter.</p>
         </div>
       ) : (
         <>
