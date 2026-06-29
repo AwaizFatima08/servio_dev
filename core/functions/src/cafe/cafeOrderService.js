@@ -804,6 +804,154 @@ async function createProxyOrderBatch({
 }
 
 // ─────────────────────────────────────────
+// createOfficialOrderBatch  (V1.2 Slice 7 — official café meals, multi-item)
+// A supervisor/manager places a multi-item OFFICIAL café order. Copied from
+// createProxyOrderBatch (additive — proxy path untouched), with four changes:
+//   1. Account holder = sponsoringEmployeeNumber (the employee who vouches /
+//      anchors the bill), required. No separate target.
+//   2. Consumer is ALWAYS self — official meals are not a family consumption.
+//      No family-member params; consumerType forced to SELF.
+//   3. Official billing fields passed to every line's _buildOrderDoc:
+//      subjectType OFFICIAL_MEAL, billingDestination OFFICIAL_ACCOUNT,
+//      costCentreCode (free-text note), sponsoringEmployeeNumber/Name,
+//      officialGuestName. _buildOrderDoc auto-stamps approvalStatus
+//      'pending_approval' when subjectType is OFFICIAL_MEAL.
+//   4. bookingSource OFFICIAL.
+// One shared bookingGroupId, atomic batch — identical to proxy. Approval runs
+// on a SEPARATE axis (approvalStatus) and never gates the kitchen: the meal is
+// served regardless; admin approval is the billing/audit step (Option A).
+//
+// costCentreCode is a free-text note communicated to the supervisor — NEVER a
+// key, never validated, never auto-billed. officialGuestName is descriptive
+// only. The order flows onto the kitchen board exactly like any other order.
+//
+// items: [{ menuItemId, quantity }]
+// ─────────────────────────────────────────
+async function createOfficialOrderBatch({
+  uid,
+  officialEmployeeNumber,     // supervisor's own number (creator)
+  tenantId,
+  userRole,
+  sponsoringEmployeeNumber,   // the employee who vouches / account holder
+  orderType,
+  diningMode,
+  requestedPickupTime,
+  requestedPickupDate,
+  costCentreCode,             // free-text note (optional)
+  officialGuestName,          // descriptive only (optional)
+  items,
+}) {
+  if (!sponsoringEmployeeNumber) {
+    throw new Error('sponsoringEmployeeNumber is required for official café meals.');
+  }
+
+  // --- Array shape (identical to createProxyOrderBatch) ---
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new Error('At least one item must be selected.');
+  }
+  if (items.length > 50) {
+    throw new Error('Too many items in one order (max 50 per order).');
+  }
+  for (const line of items) {
+    if (!line || typeof line.menuItemId !== 'string' || !line.menuItemId) {
+      throw new Error('Each item must have a menuItemId.');
+    }
+    if (!Number.isInteger(line.quantity) || line.quantity < 1) {
+      throw new Error(`Quantity for an item must be a positive integer.`);
+    }
+  }
+
+  // --- Session-level validation. Consumer is always SELF for official meals,
+  // so no family member is resolved. We validate window/pickup/menu against
+  // the sponsor as the account holder. ---
+  const first = items[0];
+  const { resolvedPickupDate, pickupDateTime } = await _validateOrderInput({
+    tenantId,
+    officialEmployeeNumber: sponsoringEmployeeNumber,
+    orderType,
+    menuItemId: first.menuItemId,
+    quantity: first.quantity,
+    diningMode,
+    requestedPickupTime,
+    requestedPickupDate,
+    consumerType: CAFE_CONSUMER_TYPES.SELF,
+    consumerFamilyMemberId: null,
+  });
+
+  // --- Resolve every line's menu item ---
+  const resolvedItems = [];
+  for (const line of items) {
+    const menuItem = await _resolveCafeMenuItem(line.menuItemId);
+    resolvedItems.push({ menuItem, quantity: line.quantity });
+  }
+
+  // --- Account holder == sponsoring employee ---
+  const sponsor = await _getEmployee({
+    tenantId,
+    officialEmployeeNumber: sponsoringEmployeeNumber,
+  });
+
+  // Consumer name is the sponsor (official meal is consumed in the official
+  // context; the descriptive guest name is carried separately for the report).
+  const consumerName = sponsor.fullName;
+
+  // --- One shared bookingGroupId for the whole session ---
+  const bookingGroupId = db.collection(COLLECTIONS.CAFE_ORDERS).doc().id;
+
+  // --- Build every line and write atomically ---
+  const batch = db.batch();
+  const created = [];
+
+  for (const { menuItem, quantity } of resolvedItems) {
+    const ref = db.collection(COLLECTIONS.CAFE_ORDERS).doc();
+    const doc = _buildOrderDoc({
+      tenantId,
+      bookingGroupId,
+      createdByUid: uid,
+      createdByRole: userRole,
+      createdByEmployeeNumber: officialEmployeeNumber,  // supervisor (creator)
+      employeeNumber: sponsoringEmployeeNumber,         // sponsor (account holder)
+      employeeName: sponsor.fullName,
+      bookingSource: BOOKING_SOURCES.OFFICIAL,
+      orderType,
+      menuItem,
+      quantity,
+      diningMode,
+      requestedPickupTime,
+      requestedPickupDate: resolvedPickupDate,
+      pickupDateTime,
+      consumerType: CAFE_CONSUMER_TYPES.SELF,
+      consumerFamilyMemberId: null,
+      consumerName,
+      // --- Official billing fields (Slice 7) ---
+      subjectType: SUBJECT_TYPES.OFFICIAL_MEAL,
+      billingDestination: BILLING_DESTINATIONS.OFFICIAL_ACCOUNT,
+      costCentreCode: costCentreCode || null,
+      sponsoringEmployeeNumber,
+      sponsoringEmployeeName: sponsor.fullName,
+      officialGuestName: officialGuestName || null,
+    });
+
+    batch.set(ref, doc);
+    created.push({
+      orderId: ref.id,
+      menuItemId: menuItem.itemId,
+      itemName: menuItem.itemName,
+      quantity,
+      rateTargetKey: doc.rateTargetKey,
+    });
+  }
+
+  await batch.commit();
+
+  return {
+    bookingGroupId,
+    orderCount: created.length,
+    orders: created,
+  };
+}
+
+// ─────────────────────────────────────────
 // createProxyOrder
 // cafe_supervisor / cafe_waiter places on behalf of an employee.
 // targetEmployeeNumber is the consumer-side employee.
@@ -1262,6 +1410,7 @@ module.exports = {
   createSelfOrder,
   createSelfOrderBatch,
   createProxyOrderBatch,
+  createOfficialOrderBatch,
   createProxyOrder,
   createWalkInOrder,
   cancelOrder,

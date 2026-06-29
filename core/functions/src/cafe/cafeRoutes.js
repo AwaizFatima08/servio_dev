@@ -234,6 +234,48 @@ router.post(
 );
 
 // ─────────────────────────────────────────
+// POST /cafe/orders/official/batch — supervisor/manager multi-item OFFICIAL meal
+// Body: { sponsoringEmployeeNumber, orderType, diningMode, requestedPickupTime?,
+//         requestedPickupDate?, costCentreCode?, officialGuestName?,
+//         items: [{ menuItemId, quantity }] }
+//
+// Multi-item official café order, billed to an official account, anchored to a
+// sponsoring employee. One bookingGroupId, one cafeOrders doc per line — see
+// cafeOrderService.createOfficialOrderBatch. Approval (approvalStatus) runs on a
+// separate axis and never gates the kitchen. cafe_waiter is EXCLUDED (official
+// placement is a supervisor/manager responsibility).
+// ─────────────────────────────────────────
+router.post(
+  '/orders/official/batch',
+  verifyToken,
+  verifyRole(
+    ROLES.CAFE_SUPERVISOR,
+    ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+    ROLES.MANAGER,
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      if (!Array.isArray(req.body.items) || req.body.items.length === 0) {
+        return errorResponse(res, 'items array is required and must not be empty.', 400);
+      }
+      const result = await cafeOrderService.createOfficialOrderBatch({
+        uid: req.user.uid,
+        officialEmployeeNumber: req.officialEmployeeNumber,
+        tenantId: req.tenantId,
+        userRole: req.userRole,
+        ...req.body,
+      });
+      return successResponse(res, result, `Official café meal placed. ${result.orderCount} item(s). Pending billing approval.`, 201);
+    } catch (err) {
+      console.error('[POST /cafe/orders/official/batch] error:', err);
+      return errorResponse(res, err.message || 'Failed to place official café meal.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
 // POST /cafe/orders/walk-in — supervisor walk-in order
 // Body: same as /orders plus targetEmployeeNumber
 // ─────────────────────────────────────────
@@ -689,6 +731,62 @@ router.patch(
     } catch (err) {
       console.error('[PATCH /cafe/kitchen/group/:groupKey/cancel] error:', err);
       return errorResponse(res, err.message || 'Failed to cancel order.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// PATCH /cafe/kitchen/group/:groupKey/approve-official — admin billing approval
+// Whole-order: flips every doc in the group pending_approval -> approved. No body.
+// Admin only. Approval is a billing/audit tag — it does not touch the kitchen.
+// ─────────────────────────────────────────
+router.patch(
+  '/kitchen/group/:groupKey/approve-official',
+  verifyToken,
+  verifyRole(
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      const result = await cafeKitchenService.approveOfficialOrderGroup({
+        groupKey: req.params.groupKey,
+        tenantId: req.tenantId,
+        approvedByUid: req.user.uid,
+      });
+      return successResponse(res, result, result.message);
+    } catch (err) {
+      console.error('[PATCH /cafe/kitchen/group/:groupKey/approve-official] error:', err);
+      return errorResponse(res, err.message || 'Failed to approve official café meal.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// PATCH /cafe/kitchen/group/:groupKey/reject-official — admin billing rejection
+// Whole-order: flips every doc pending_approval -> rejected. Body: { approvalNote? }
+// Admin only. Rejection routes to accounts for manual resolution — it does NOT
+// cancel the order or affect the kitchen.
+// ─────────────────────────────────────────
+router.patch(
+  '/kitchen/group/:groupKey/reject-official',
+  verifyToken,
+  verifyRole(
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      const result = await cafeKitchenService.rejectOfficialOrderGroup({
+        groupKey: req.params.groupKey,
+        tenantId: req.tenantId,
+        rejectedByUid: req.user.uid,
+        approvalNote: req.body.approvalNote,
+      });
+      return successResponse(res, result, result.message);
+    } catch (err) {
+      console.error('[PATCH /cafe/kitchen/group/:groupKey/reject-official] error:', err);
+      return errorResponse(res, err.message || 'Failed to reject official café meal.', 400, err);
     }
   }
 );

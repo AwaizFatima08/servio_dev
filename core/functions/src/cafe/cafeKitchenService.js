@@ -45,7 +45,7 @@
 
 const { getFirestore } = require('firebase-admin/firestore');
 const db = getFirestore('servio-dev');
-const { COLLECTIONS, CAFE_ORDER_STATUS, CAFE_ORDER_TYPES, CAFE_CANCELLATION_REASONS } = require('../constants');
+const { COLLECTIONS, CAFE_ORDER_STATUS, CAFE_ORDER_TYPES, CAFE_CANCELLATION_REASONS, SUBJECT_TYPES } = require('../constants');
 const { pktDateStr } = require('../utils');
 const { _assertCafeOrderCancellable } = require('./cafeOrderService');
 
@@ -560,6 +560,83 @@ async function cancelOrderGroup({
   return { message: 'Order cancelled.', groupKey, count: docs.length };
 }
 
+// ─────────────────────────────────────────
+// approveOfficialOrderGroup  — V1.2 Slice 7 (admin only; enforced at route)
+// Whole-order billing approval for an OFFICIAL café order. Flips every doc in
+// the group pending_approval -> approved, atomically. Mirrors acceptOrderGroup's
+// verify-don't-assume style, but guards on the APPROVAL axis (approvalStatus +
+// subjectType), NOT on kitchen orderStatus.
+//
+// Approval is independent of the kitchen (Option A — 29-Jun lock): the meal is
+// served regardless of approval, so this never inspects orderStatus. An order
+// may be placed, accepted, prepared, or already served — approval only governs
+// the billing/audit tag. Reuses _resolveOrderGroup (single source of group
+// resolution).
+// ─────────────────────────────────────────
+async function approveOfficialOrderGroup({ groupKey, tenantId, approvedByUid }) {
+  const docs = await _resolveOrderGroup({ groupKey, tenantId });
+
+  // Verify-don't-assume: every doc must be an official meal that is still
+  // pending approval. Reject the WHOLE operation if any doc fails.
+  for (const { data } of docs) {
+    if (data.subjectType !== SUBJECT_TYPES.OFFICIAL_MEAL) {
+      throw new Error('This order is not an official café meal.');
+    }
+    if (data.approvalStatus !== 'pending_approval') {
+      throw new Error(`Cannot approve — current status is ${data.approvalStatus}.`);
+    }
+  }
+
+  const now = new Date();
+  const batch = db.batch();
+  for (const { ref } of docs) {
+    batch.update(ref, {
+      approvalStatus: 'approved',
+      approvedByUid,
+      approvedAt: now,
+      updatedAt: now,
+    });
+  }
+  await batch.commit();
+
+  return { message: 'Official meal approved.', groupKey, count: docs.length };
+}
+
+// ─────────────────────────────────────────
+// rejectOfficialOrderGroup  — V1.2 Slice 7 (admin only; enforced at route)
+// Whole-order billing rejection. Flips every doc pending_approval -> rejected
+// (+ optional note), atomically. Same approval-axis guards as approve. Rejection
+// is a billing/audit decision only — it does NOT cancel the order or affect the
+// kitchen; accounts resolve a rejected official charge manually (29-Jun lock).
+// ─────────────────────────────────────────
+async function rejectOfficialOrderGroup({ groupKey, tenantId, rejectedByUid, approvalNote }) {
+  const docs = await _resolveOrderGroup({ groupKey, tenantId });
+
+  for (const { data } of docs) {
+    if (data.subjectType !== SUBJECT_TYPES.OFFICIAL_MEAL) {
+      throw new Error('This order is not an official café meal.');
+    }
+    if (data.approvalStatus !== 'pending_approval') {
+      throw new Error(`Cannot reject — current status is ${data.approvalStatus}.`);
+    }
+  }
+
+  const now = new Date();
+  const batch = db.batch();
+  for (const { ref } of docs) {
+    batch.update(ref, {
+      approvalStatus: 'rejected',
+      rejectedByUid,
+      rejectedAt: now,
+      approvalNote: approvalNote || null,
+      updatedAt: now,
+    });
+  }
+  await batch.commit();
+
+  return { message: 'Official meal rejected.', groupKey, count: docs.length };
+}
+
 module.exports = {
   getKitchenOrders,
   acceptOrder,
@@ -568,5 +645,7 @@ module.exports = {
   acceptOrderGroup,
   markOrderGroupPrepared,
   cancelOrderGroup,
+  approveOfficialOrderGroup,
+  rejectOfficialOrderGroup,
 
 };
