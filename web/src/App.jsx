@@ -31,6 +31,8 @@ import IssuanceDashboardPage  from './pages/admin/IssuanceDashboardPage';
 import KitchenDashboardPage   from './pages/admin/KitchenDashboardPage';
 import CafeKitchenPage        from './pages/admin/CafeKitchenPage';
 import CafeProxyOrderPage     from './pages/admin/CafeProxyOrderPage';
+import CafeOfficialPage       from './pages/admin/CafeOfficialPage';
+import CafeOfficialPendingPage from './pages/admin/CafeOfficialPendingPage';
 import CafeHistoryPage        from './pages/admin/CafeHistoryPage';
 import ProxyBookingPage       from './pages/admin/ProxyBookingPage';
 import WalkInPage             from './pages/admin/WalkInPage';
@@ -186,6 +188,7 @@ export default function App() {
             <Route path="/kitchen"        element={<WithToken Page={KitchenDashboardPage} />} />
             <Route path="/cafe-kitchen"   element={<WithToken Page={CafeKitchenPage} />} />
             <Route path="/cafe-proxy-order" element={<WithToken Page={CafeProxyOrderPage} />} />
+            <Route path="/cafe-official"     element={<WithToken Page={CafeOfficialPage} />} />
             <Route path="/cafe-history"   element={<WithToken Page={CafeHistoryPage} />} />
             <Route path="/proxy-booking"  element={<WithToken Page={ProxyBookingPage} />} />
             <Route path="/walk-in"        element={<WithToken Page={WalkInPage} />} />
@@ -208,6 +211,7 @@ export default function App() {
             <Route path="/settings"        element={<WithToken Page={AppSettingsPage} />} />
             <Route path="/feedback-admin"        element={<WithToken Page={FeedbackDashboardPage} />} />
             <Route path="/guest-approvals"       element={<WithToken Page={OfficialGuestApprovalsPage} />} />
+            <Route path="/cafe-official-pending" element={<WithToken Page={CafeOfficialPendingPage} />} />
             
             {/* ── Shared: Contact Us (all roles) ── */}
             <Route path="/contact"    element={<WithToken Page={ContactUsPage} />} />

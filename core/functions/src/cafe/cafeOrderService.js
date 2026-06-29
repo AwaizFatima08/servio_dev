@@ -186,6 +186,7 @@ async function _validateOrderInput({
   requestedPickupDate,
   consumerType,
   consumerFamilyMemberId,
+  skipWindow = false,   // Slice 7: official meals bypass the ordering-window gate ONLY
 }) {
   // --- Required fields ---
   if (!Object.values(CAFE_ORDER_TYPES).includes(orderType)) {
@@ -233,7 +234,11 @@ async function _validateOrderInput({
   let pickupDateTime = null;
 
   if (orderType === CAFE_ORDER_TYPES.CAFE_HOURS) {
-    if (nowMin < CAFE_HOURS_START || nowMin > CAFE_ORDER_END) {
+    // Slice 7 (30-Jun): official meals skip the ordering-window check —
+    // supervisor/manager-gated, often needed in working hours / urgently.
+    // Every other rule (orderType, diningMode, pickup-time, menu, sponsor)
+    // still applies. Only this time-of-day gate is bypassed.
+    if (!skipWindow && (nowMin < CAFE_HOURS_START || nowMin > CAFE_ORDER_END)) {
       throw new Error('Cafe orders accepted 18:00 to 22:30 PKT only. Cafe service runs until 23:00.');
     }
   } else if (orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY) {
@@ -876,6 +881,7 @@ async function createOfficialOrderBatch({
     requestedPickupDate,
     consumerType: CAFE_CONSUMER_TYPES.SELF,
     consumerFamilyMemberId: null,
+    skipWindow: true,   // official meals bypass the ordering-window gate (Slice 7)
   });
 
   // --- Resolve every line's menu item ---

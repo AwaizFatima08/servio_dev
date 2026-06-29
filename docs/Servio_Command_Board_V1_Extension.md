@@ -1793,3 +1793,43 @@ Two official groups (one approved VWKqYd4v…, one rejected nSVG5lrx…) + one p
 (lfAdbJ55…) in cafeOrders. Harmless; clear at prod-wipe.
 
 Last Updated line → bump to: 29 June 2026 (Slice 7 backend closed; web next)
+
+## Update — 30-Jun-2026 (~02:00) — Slice 7 WEB built + official window-bypass; takeaway/future-dates DEFERRED
+
+### Done this session
+**Frontend (Slice 7 web) — built, deployed, render-proven:**
+- 2 services: cafeOfficialService.js (createOfficialBatchOrder) + cafeOfficialApprovalService.js (listOfficialPending, approveOfficialGroup, rejectOfficialGroup). Pattern B (token prop), export-async-function style to match cafeService.js.
+- 2 pages: CafeOfficialPage.jsx (supervisor placement — copied from CafeProxyOrderPage skeleton, consumer picker REMOVED, sponsor relabel, + cost-centre + guest-name fields) · CafeOfficialPendingPage.jsx (admin approvals — Pattern B, in-memory groupByOrder by bookingGroupId, whole-order approve/reject, reject-note modal).
+- 1 CSS: CafeOfficialPendingPage.module.css (card-per-order, café palette, orphan-checked clean). Supervisor page reuses CafeProxyOrderPage.module.css for the search step + CafePage.module.css for menu/cart/modal (.modalSelect reused for the two new text inputs — no .modalInput exists).
+- Wiring: App.jsx +2 imports +2 routes (/cafe-official, /cafe-official-pending) via WithToken — re-grepped, 229→233, clean. Sidebar.jsx +4 entries: "Official Order" for cafe_supervisor + cafe_bakery_tuckshop_supervisor + manager (NOT cafe_waiter — excluded, confirmed) + "Café Approvals" for admin — line-number inserts (Proxy Order lines 91/102/114 byte-identical, string-replace would've hit all three), 274→278, clean.
+- build:dev CLEAN (194 modules, no errors). Deployed hosting. All 4 pages render-confirmed by screenshot: manager + supervisor + admin sidebars correct, sponsor resolves (Option A: getFamilyForEmployee for number→name, family ignored), menu loads, modal shows both new fields + NO consumer picker, admin empty-state clean.
+
+**Backend — official ordering-window bypass (the "remove window for official" change):**
+- Added `skipWindow = false` param to _validateOrderInput (line 189). Wrapped ONLY the cafe_hours window throw (line 241) with `if (!skipWindow && ...)`. createOfficialOrderBatch passes `skipWindow: true` (line 884). Surgical — proxy + employee callers omit the flag → window still enforced.
+- node --check PARSE OK. Deployed functions:api. Curl-proven 3 ways: OFFICIAL out-of-window (01:30) → 201 places (group eCvlJw2MeRIe8REWDDy5, 2 items); PROXY out-of-window → 400 window error (gate intact); EMPLOYEE self out-of-window → 400 (gate intact). Isolation proven — defaulted param did NOT leak to the shared validator's other callers.
+
+### Field-test status
+- Official DINE-IN end-to-end: backend proven; UI dine-in path works (window bypassed). Admin approvals page renders + groups.
+- Official TAKEAWAY via UI: hit the (correct) backend rule "requestedPickupTime required for takeaway/outdoor" — modal has no pickup-time field. This is what surfaced the next design need below.
+
+### DESIGN LOCKED but NOT BUILT — official takeaway + future dates (resume here next session)
+Homi needs official orders in BOTH dine-in (official dinners in café) AND takeaway (working lunches sent to site), and BOTH must support FUTURE DATES (order today for a future day's meal).
+
+Decisions locked this session:
+1. **Reuse anytime_takeaway** for official takeaway (NOT new cafe_hours date logic) — it already carries date+time+rateTargetKey correctly. Official takeaway → orderType: anytime_takeaway. Official dine-in (today) → stays cafe_hours.
+2. **Rename/widen the bypass flag**: `skipWindow` → `officialBypass` (clearer). In the cafe_hours branch it skips the window (as now). In the anytime_takeaway branch it must ALSO skip the **2hr lead-time** AND the **20:00 same-day lockout** — but KEEP: no-past-dates, max-advance ceiling, pickup ≤ 23:00. (Homi: official is urgent, those two are friction; the other three are sane.)
+3. **Modal**: show a pickup DATE field for BOTH modes (Homi's choice). Takeaway also shows a "Ready by" time. Dine-in selecting a future date is meaningful (annual dinner booked ahead).
+4. **OPEN / UNRESOLVED — the blocker that stopped us**: future-dated DINE-IN must "land on that date" (Homi chose "date real for BOTH"). But cafe_hours was built to IGNORE requestedPickupDate (writes today). Making the date real for cafe_hours dine-in ripples into: rateTargetKey ({date}_cafe_{itemId} must carry the future date or accounts rate-entry won't match) + kitchen-board day-filtering (future order must NOT show on tonight's board — board date-filter logic UNREAD) + auditing every cafe_hours=today assumption. This is its own slice, NOT a 2 AM job.
+   - Three options on the table, undecided: (a) takeaway+dates only tonight, defer future-dated dine-in [we effectively stopped before choosing build scope]; (b) future-dated dine-in via anytime_takeaway shortcut — data-model fudge (dine-in order labelled takeaway); (c) proper cafe_hours date rework — full slice.
+   - NEXT SESSION: decide a/b/c with a clear head. If (c), FIRST grep-read the kitchen-board date filter (cafeKitchenService + CafeKitchenPage) before touching rateTargetKey. Design on paper, then build.
+
+### NOT YET COMMITTED at this note's writing
+This session's work (6 web files, 2 wiring edits, cafeOrderService.js window-bypass) is committed in the same commit as this CB append — see git log. Frontend + backend-window-bypass shipped together as Slice 7 web (dine-in complete; takeaway-with-dates is the deferred follow-on).
+
+### Unchanged carries
+- CB top-of-file reconciliation still owed (header + §1 stale).
+- Memory consolidation deferred to V1 Extension closure.
+- Node 20 decommission 30-Oct-2026 (deploy warning seen again tonight).
+- Dev test data: official group eCvlJw2MeRIe8REWDDy5 (+ tonight's window-test orders) in cafeOrders — harmless, clear at prod-wipe.
+
+Last Updated → 30 June 2026 (Slice 7 web dine-in shipped; official takeaway+future-dates designed, deferred)
