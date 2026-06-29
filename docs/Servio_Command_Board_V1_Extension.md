@@ -1692,3 +1692,104 @@ curl-prove (multi-item write N=2 + N=1 + missing-sponsor 400 + employee 403 +
 pending-list + group-approve flips both + group-reject + note + double-approve
 guard + regression: normal order still self/employee_account/null) → commit.
 Then web: build pages+services → npm run build:dev (NEVER bare) → deploy hosting
+## Update — 29-Jun-2026 (Slice 7 BACKEND — multi-item official meals — CLOSED)
+
+### Done this session (2 commits, local — push pending)
+- `e7c0fc0` — Slice 7 backend: multi-item official café meals + whole-order approval.
+- `99c85fc` — chore: removed a stray 4KB root command-board fragment that got
+  swept into e7c0fc0. Authoritative CB is docs/Servio_Command_Board_V1_Extension.md.
+
+### Reframe from the 27-Jun design (important)
+The 27-Jun backend (a9f4e79) built SINGLE-item official meals. This session
+reframed Slice 7 to MULTI-item after Homi confirmed real official orders are
+commonly multi-item. Decided: an order is an order — items[] N≥1, same model as
+proxy. So Slice 7 reopened backend-first (NOT web-only as first scoped).
+
+### Built (all additive, 3 files)
+- `createOfficialOrderBatch` (cafeOrderService.js, after createProxyOrderBatch) —
+  COPIED from createProxyOrderBatch. Account holder = sponsoringEmployeeNumber
+  (required, resolved via _getEmployee active+same-tenant). Consumer ALWAYS self
+  (no family params). Official fields passed to _buildOrderDoc (which needed ZERO
+  change — its defaulted official params from 27-Jun did the work):
+  subjectType=official_meal, billingDestination=official_account, costCentreCode
+  (free-text note), sponsoringEmployeeNumber/Name, officialGuestName;
+  approvalStatus auto-sets pending_approval; bookingSource=official. One shared
+  bookingGroupId, atomic batch.
+- `approveOfficialOrderGroup` + `rejectOfficialOrderGroup` (cafeKitchenService.js,
+  after cancelOrderGroup) — whole-order, keyed on bookingGroupId, REUSE
+  _resolveOrderGroup. Guard on approvalStatus + subjectType ONLY — independent of
+  kitchen orderStatus (Option A: meal served regardless; rejection → accounts
+  manual ERP). SUBJECT_TYPES added to the file's constants import.
+- Routes (cafeRoutes.js): POST /cafe/orders/official/batch (cafe_supervisor +
+  manager + admin/super_admin — cafe_waiter EXCLUDED); PATCH /cafe/kitchen/group/
+  :groupKey/approve-official + /reject-official (admin/super_admin). Approval
+  routes co-located with the kitchen group routes (NOT /cafe/orders/group/ as the
+  lock first wrote — matched the existing /cafe/kitchen/group/:groupKey/ family).
+
+### File-placement decision (deviation from the written lock, deliberate)
+Lock said approval fns go in cafeOrderService.js. Built them in cafeKitchenService.js
+instead — that's where _resolveOrderGroup + acceptOrderGroup live, so the approval
+fns REUSE the resolver rather than duplicate group resolution. More additive, all
+group ops co-located.
+
+### NO new index needed
+The pending-list query (tenantId+subjectType+approvalStatus+createdAt DESC) index
+already exists from 27-Jun (a9f4e79). Group approve/reject are doc-key operations
+via _resolveOrderGroup — no query, no index.
+
+### listOfficialPending — UNCHANGED, still flat
+Backend returns flat docs (one row per line). The admin web page will group them
+in-memory by bookingGroupId (kitchen-board pattern). No backend query rewrite.
+
+### Single-item path KEPT, marked dead
+createOfficialCafeMeal + POST /cafe/orders/official + per-doc approve/reject
+(a9f4e79) remain deployed but superseded by the batch path. Retire in the cleanup
+slice (kitchen-singles precedent).
+
+### Curl-proven on dev (10 checks, all green, data-layer verified)
+Placed N=2 (cafe_hours, dine_in) → 201, one bookingGroupId, 2 orders · both docs
+on disk carry subjectType=official_meal / billingDestination=official_account /
+bookingSource=official / approvalStatus=pending_approval / consumerType=self /
+employeeNumber=sponsor / sponsoringEmployeeName resolved / costCentreCode +
+officialGuestName stored · N=1 works · missing sponsor → 400 · employee token →
+403 · pending-list returns the group · whole-group approve → both docs approved
+(same approvedByUid+approvedAt) · whole-group reject → rejected + note · double-
+approve → guarded 400 ("current status is approved") · REGRESSION: a normal proxy
+order still writes self/employee_account/proxy/approvalStatus:null — official path
+fully isolated. CRUCIAL: orderStatus stayed 'placed' through approve AND reject —
+billing axis never touched the kitchen axis (Option A proven).
+
+### NEXT — Slice 7 WEB (fresh session)
+- Supervisor page /cafe-official — copied from CafeProxyOrderPage skeleton
+  (search → ordering → success). NO consumer dropdown (official=self). Searched
+  employee = sponsor. + cost-centre free-text ("as communicated", optional) +
+  officialGuestName free-text ("guest/occasion", optional). Calls
+  createOfficialBatchOrder. Roles: cafe_supervisor + manager + admin (NOT waiter).
+- Admin page /cafe-official-pending — NEW sidebar entry "Café Approvals" (distinct
+  from mess "Guest Approvals"). Pending official orders grouped in-memory one-card-
+  per-bookingGroupId; whole-order Approve / Reject (reject opens note). Pending-only
+  this slice; approved/rejected history PARKED (would need new backend). Mirror
+  OfficialGuestApprovalsPage.jsx structure BUT use café Pattern B (token prop via
+  <WithToken>), NOT the mess getToken() pattern.
+- Services (per-screen): cafeOfficialService.js (createOfficialBatchOrder) +
+  cafeOfficialApprovalService.js (listOfficialPending + approveOfficialGroup +
+  rejectOfficialGroup). listOfficialPending route is GET /cafe/orders/official-pending
+  (admin); approve/reject are PATCH /cafe/kitchen/group/:groupKey/{approve,reject}-official.
+- Wiring: App.jsx +2 imports +2 routes (RE-GREP App.jsx after edit — 27-Jun
+  restore-rollback lesson). Sidebar.jsx +2 entries.
+- build:dev (NEVER bare) + deploy hosting + field-test in-window (18:00–22:30).
+
+### Remaining V1.2 café sequence after Slice 7 web
+3. ✅ Slice 7 backend (this session). Slice 7 WEB = next.
+4. Strip café from ADMIN sidebar — nav-only; backend access stays.
+5. Cleanup slice — retire single-doc accept/prepared/cancel routes+web fns AND the
+   single-item official path (createOfficialCafeMeal + /orders/official + per-doc
+   approve/reject) · DELETE orphan root firestore.indexes.json · orphaned
+   ANYTIME_TA_CANCEL_MIN · stale .acceptedTag CSS · addDaysToDateStr→utils · stale
+   comments. KEEP cafeService.cancelOrder (employee MyCafeOrdersPage uses it).
+
+### Dev test data left this session
+Two official groups (one approved VWKqYd4v…, one rejected nSVG5lrx…) + one proxy
+(lfAdbJ55…) in cafeOrders. Harmless; clear at prod-wipe.
+
+Last Updated line → bump to: 29 June 2026 (Slice 7 backend closed; web next)
