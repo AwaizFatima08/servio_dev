@@ -1833,3 +1833,31 @@ This session's work (6 web files, 2 wiring edits, cafeOrderService.js window-byp
 - Dev test data: official group eCvlJw2MeRIe8REWDDy5 (+ tonight's window-test orders) in cafeOrders — harmless, clear at prod-wipe.
 
 Last Updated → 30 June 2026 (Slice 7 web dine-in shipped; official takeaway+future-dates designed, deferred)
+
+## Update — 01-Jul-2026 — Slice 8: official takeaway + future-date scheduling — CLOSED
+
+### Done
+**Backend (cafeOrderService.js):** renamed skipWindow → officialBypass (4 sites). Extended it: in the anytime_takeaway branch, the same-day block `if (isSameDay && !officialBypass)` now waives BOTH the 20:00 lockout AND the 2h lead-time for official orders. KEPT for official: no-past-dates, max-advance ceiling, pickup ≤ 23:00, format checks. cafe_hours window bypass (Slice 7) unchanged. Deployed functions:api.
+
+**Frontend (CafeOfficialPage.jsx):** dropped Outdoor from DINING_MODES (Dine-in + Takeaway only). Added todayStr() helper. Takeaway selection reveals pickup-date (type=date, default today, min today) + ready-by time (type=time); sends orderType: anytime_takeaway + requestedPickupDate + requestedPickupTime. Dine-in → cafe_hours, today, unchanged. takeawayReady gate disables Place until time entered (prevents backend 400). build:dev clean, deployed hosting.
+
+### Curl-proven (5 checks, all green)
+1. official takeaway same-day past-20:00 → 201 (lockout waived) · 2. official takeaway <2h lead → 201 (lead waived) · 3. official takeaway future date (tomorrow) → 201 · 4. official takeaway PAST date → 400 "cannot be in the past" (kept rule) · 5. EMPLOYEE anytime_takeaway same-day past-20:00 → 400 lockout (officialBypass did NOT leak). Live UI confirmed: future-dated takeaway placed → appears in Café Approvals (Takeaway badge).
+
+### Decisions locked this slice
+- Official = Dine-in (cafe_hours, today) OR Takeaway (anytime_takeaway, today/future). Outdoor removed from official modal only (proxy/employee untouched).
+- Takeaway pickup date defaults today, changeable forward. Ready-by time required (UI-gated + backend-enforced).
+- officialBypass waives same-day lockout + lead; keeps past/ceiling/≤23:00.
+
+### STILL DEFERRED — own future slice(s)
+1. **rateTargetKey keys off ORDER date, not pickup date** — confirmed in live data: a tomorrow-dated official takeaway gets rateTargetKey `<today>_cafe_<item>`. Acceptable IF accounts bill by placement date; NOT acceptable if billing should follow consumption/pickup date. Needs an accounts-rate-entry review before changing (café-wide blast radius — affects all order types' billing key).
+2. **Future-dated DINE-IN** — blocked on the same rateTargetKey issue (cafe_hours forces requestedPickupDate=orderDate at _buildOrderDoc line ~390, and rateTargetKey uses orderDate line ~411). When tackled: FIRST grep-read kitchen-board date filter (already confirmed it keys off requestedPickupDate == today, so future dine-in would correctly defer — the ONLY blocker is the billing key). Then decide: change rateTargetKey to pickup-date for all café orders (+ accounts review) vs the anytime_takeaway-shortcut fudge.
+3. **Official history view** — separate official-orders view (placed/approved/rejected), distinct from personal café history (correct that official is NOT in personal history) and from the pending queue. Un-parked from Slice 7, still PARKED. Needs new backend query (by status, not just pending_approval) + new frontend.
+
+### Kitchen-board vs approvals-queue (no bug, just noted)
+Future-dated takeaway shows in Café Approvals immediately (approval is approvalStatus-based, date-independent — correct) but will NOT show on the kitchen board until its pickup date (board filters requestedPickupDate == today — correct). Two different axes, both right.
+
+### Unchanged carries
+CB top-of-file reconciliation still owed. Memory consolidation deferred to V1 Extension closure. Node 20 decommission 30-Oct-2026.
+
+Last Updated → 01 July 2026 (Slice 8 official takeaway + future dates closed; rateTargetKey-pickup-date + future-dated dine-in + official history deferred)
