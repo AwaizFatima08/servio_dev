@@ -186,7 +186,7 @@ async function _validateOrderInput({
   requestedPickupDate,
   consumerType,
   consumerFamilyMemberId,
-  skipWindow = false,   // Slice 7: official meals bypass the ordering-window gate ONLY
+  officialBypass = false,   // Slice 7/8: official meals relax ordering-window + same-day takeaway timing
 }) {
   // --- Required fields ---
   if (!Object.values(CAFE_ORDER_TYPES).includes(orderType)) {
@@ -238,7 +238,7 @@ async function _validateOrderInput({
     // supervisor/manager-gated, often needed in working hours / urgently.
     // Every other rule (orderType, diningMode, pickup-time, menu, sponsor)
     // still applies. Only this time-of-day gate is bypassed.
-    if (!skipWindow && (nowMin < CAFE_HOURS_START || nowMin > CAFE_ORDER_END)) {
+    if (!officialBypass && (nowMin < CAFE_HOURS_START || nowMin > CAFE_ORDER_END)) {
       throw new Error('Cafe orders accepted 18:00 to 22:30 PKT only. Cafe service runs until 23:00.');
     }
   } else if (orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY) {
@@ -268,7 +268,10 @@ async function _validateOrderInput({
 
     const isSameDay = resolvedPickupDate === todayStr;
 
-    if (isSameDay) {
+    // Slice 8 (01-Jul): official orders waive BOTH same-day constraints
+    // (20:00 lockout + 2h lead) — supervisor-gated, urgent. Future-date
+    // ceiling, no-past-dates, and pickup <= 23:00 still apply (outside this block).
+    if (isSameDay && !officialBypass) {
       // After 20:00 PKT, same-day pickup is locked — must order for tomorrow+.
       if (nowMin >= ANYTIME_TA_SAMEDAY_LOCKOUT) {
         throw new Error('Same-day pickup is closed after 20:00 PKT. Choose tomorrow or later.');
@@ -881,7 +884,7 @@ async function createOfficialOrderBatch({
     requestedPickupDate,
     consumerType: CAFE_CONSUMER_TYPES.SELF,
     consumerFamilyMemberId: null,
-    skipWindow: true,   // official meals bypass the ordering-window gate (Slice 7)
+    officialBypass: true,   // official meals relax window + same-day takeaway timing (Slice 7/8)
   });
 
   // --- Resolve every line's menu item ---

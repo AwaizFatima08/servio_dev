@@ -29,10 +29,18 @@ import cafe from '../../pages/employee/CafePage.module.css';
 import styles from './CafeProxyOrderPage.module.css';
 
 const DINING_MODES = [
-  { value: 'dine_in',         label: 'Dine-in',  icon: 'ti-armchair' },
-  { value: 'takeaway',        label: 'Takeaway', icon: 'ti-shopping-bag' },
-  { value: 'outdoor_seating', label: 'Outdoor',  icon: 'ti-sun' },
+  { value: 'dine_in',  label: 'Dine-in',  icon: 'ti-armchair' },
+  { value: 'takeaway', label: 'Takeaway', icon: 'ti-shopping-bag' },
 ];
+
+// Today's date as YYYY-MM-DD for the date input's default + min. The backend
+// re-validates against PKT and rejects past dates, so this is just a UI default.
+function todayStr() {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
 
 // ─────────────────────────────────────────
 // MenuList — copied from the proxy page (identical).
@@ -86,21 +94,34 @@ function OfficialOrderModal({
   const [diningMode, setDiningMode] = useState('dine_in');
   const [costCentreCode, setCostCentreCode] = useState('');
   const [officialGuestName, setOfficialGuestName] = useState('');
+  // Takeaway-only: pickup date (defaults today, changeable forward) + ready-by time.
+  const [pickupDate, setPickupDate] = useState(todayStr());
+  const [pickupTime, setPickupTime] = useState('');
 
   const lines = Object.entries(cart).map(([itemId, qty]) => ({
     itemId, qty, name: itemsById[itemId]?.itemName || itemId,
   }));
 
-  const canPlace = lines.length > 0 && !submitting;
+  const isTakeaway = diningMode === 'takeaway';
+  // Takeaway needs a ready-by time (backend enforces this for non-dine_in).
+  // Block here with a clear gate rather than let the backend 400.
+  const takeawayReady = !isTakeaway || (!!pickupDate && !!pickupTime);
+  const canPlace = lines.length > 0 && !submitting && takeawayReady;
 
   const handlePlace = () => {
     const payload = {
-      orderType: 'cafe_hours',           // official UI is cafe_hours only
+      // Dine-in stays cafe_hours (today). Takeaway uses anytime_takeaway, which
+      // carries the chosen pickup date + time (today or a future day).
+      orderType: isTakeaway ? 'anytime_takeaway' : 'cafe_hours',
       diningMode,
       costCentreCode: costCentreCode.trim() || null,
       officialGuestName: officialGuestName.trim() || null,
       items: lines.map((l) => ({ menuItemId: l.itemId, quantity: l.qty })),
     };
+    if (isTakeaway) {
+      payload.requestedPickupDate = pickupDate;
+      payload.requestedPickupTime = pickupTime;
+    }
     onPlace(payload);
   };
 
@@ -139,6 +160,30 @@ function OfficialOrderModal({
             ))}
           </div>
         </div>
+
+        {isTakeaway && (
+          <>
+            <div className={cafe.formRow}>
+              <label className={cafe.modalLabel}>Pickup date</label>
+              <input
+                type="date"
+                className={cafe.modalSelect}
+                value={pickupDate}
+                min={todayStr()}
+                onChange={(e) => setPickupDate(e.target.value)}
+              />
+            </div>
+            <div className={cafe.formRow}>
+              <label className={cafe.modalLabel}>Ready by (time)</label>
+              <input
+                type="time"
+                className={cafe.modalSelect}
+                value={pickupTime}
+                onChange={(e) => setPickupTime(e.target.value)}
+              />
+            </div>
+          </>
+        )}
 
         <div className={cafe.formRow}>
           <label className={cafe.modalLabel}>Cost centre (as communicated · optional)</label>
