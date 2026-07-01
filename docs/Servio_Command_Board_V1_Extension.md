@@ -1984,3 +1984,15 @@ Official ordering now complete across both dining modes AND both time horizons: 
 Cleanup slice — self-contained, overdue, clears debt before V1.3 (TeaBar+TuckShop/Bakery). Then café is essentially done and roadmap moves to V1.3.
 
 Last Updated → 02 July 2026 (future official dine-in CLOSED; official ordering complete both modes + both time horizons; cleanup slice next)
+
+## Correction — 02-Jul-2026 — Cancel-reason rule is TWO-SIDED (CB note was over-general)
+
+Earlier CB/memory said "cancel reason is always employee_request, no dropdown, on either side." Grep-verified against live code — that is only HALF true:
+- SUPERVISOR cancel (CafeKitchenPage.jsx line 167: cancelOrderGroup(..., 'employee_request', null)) → hardcoded employee_request, no dropdown. Comment at 158 confirms "only ever on an employee's verbal request."
+- EMPLOYEE self-cancel (MyCafeOrdersPage.jsx) → HAS a live 3-reason dropdown. CANCEL_REASONS (lines 42–46): employee_request "Changed my mind", data_correction "Ordered by mistake", other "Other". <select> at line 399 sets it; line 404 shows a note field when reason === 'other'.
+
+So the "always employee_request / no dropdown" rule applies to the SUPERVISOR path only. The employee path keeps the three-reason choice.
+
+Consequence for cleanup: the flagged "cafeService.cancelOrder header comment stale" item is VOID — the comment (listing employee_request | data_correction | other) is CORRECT; it describes the service, and the employee caller genuinely uses all three. No code change made. This entry corrects the CB understanding instead.
+
+Last Updated → 02 July 2026 (CB correction: cancel-reason is two-sided; no code change)
