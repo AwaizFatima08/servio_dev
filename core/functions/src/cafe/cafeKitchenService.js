@@ -45,7 +45,7 @@
 
 const { getFirestore } = require('firebase-admin/firestore');
 const db = getFirestore('servio-dev');
-const { COLLECTIONS, CAFE_ORDER_STATUS, CAFE_ORDER_TYPES, CAFE_CANCELLATION_REASONS, SUBJECT_TYPES } = require('../constants');
+const { COLLECTIONS, CAFE_ORDER_STATUS, CAFE_ORDER_TYPES, CAFE_CANCELLATION_REASONS, SUBJECT_TYPES, BOOKING_SOURCES } = require('../constants');
 const { pktDateStr } = require('../utils');
 const { _assertCafeOrderCancellable } = require('./cafeOrderService');
 
@@ -280,6 +280,7 @@ async function listCafeOrderHistory({
   includeCancelled = false,
   cursorCreatedAt = null,
   employeeNumber = null,
+  officialOnly = false,
 }) {
   // ── status set ──
   const statuses = includeCancelled
@@ -324,6 +325,14 @@ async function listCafeOrderHistory({
   // NOT a client .filter(), which would only narrow the loaded page.
   if (employeeNumber) {
     q = q.where('employeeNumber', '==', employeeNumber);
+  }
+
+  // Official-only filter (equality on bookingSource). When set, needs the
+  // tenantId+orderStatus+bookingSource+createdAt(desc) composite index. Combining
+  // it with employeeNumber would need a further index — not supported this slice
+  // (the toggle stands alone: official-only OR employee filter, not both).
+  if (officialOnly) {
+    q = q.where('bookingSource', '==', BOOKING_SOURCES.OFFICIAL);
   }
 
   if (upperBound) {

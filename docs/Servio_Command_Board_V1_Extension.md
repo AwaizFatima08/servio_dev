@@ -1861,3 +1861,29 @@ Future-dated takeaway shows in Café Approvals immediately (approval is approval
 CB top-of-file reconciliation still owed. Memory consolidation deferred to V1 Extension closure. Node 20 decommission 30-Oct-2026.
 
 Last Updated → 01 July 2026 (Slice 8 official takeaway + future dates closed; rateTargetKey-pickup-date + future-dated dine-in + official history deferred)
+
+## Update — 01-Jul-2026 (noon) — Slice 9: official orders in Café History — CLOSED
+
+### Done
+**Backend:** listCafeOrderHistory (cafeKitchenService.js) + GET /history (cafeRoutes.js) gain optional officialOnly. When true → .where('bookingSource','==',BOOKING_SOURCES.OFFICIAL). BOOKING_SOURCES added to the file's import. Standalone toggle (official-only OR employeeNumber, not both — combining would need a further index; noted in code).
+
+**Index:** the officialOnly query needed a composite index (bookingSource+orderStatus+tenantId+createdAt desc). It was CONSOLE-CREATED during the session (Firestore error link) — then ADDED to core/functions/firestore.indexes.json so a future `firebase deploy --only firestore:indexes` won't prune it. Deploy confirmed no-op (already Enabled). Index ID CICAgJjUlJYK.
+
+**Frontend:** cafeHistoryService.js passes officialOnly. CafeHistoryPage.jsx: 'Official only' toggle (Apply-model, buildOpts), new Approval column (approvalPill: approval_pending_approval/approved/rejected — billing axis, separate from the kitchen status pill), Official badge + cost-centre in the For cell. CafeHistoryPage.module.css: approvalPill + variants + officialBadge + costCentre (café palette). Sidebar.jsx: Café History added to ADMIN (was supervisor+manager only) — now 3 blocks.
+
+### Proven
+Backend curl: officialOnly=true&days=90 → 14 official orders, all three approvalStatus values (pending_approval/approved/rejected) across takeaway + dine-in. build:dev clean, deployed hosting. Live UI confirmed: supervisor (Majid) + admin (Qasim) both see the toggle, Approval column, Official badge, cost-centre.
+
+### Design honoured
+Official orders stay OUT of personal café history (they're official-account, not personal — locked earlier). This slice is the "separate official view" — implemented as a filter on the existing history page (Homi's choice) rather than a new page. Full lifecycle (pending+approved+rejected) shown.
+
+### NEXT — billing-key decision (DECISION MADE, build pending)
+Homi confirmed FFL convention: **café cost is incurred on CONSUMPTION/PICKUP date, not order/placement date.** So rateTargetKey must be built from requestedPickupDate, not orderDate. CURRENT: _buildOrderDoc (cafeOrderService.js ~411) builds `${orderDate}_cafe_${itemId}`; orderDate = pktDateStr(now). This is WRONG per the confirmed convention for future-dated orders.
+- BLAST RADIUS (before any code): rateTargetKey is the JOIN KEY to mealRates; a Cloud Function (rateApplicator) batch-updates orders by it. Changing the key format changes what accounts' rate-entry matches. Used by ALL café order types (employee/proxy/official) — but only FUTURE-DATED orders differ (dine-in + same-day: orderDate==pickupDate, no change). Today only official takeaway is future-datable, so changing it for ALL order types is safe + consistent.
+- MUST READ BEFORE BUILDING: the mealRates / rate-entry screen / rateApplicator Cloud Function flow — to confirm the read/apply side agrees on the new date convention. NOT yet read. Do this first next session.
+- This ALSO unblocks future-dated DINE-IN (was blocked solely on this key issue).
+
+### Unchanged carries
+CB top-of-file reconciliation owed. Memory consolidation deferred to V1 Extension closure. Node 20 decommission 30-Oct-2026. Cleanup slice still pending (single-doc routes, single-item official path, orphan root firestore.indexes.json, ANYTIME_TA_CANCEL_MIN, .acceptedTag CSS, addDaysToDateStr→utils, strip café from admin sidebar).
+
+Last Updated → 01 July 2026 noon (Slice 9 official history closed; billing-key decision MADE=pickup-date, build pending after reading mealRates/rateApplicator)

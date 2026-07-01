@@ -822,6 +822,7 @@ router.get(
       const { day, cursor, employeeNumber } = req.query;
       const lookbackDays = parseInt(req.query.days, 10); // service guards NaN/range
       const includeCancelled = req.query.includeCancelled === 'true'; // string → bool
+      const officialOnly = req.query.officialOnly === 'true';         // string → bool
 
       const result = await cafeKitchenService.listCafeOrderHistory({
         tenantId: req.tenantId,
@@ -830,6 +831,7 @@ router.get(
         includeCancelled,
         cursorCreatedAt: cursor || null,
         employeeNumber: employeeNumber || null,
+        officialOnly,
       });
       return successResponse(res, result, 'Order history retrieved.');
     } catch (err) {

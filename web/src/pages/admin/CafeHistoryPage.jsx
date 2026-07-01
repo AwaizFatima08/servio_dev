@@ -72,6 +72,7 @@ export default function CafeHistoryPage({ token }) {
     day: '',              // 'YYYY-MM-DD' from the date input; '' = 7-day default
     employeeNumber: '',   // free text; '' = no employee filter
     includeCancelled: false,
+    officialOnly: false,  // Slice 9: show only official orders
   });
 
   const [orders, setOrders] = useState([]);       // accumulated across pages
@@ -92,6 +93,7 @@ export default function CafeHistoryPage({ token }) {
     const emp = filters.employeeNumber.trim();
     if (emp) opts.employeeNumber = emp;
     if (filters.includeCancelled) opts.includeCancelled = true;
+    if (filters.officialOnly) opts.officialOnly = true;
     return opts;
   }, [filters]);
 
@@ -138,7 +140,7 @@ export default function CafeHistoryPage({ token }) {
   };
 
   const onClear = () => {
-    setFilters({ day: '', employeeNumber: '', includeCancelled: false });
+    setFilters({ day: '', employeeNumber: '', includeCancelled: false, officialOnly: false });
     setOrders([]);
     // loadFirst reads buildOpts() which reads filters; setState is async, so
     // defer the reload to the next tick after filters reset.
@@ -206,6 +208,15 @@ export default function CafeHistoryPage({ token }) {
           Include cancelled
         </label>
 
+        <label className={styles.cancelledToggle}>
+          <input
+            type="checkbox"
+            checked={filters.officialOnly}
+            onChange={(e) => setFilters((f) => ({ ...f, officialOnly: e.target.checked }))}
+          />
+          Official only
+        </label>
+
         <div className={styles.filterActions}>
           <button className={styles.applyBtn} onClick={onApply} disabled={loading}>
             <i className="ti ti-filter" /> Apply
@@ -245,12 +256,14 @@ export default function CafeHistoryPage({ token }) {
                   <th>For</th>
                   <th>Dining</th>
                   <th>Status</th>
+                  <th>Approval</th>
                 </tr>
               </thead>
               <tbody>
                 {orders.map((o) => {
                   const forSomeoneElse =
                     o.consumerType === 'family_member' && o.consumerName;
+                  const isOfficial = o.bookingSource === 'official';
                   return (
                     <tr key={o.orderId}>
                       <td className={styles.createdCell}>{fmtCreatedAt(o.createdAt)}</td>
@@ -266,6 +279,10 @@ export default function CafeHistoryPage({ token }) {
                           <>
                             {o.employeeName}
                             <span className={styles.viaEmp}> · {o.employeeNumber}</span>
+                            {isOfficial && <span className={styles.officialBadge}>Official</span>}
+                            {isOfficial && o.costCentreCode && (
+                              <span className={styles.costCentre}>Cost centre: {o.costCentreCode}</span>
+                            )}
                           </>
                         )}
                       </td>
@@ -274,6 +291,15 @@ export default function CafeHistoryPage({ token }) {
                         <span className={`${styles.statusPill} ${styles[`status_${o.orderStatus}`] || ''}`}>
                           {statusLabel(o.orderStatus)}
                         </span>
+                      </td>
+                      <td>
+                        {isOfficial ? (
+                          <span className={`${styles.approvalPill} ${styles[`approval_${o.approvalStatus}`] || ''}`}>
+                            {(o.approvalStatus || '').replace(/_/g, ' ') || '—'}
+                          </span>
+                        ) : (
+                          <span className={styles.viaEmp}>—</span>
+                        )}
                       </td>
                     </tr>
                   );

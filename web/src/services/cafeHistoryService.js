@@ -58,7 +58,7 @@ function authHeader(token) {
 //   consumerType ('self'|'family_member'), consumerName,
 //   employeeNumber, employeeName, createdAt, ... }
 export async function getCafeOrderHistory(token, opts = {}) {
-  const { days, day, includeCancelled, cursor, employeeNumber } = opts;
+  const { days, day, includeCancelled, cursor, employeeNumber, officialOnly } = opts;
 
   const params = new URLSearchParams();
   if (days != null) params.set('days', String(days));
@@ -66,6 +66,7 @@ export async function getCafeOrderHistory(token, opts = {}) {
   if (includeCancelled) params.set('includeCancelled', 'true');
   if (cursor) params.set('cursor', cursor);
   if (employeeNumber) params.set('employeeNumber', employeeNumber);
+  if (officialOnly) params.set('officialOnly', 'true');
 
   const qs = params.toString();
   const url = `${BASE_URL}/cafe/history${qs ? `?${qs}` : ''}`;
