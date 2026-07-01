@@ -1948,3 +1948,39 @@ Official modal (CafeOfficialPage.jsx) currently: dine-in→cafe_hours (today); t
 Curl (officialBypass path): (1) future dine-in +Nd with time → accepted, orderType anytime_takeaway, diningMode dine_in, rateTargetKey = pickup date; (2) future dine-in WITHOUT time → 400 (time now required on advance path); (3) same-day cafe_hours dine-in → still works, no time, unchanged; (4) employee anytime_takeaway dine_in (no officialBypass) → still 400 (guard not relaxed for non-official). Then frontend live test.
 
 Last Updated → 01 July 2026 (design-lock: future official dine-in via Route 2 / Proposal A; build pending)
+
+## Update — 02-Jul-2026 — Future-dated official DINE-IN (Route 2, Proposal A) — CLOSED
+
+### Built (matches the 01-Jul design-lock exactly)
+**Backend (commit 95c9fb6):** three scoped edits in cafeOrderService.js.
+- Dining-mode guard (~210): officialBypass → allow dine_in OR takeaway; employee self-order still takeaway-only (unchanged).
+- Pickup-time now required for every anytime_takeaway order regardless of dining mode (advance dine-in needs a serving time — the takeaway branch reads parseHHMM unconditionally, so a null would crash there).
+- _buildOrderDoc keeps the serving time on advance dine-in; null only for same-day cafe_hours dine-in.
+Billing key needed NO change — advance dine-in is anytime_takeaway, so effectivePickupDate already keys off pickup date (earlier fix covered it).
+
+**Frontend (commit 721dbb1):** official modal (CafeOfficialPage.jsx), Proposal A option (i).
+- Date picker shown for BOTH dining modes (defaults today).
+- isAdvance = isTakeaway || isFutureDate drives orderType (anytime_takeaway vs cafe_hours) + payload.
+- Serving-time field appears + is required only when advance → dine-in+today stays a two-tap quick action; dine-in+future reveals required time.
+- Dine-in-aware labels: 'Date' / 'Serving time' (vs takeaway 'Pickup date' / 'Ready by').
+
+### Proven
+Backend curl, 4 ways: (1) future dine-in +5d with time → stored anytime_takeaway/dine_in, requestedPickupTime kept (20:00), rateTargetKey = pickup date 2026-07-06, bookingSource official, subjectType official_meal, pending_approval — verified by reading the persisted doc via official history, not inferred; (2) future dine-in without time → 400; (3) same-day cafe_hours dine-in → unchanged; (4) employee anytime_takeaway+dine_in (no officialBypass) → 400 (relaxation scoped to official only, no leak).
+Frontend live-tested (supervisor Majid): dine-in+today = no time field, quick; dine-in+future (07/06) = 'Serving time' appears, Place disabled until time set; DINEIN-TODAY + DINEIN-FUTURE2 orders both placed, appear in Café History as Dine-in, flow into Café Approvals with the Dine-In badge + pending-approval pill.
+
+### Accepted oddity (documented in code)
+Advance official dine-in carries orderType: anytime_takeaway + diningMode: dine_in — "an advance official order, eaten in." Order type NOT renamed (whole-stack change avoided). anytime_takeaway = "advance order," not literally takeaway.
+
+### Café flow status
+Official ordering now complete across both dining modes AND both time horizons: same-day + future, dine-in + takeaway. The official-ordering story is whole.
+
+### Remaining café flow
+- **Cleanup slice** (the accumulated debt): retire superseded single-doc accept/prepared/cancel routes + single-item official path (createOfficialCafeMeal); DELETE orphan root firestore.indexes.json; orphan ANYTIME_TA_CANCEL_MIN constant; stale .acceptedTag CSS; addDaysToDateStr→utils.js; stale comments; strip Café Kitchen + Proxy Order from ADMIN sidebar nav (backend access stays). KEEP cafeService.cancelOrder (employee MyCafeOrdersPage uses it).
+- **CB top-of-file reconciliation** (header + §1 stale).
+- **Dev test data:** many KEYTEST/DINEIN test orders now in cafeOrders — harmless, wiped at prod launch.
+- Node 20 decommission 30-Oct-2026 (deploy warning recurs).
+
+### Next natural step
+Cleanup slice — self-contained, overdue, clears debt before V1.3 (TeaBar+TuckShop/Bakery). Then café is essentially done and roadmap moves to V1.3.
+
+Last Updated → 02 July 2026 (future official dine-in CLOSED; official ordering complete both modes + both time horizons; cleanup slice next)
