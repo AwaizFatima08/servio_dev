@@ -332,14 +332,6 @@
   cursor: not-allowed;
 }
 
-.acceptedTag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #0F6E56;
-}
 
 /* ── Supervisor cancel (1b) — deliberately subordinate to Accept ──
    A small quiet link, not a second prominent button, so the primary
