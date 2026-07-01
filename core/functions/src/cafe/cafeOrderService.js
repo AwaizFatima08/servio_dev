@@ -346,6 +346,14 @@ function _buildOrderDoc({
 }) {
   const now = new Date();
   const orderDate = pktDateStr(now);
+  // Billing convention (01-Jul, locked): café cost is incurred on the
+  // CONSUMPTION/PICKUP date, not the placement date. For anytime_takeaway that
+  // is the chosen pickup date (today or future); for cafe_hours it is the order
+  // date (consumed same day). This one value feeds BOTH requestedPickupDate and
+  // rateTargetKey so they can never diverge.
+  const effectivePickupDate = orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY
+    ? (requestedPickupDate || orderDate)
+    : orderDate;
 
   // Cancellation window (anytime_takeaway only) — 1b, 26-Jun-2026:
   // Universal rule, same-day and advance alike: cancellable until
@@ -388,9 +396,7 @@ function _buildOrderDoc({
     // Explicit pickup date for anytime_takeaway advance orders (YYYY-MM-DD, PKT).
     // For cafe_hours / same-day this is the order date. Older orders predate this
     // field — readers fall back to the order date when it is absent.
-    requestedPickupDate: orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY
-      ? (requestedPickupDate || orderDate)
-      : orderDate,
+    requestedPickupDate: effectivePickupDate,
 
     // Consumer (self vs family member)
     consumerType,                                          // self | family_member
@@ -411,7 +417,7 @@ function _buildOrderDoc({
     cancellationNote: null,
 
     // Rate / billing (retrospective; filled by Slice 4 / rate entry slice)
-    rateTargetKey: `${orderDate}_cafe_${menuItem.itemId}`,
+    rateTargetKey: `${effectivePickupDate}_cafe_${menuItem.itemId}`,
     unitRate: null,
     amount: null,
     rateStatus: 'pending', // RATE_STATUS enum has no PENDING — literal matches mess pattern
