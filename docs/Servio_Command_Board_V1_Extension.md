@@ -1887,3 +1887,30 @@ Homi confirmed FFL convention: **café cost is incurred on CONSUMPTION/PICKUP da
 CB top-of-file reconciliation owed. Memory consolidation deferred to V1 Extension closure. Node 20 decommission 30-Oct-2026. Cleanup slice still pending (single-doc routes, single-item official path, orphan root firestore.indexes.json, ANYTIME_TA_CANCEL_MIN, .acceptedTag CSS, addDaysToDateStr→utils, strip café from admin sidebar).
 
 Last Updated → 01 July 2026 noon (Slice 9 official history closed; billing-key decision MADE=pickup-date, build pending after reading mealRates/rateApplicator)
+
+## Update — 01-Jul-2026 (afternoon) — Billing-key fix: rateTargetKey → pickup date — CLOSED
+
+### Decision (LOCKED)
+FFL convention confirmed by Homi: **café cost is incurred on the CONSUMPTION/PICKUP date, not the placement/order date.** rateTargetKey must therefore be built from the pickup date.
+
+### Read-first finding (why this was low-risk)
+Before touching code, read every consumer of rateTargetKey. Result: café has **NO rate-apply path yet.** The only place rateTargetKey is matched (`.where('rateTargetKey','==',...)`) is mealRatesService.js, which builds the MESS format `${rateDate}_${mealType}_${menuOptionKey}` — it does not match café's `${date}_cafe_${itemId}` at all. So the café rateTargetKey is currently WRITE-ONLY; nothing reads it back. Changing its date basis now, before any café rate feature exists, is the ideal moment — zero apply-side to coordinate. Mess side (messReservationService + mealRatesService) is entirely separate and untouched.
+
+### Fix (commit c5c14f3)
+cafeOrderService.js `_buildOrderDoc`: derive one `effectivePickupDate` right after orderDate —
+  anytime_takeaway → (requestedPickupDate || orderDate); cafe_hours → orderDate.
+It now feeds BOTH the requestedPickupDate field AND rateTargetKey (`${effectivePickupDate}_cafe_${itemId}`), so the two can never diverge. Single source.
+
+### Proven
+Curl, 3 checks: future takeaway +5d → rateTargetKey = 2026-07-06 (pickup date, the fix); same-day takeaway → 2026-07-01 (unchanged); dine-in → 2026-07-01 (unchanged). Deploy confirmed live (future date could only come from new code).
+
+### Behaviour delta
+Only FUTURE-DATED orders change (their key moves from placement to pickup date). Dine-in and same-day takeaway: pickup==order, key identical to before — no behavioural change to the common path.
+
+### Dev-data note
+The ~14 earlier official test orders + the pre-fix test orders carry order-dated keys; new orders carry pickup-dated keys. Harmless mixed format in dev (no café rate consumer; wiped at prod launch). Not a migration concern.
+
+### UNBLOCKED by this fix → future-dated DINE-IN
+Future-dated dine-in was deferred earlier SOLELY because the billing key was order-dated (a future dine-in would have mis-keyed its cost). With rateTargetKey now pickup/consumption-dated, that blocker is gone. Kitchen board already defers by requestedPickupDate==today. Future dine-in is now a small, unblocked follow-on build whenever wanted — the official modal currently sends cafe_hours as today-only; widening it to accept a future date (like takeaway already does) is the remaining piece.
+
+Last Updated → 01 July 2026 afternoon (billing-key fix closed = pickup-dated; future-dated dine-in now UNBLOCKED)
