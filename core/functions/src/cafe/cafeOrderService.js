@@ -207,14 +207,25 @@ async function _validateOrderInput({
 
   // --- diningMode consistency with orderType ---
   if (orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY) {
-    if (diningMode !== DINING_MODES.TAKEAWAY) {
+    // anytime_takeaway is really the ADVANCE-ORDER path (date + time, no
+    // placement window). Employee self-orders stay takeaway-only. Official
+    // advance meals (officialBypass) may also be dine_in — an advance official
+    // dinner eaten in the café. outdoor_seating is not offered for official.
+    if (officialBypass) {
+      if (diningMode !== DINING_MODES.TAKEAWAY && diningMode !== DINING_MODES.DINE_IN) {
+        throw new Error('Official advance orders must use diningMode: dine_in or takeaway.');
+      }
+    } else if (diningMode !== DINING_MODES.TAKEAWAY) {
       throw new Error('anytime_takeaway orders must use diningMode: takeaway.');
     }
   }
   // cafe_hours accepts dine_in, takeaway, outdoor_seating — no further constraint here.
 
-  // --- requestedPickupTime: required for any non-dine_in order ---
-  if (diningMode !== DINING_MODES.DINE_IN) {
+  // --- requestedPickupTime: required for any non-dine_in order, AND for every
+  // anytime_takeaway (advance) order regardless of dining mode. An advance
+  // dine-in still needs a serving time so the kitchen knows when on the day. ---
+  if (diningMode !== DINING_MODES.DINE_IN
+      || orderType === CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY) {
     if (!requestedPickupTime) {
       throw new Error('requestedPickupTime is required for takeaway and outdoor_seating orders.');
     }
@@ -392,7 +403,12 @@ function _buildOrderDoc({
     itemName:   menuItem.itemName,
     quantity,
     diningMode,            // dine_in | takeaway | outdoor_seating
-    requestedPickupTime: diningMode === DINING_MODES.DINE_IN ? null : requestedPickupTime,
+    // null only for same-day cafe_hours dine-in; advance (anytime_takeaway)
+    // dine-in keeps its serving time so the kitchen knows when on the day.
+    requestedPickupTime:
+      diningMode === DINING_MODES.DINE_IN && orderType !== CAFE_ORDER_TYPES.ANYTIME_TAKEAWAY
+        ? null
+        : requestedPickupTime,
     // Explicit pickup date for anytime_takeaway advance orders (YYYY-MM-DD, PKT).
     // For cafe_hours / same-day this is the order date. Older orders predate this
     // field — readers fall back to the order date when it is absent.
