@@ -103,22 +103,28 @@ function OfficialOrderModal({
   }));
 
   const isTakeaway = diningMode === 'takeaway';
-  // Takeaway needs a ready-by time (backend enforces this for non-dine_in).
-  // Block here with a clear gate rather than let the backend 400.
-  const takeawayReady = !isTakeaway || (!!pickupDate && !!pickupTime);
-  const canPlace = lines.length > 0 && !submitting && takeawayReady;
+  // "Advance" = rides the anytime_takeaway path: any takeaway, OR any order
+  // (dine-in included) scheduled for a future date. Same-day dine-in stays the
+  // quick cafe_hours path. An advance order always needs a time (kitchen must
+  // know when on the day) — the backend enforces this; we gate here to avoid a
+  // 400. Proposal A (01-Jul): future official dine-in = advance dinner eaten in.
+  const isFutureDate = pickupDate > todayStr();
+  const isAdvance = isTakeaway || isFutureDate;
+  const advanceReady = !isAdvance || (!!pickupDate && !!pickupTime);
+  const canPlace = lines.length > 0 && !submitting && advanceReady;
 
   const handlePlace = () => {
     const payload = {
-      // Dine-in stays cafe_hours (today). Takeaway uses anytime_takeaway, which
-      // carries the chosen pickup date + time (today or a future day).
-      orderType: isTakeaway ? 'anytime_takeaway' : 'cafe_hours',
+      // Advance (takeaway, or any future-dated order incl. dine-in) rides
+      // anytime_takeaway, carrying the chosen date + time. Same-day dine-in
+      // stays the quick cafe_hours path.
+      orderType: isAdvance ? 'anytime_takeaway' : 'cafe_hours',
       diningMode,
       costCentreCode: costCentreCode.trim() || null,
       officialGuestName: officialGuestName.trim() || null,
       items: lines.map((l) => ({ menuItemId: l.itemId, quantity: l.qty })),
     };
-    if (isTakeaway) {
+    if (isAdvance) {
       payload.requestedPickupDate = pickupDate;
       payload.requestedPickupTime = pickupTime;
     }
@@ -161,28 +167,30 @@ function OfficialOrderModal({
           </div>
         </div>
 
-        {isTakeaway && (
-          <>
-            <div className={cafe.formRow}>
-              <label className={cafe.modalLabel}>Pickup date</label>
-              <input
-                type="date"
-                className={cafe.modalSelect}
-                value={pickupDate}
-                min={todayStr()}
-                onChange={(e) => setPickupDate(e.target.value)}
-              />
-            </div>
-            <div className={cafe.formRow}>
-              <label className={cafe.modalLabel}>Ready by (time)</label>
-              <input
-                type="time"
-                className={cafe.modalSelect}
-                value={pickupTime}
-                onChange={(e) => setPickupTime(e.target.value)}
-              />
-            </div>
-          </>
+        <div className={cafe.formRow}>
+          <label className={cafe.modalLabel}>
+            {isTakeaway ? 'Pickup date' : 'Date'}
+          </label>
+          <input
+            type="date"
+            className={cafe.modalSelect}
+            value={pickupDate}
+            min={todayStr()}
+            onChange={(e) => setPickupDate(e.target.value)}
+          />
+        </div>
+        {isAdvance && (
+          <div className={cafe.formRow}>
+            <label className={cafe.modalLabel}>
+              {isTakeaway ? 'Ready by (time)' : 'Serving time'}
+            </label>
+            <input
+              type="time"
+              className={cafe.modalSelect}
+              value={pickupTime}
+              onChange={(e) => setPickupTime(e.target.value)}
+            />
+          </div>
         )}
 
         <div className={cafe.formRow}>
