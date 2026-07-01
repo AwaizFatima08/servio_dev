@@ -99,7 +99,6 @@ const CAFE_SERVICE_END       = 23 * 60;        // 23:00 — cafe physically clos
 const ANYTIME_TA_START       = 8 * 60;         // 08:00 — anytime_takeaway window opens
 const ANYTIME_TA_LEAD_MIN    = 2 * 60;         // 2 hours minimum lead time
 const ANYTIME_TA_SAMEDAY_LOCKOUT  = 20 * 60;   // 20:00 PKT — after this, same-day pickup is locked; pickup must be tomorrow+
-const ANYTIME_TA_CANCEL_MIN  = 60;             // (superseded by ANYTIME_TA_CANCEL_CUTOFF_HOURS_BEFORE_PICKUP, 1b 26-Jun) — retained pending unused-check
 // Cancellation cutoff (1b, 26-Jun-2026): an anytime_takeaway order is cancellable
 // until this many hours BEFORE its pickup time — universal, same-day and advance
 // alike (replaces the old split: same-day 1h-from-placement / advance until-pickup).
