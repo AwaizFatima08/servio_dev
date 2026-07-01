@@ -1914,3 +1914,37 @@ The ~14 earlier official test orders + the pre-fix test orders carry order-dated
 Future-dated dine-in was deferred earlier SOLELY because the billing key was order-dated (a future dine-in would have mis-keyed its cost). With rateTargetKey now pickup/consumption-dated, that blocker is gone. Kitchen board already defers by requestedPickupDate==today. Future dine-in is now a small, unblocked follow-on build whenever wanted — the official modal currently sends cafe_hours as today-only; widening it to accept a future date (like takeaway already does) is the remaining piece.
 
 Last Updated → 01 July 2026 afternoon (billing-key fix closed = pickup-dated; future-dated dine-in now UNBLOCKED)
+
+## Design-lock — 01-Jul-2026 — Future-dated official DINE-IN (Route 2, Proposal A) — BUILD PENDING
+
+### Need
+Official meals are pre-planned across times of day — working lunches to site AND official dinners in the café — booked in advance for a set date. The unifying trait is "advance-planned official meal for a future date+time," not the dining mode. Dine-in vs takeaway is incidental.
+
+### Decision — Route 2 (ride the advance-order engine)
+The `anytime_takeaway` branch of _validateOrderInput is really an ADVANCE-ORDER engine: validates date + time + fulfilment datetime, no placement-time window ("placement allowed 24/7"), and (post billing-key fix) keys rateTargetKey off the pickup date. Its only tie to "takeaway" is one guard. So future official dine-in RIDES this path with diningMode: dine_in, rather than teaching cafe_hours new date/time logic (Route 1, rejected — more code, and cafe_hours is philosophically bound to café evening hours so would fight lunch).
+
+ACCEPTED ODDITY (documented in code): an advance official dine-in carries orderType: anytime_takeaway + diningMode: dine_in — semantically "an advance official order, eaten in." We do NOT rename the order type (whole-stack change). anytime_takeaway means "advance order," not literally takeaway.
+
+### Proposal A (locked) — two paths for official dine-in
+- SAME-DAY official dine-in → stays cafe_hours (today, no date/time fields, quick). Unchanged.
+- FUTURE official dine-in → anytime_takeaway + dine_in (date + time required — kitchen must know which day + when).
+- The official modal picks the path by whether a future date is chosen. Keeps today's quick case frictionless; only advance dinners carry the extra fields.
+(Proposal B — route ALL dine-in through advance, always date+time — rejected: burdens the quick same-day case.)
+
+### Backend changes (3 edits, all scoped to officialBypass; employee self-order UNTOUCHED)
+1. Dining-mode guard (cafeOrderService.js ~210): anytime_takeaway currently MUST be takeaway. New: if officialBypass → allow dine_in OR takeaway (NOT outdoor_seating); else → takeaway only (unchanged). Only semantic relaxation.
+2. Pickup-time requirement (~217): currently "required for non-dine_in." Problem: advance branch (258–267) unconditionally reads parseHHMM(requestedPickupTime) → an advance dine-in with no time CRASHES there. Fix: require time when orderType===anytime_takeaway regardless of dining mode (advance path always needs a fulfilment time). Same-day cafe_hours dine-in still needs no time.
+3. _buildOrderDoc pickup-time null-ing (~395): currently requestedPickupTime = dineIn ? null : time — would WIPE the serving time on an advance dine-in. Fix: null only for cafe_hours dine-in; keep time otherwise.
+
+### No change needed
+- Billing key (effectivePickupDate, 354): advance dine-in IS anytime_takeaway → already keys off pickup date. Earlier fix covers it.
+- Kitchen board deferral (requestedPickupDate==today): already correct — future dine-in defers off-board until its date.
+- Mess side, rate flow, employee self-ordering: untouched.
+
+### Frontend (after backend curl-proven)
+Official modal (CafeOfficialPage.jsx) currently: dine-in→cafe_hours (today); takeaway→anytime_takeaway (date+time). New: dine-in ALSO offers date+time; when a future date is chosen it sends anytime_takeaway + dine_in. Same-day dine-in (no future date) stays cafe_hours.
+
+### Proof plan
+Curl (officialBypass path): (1) future dine-in +Nd with time → accepted, orderType anytime_takeaway, diningMode dine_in, rateTargetKey = pickup date; (2) future dine-in WITHOUT time → 400 (time now required on advance path); (3) same-day cafe_hours dine-in → still works, no time, unchanged; (4) employee anytime_takeaway dine_in (no officialBypass) → still 400 (guard not relaxed for non-official). Then frontend live test.
+
+Last Updated → 01 July 2026 (design-lock: future official dine-in via Route 2 / Proposal A; build pending)
