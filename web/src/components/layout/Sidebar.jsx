@@ -157,8 +157,6 @@ const NAV_CONFIG = {
       section: 'Operations',
       items: [
         { label: 'Events',          icon: 'calendar-event', to: '/events' },
-        { label: 'Café Kitchen',    icon: 'coffee',         to: '/cafe-kitchen' },
-        { label: 'Proxy Order',     icon: 'shopping-bag',   to: '/cafe-proxy-order' },
         { label: 'Café History',    icon: 'history',        to: '/cafe-history' },
         { label: 'Reports',         icon: 'chart-bar',      to: '/reports' },
         { label: 'Feedback Review',      icon: 'message-dots',   to: '/feedback-admin' },
