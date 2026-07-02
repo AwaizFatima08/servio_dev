@@ -1996,3 +1996,11 @@ So the "always employee_request / no dropdown" rule applies to the SUPERVISOR pa
 Consequence for cleanup: the flagged "cafeService.cancelOrder header comment stale" item is VOID — the comment (listing employee_request | data_correction | other) is CORRECT; it describes the service, and the employee caller genuinely uses all three. No code change made. This entry corrects the CB understanding instead.
 
 Last Updated → 02 July 2026 (CB correction: cancel-reason is two-sided; no code change)
+
+## Cleanup decision — 02-Jul-2026 — addDaysToDateStr NOT moved to utils.js (deliberate)
+
+The cleanup list carried "move addDaysToDateStr → utils.js". Examined the code before acting: the helper is DEFINED at cafeOrderService.js:77 and USED at exactly one place — cafeOrderService.js:262 (the max-advance-date ceiling). Same file, single caller, no other reader anywhere in core/functions/src (grep-verified).
+
+DECISION: do NOT move it. utils.js exists for SHARED helpers (pktDateStr, nowISO, successResponse — imported by many files). Moving a single-file helper there adds an import dependency for zero sharing benefit, and a move carries break-risk (rewire the import) that a delete does not. The disciplined answer is to move it WHEN a second file (e.g. a V1.3 service) actually needs it — a trivial job at that point — not speculatively now.
+
+This closes the cleanup-list item: examined and consciously declined, not forgotten.
