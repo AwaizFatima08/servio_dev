@@ -21,6 +21,30 @@
 // (Technical Rule #18).
 // ─────────────────────────────────────────
 
+// ─────────────────────────────────────────
+// DEAD-CODE REGISTER — superseded single-order routes (labelled this session)
+//
+// The routes below were replaced by newer "whole-group" versions and are
+// believed UNUSED by the web app and mobile app. They are kept for now (they
+// do no harm running) but are SCHEDULED FOR REMOVAL before the production
+// launch. Before deleting any of them, FIRST confirm no frontend (web/mobile)
+// still calls it — search the frontend for the route path.
+//
+//   DEAD (single)                                ->  LIVE replacement (group)
+//   POST  /cafe/orders/official                  ->  POST  /cafe/orders/official/batch
+//   GET   /cafe/orders/official-pending          ->  (group pending / history view)
+//   PATCH /cafe/orders/:orderId/approve-official ->  PATCH /cafe/kitchen/group/:groupKey/approve-official
+//   PATCH /cafe/orders/:orderId/reject-official  ->  PATCH /cafe/kitchen/group/:groupKey/reject-official
+//   PATCH /cafe/orders/:orderId/accept           ->  PATCH /cafe/kitchen/group/:groupKey/accept
+//   PATCH /cafe/orders/:orderId/prepared         ->  PATCH /cafe/kitchen/group/:groupKey/prepared
+//
+// Dead service functions: createOfficialCafeMeal, listOfficialPending,
+// approveOfficialCafeMeal, rejectOfficialCafeMeal (cafeOrderService.js);
+// acceptOrder, markPrepared (cafeKitchenService.js).
+//
+// NOT DEAD — do NOT touch: PATCH /cafe/orders/:orderId/cancel -> cancelOrder.
+// The employee's own cancel screen (MyCafeOrdersPage) still uses this path.
+// ─────────────────────────────────────────
 const express = require('express');
 const router = express.Router();
 
