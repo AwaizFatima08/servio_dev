@@ -270,3 +270,25 @@ This board (`docs/Servio_Command_Board_V1_Extension.md`) is the one to paste at 
 | **Open question — does BBQ need family-member tagging?** | Unresolved — decide at V1.4 design-lock | `family_member_flow.md` excludes BBQ from family tagging. But the `_memberHasTransactions()` stub (M5 above) is written to also check `bbqOrders` for `consumerFamilyMemberId`, implying BBQ orders CAN be tagged to a family member. These two sources disagree. Resolve explicitly on paper before BBQ (V1.4) design-lock — don't let the stub's assumption default the decision by accident. |
 | Authoritative current Firestore schema | `Servio_V1_Schema_Reference.docx` | Cross-check against live data before trusting it for new tables — see M4. |
 | Full V1 Extension scope definition | `Servio_V1_Extension_Scope_09Jun2026.md` | Referenced in §3 above. |
+## Update Entry - 03-Jul-2026 23:15
+
+### V1.3 Tea Bar — Locations + Menu CLOSED (tested), Orders slice built (partially tested)
+
+**Locations slice:** All 7 functions (create, list, edit, assign, unassign, self-lookup)
+live-tested on dev, success AND failure paths. Genuinely proven, not just deployed.
+
+**Menu slice:** teabarMenuResolver.js + teabarMenuService.js built. Rebuild + read
+proven end-to-end with 5 real tagged test items. One flat items[] list (no beverages[]
+split, unlike café) — Tea Bar's entire menu IS beverages/snacks, split adds no value.
+
+**Orders slice:** teabarOrderService.js built (self-order + proxy-order only — official
+orders, cancel, dashboard, history NOT yet built). Deployed clean after fixing a
+duplicate-constant SyntaxError (caught at deploy time, not silently). Tested tonight
+(Tea Bar closed, 11PM PKT): empty-items ✓, missing-location ✓, hours-closed ✓ (both
+/orders and /orders/proxy). NOT yet tested: successful order creation, multi-item
+bookingGroupId grouping, bad-location rejection, bad-item rejection — all need Tea Bar
+genuinely open (07:30–13:00 or 14:00–17:15 PKT).
+
+### Next session
+Resume after 07:30 PKT. Test order-placement success path first, then remaining
+failure paths, then design + build Official Orders (next slice).
