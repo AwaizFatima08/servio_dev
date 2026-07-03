@@ -49,6 +49,7 @@ const profileRoutes               = require('./profile/profileRoutes');
 const appSettingsRoutes           = require('./appSettings/appSettingsRoutes');
 const familyRoutes                = require('./family/familyRoutes');
 const cafeRoutes                  = require('./cafe/cafeRoutes');
+const teabarRoutes                = require('./teabar/teabarRoutes');
 
 
 // ── Middleware + scheduled module (used by manual trigger below) ──
@@ -94,6 +95,7 @@ app.use('/profile',                 profileRoutes);
 app.use('/app-settings',            appSettingsRoutes);
 app.use('/family',                  familyRoutes);
 app.use('/cafe',                    cafeRoutes);
+app.use('/teabar',                  teabarRoutes);
 
 // ── Admin: Manual menu resolver trigger (Batch 1, 01 Jun 2026) ──
 // POST /admin/resolve-menus

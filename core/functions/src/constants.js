@@ -30,6 +30,7 @@ const ROLES = {
   STORE_SUPERVISOR:                'store_supervisor',
   PURCHASER:                       'purchaser',
   SPORTS_SUPERVISOR:               'sports_supervisor',
+  TEABAR_ATTENDANT:                'teabar_attendant',
   EMPLOYEE:                        'employee',
 };
 
@@ -419,6 +420,14 @@ const CAFE_ORDER_STATUS = {
   CANCELLED: 'cancelled',
 };
 
+const TEABAR_ORDER_STATUS = {
+  PLACED:    'placed',
+  CANCELLED: 'cancelled',
+  // No ACCEPTED / PREPARED — Tea Bar has no kitchen or prep stage
+  // (locked design decision). Handover tracking uses the separate,
+  // shared ISSUE_STATUS field instead (pending | issued).
+};
+
 const CAFE_CONSUMER_TYPES = {
   SELF:          'self',
   FAMILY_MEMBER: 'family_member',
@@ -460,6 +469,9 @@ const COLLECTIONS = {
   MEAL_FEEDBACK:              'mealFeedback',
   // Cafe Operations (1) — V1.2
   CAFE_ORDERS:                'cafeOrders',
+  // Tea Bar Operations (2) — V1.3
+  TEABAR_LOCATIONS:           'teabarLocations',
+  TEABAR_ORDERS:               'teabarOrders',
   // Events (6)
   EVENT_NOTE_TEMPLATES:       'eventNoteTemplates',
   EVENTS:                     'events',
@@ -476,7 +488,7 @@ const COLLECTIONS = {
 };
 
 module.exports = {
-  TENANTS, DEPLOYMENT_MODELS, ROLES, ACCOUNT_STATUS, REGISTRATION_STATUS,
+  TENANTS, DEPLOYMENT_MODELS, ROLES, ACCOUNT_STATUS, REGISTRATION_STATUS, TEABAR_ORDER_STATUS,
   FAILURE_REASONS, EMPLOYEE_TYPES, EMPLOYEE_PREFIXES, RESIDENCE_TYPES,
   DEFAULT_VIEWS, ACCOUNT_TYPES, MEMBER_RELATIONS, MARITAL_STATUS, OFFICIAL_ACCOUNT_TYPES,
   FOOD_TYPE_CODES, MEAL_TYPE_CODES, ITEM_TYPES, SERVICE_CATEGORIES,
@@ -493,6 +505,6 @@ module.exports = {
   NOTIFICATION_STATUS, NOTIFICATION_TYPES_IDENTITY, NOTIFICATION_TYPES_MESS,
   NOTIFICATION_TYPES_EVENTS, NOTIFICATION_TYPES_BILLING, NOTIFICATION_TYPES_ADMIN,
   DELIVERY_STATUS, IN_APP_STATUS, REVIEW_STATUS, REPORT_TYPES, PERIOD_TYPES,
-  CAFE_ORDER_TYPES, CAFE_ORDER_STATUS, CAFE_CONSUMER_TYPES, CAFE_CANCELLATION_REASONS,
+  CAFE_ORDER_TYPES, CAFE_ORDER_STATUS, TEABAR_ORDER_STATUS, CAFE_CONSUMER_TYPES, CAFE_CANCELLATION_REASONS,
   COLLECTIONS,
 };
