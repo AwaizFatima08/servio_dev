@@ -114,10 +114,13 @@ async function _getEmployee({ tenantId, officialEmployeeNumber }) {
 }
 
 // ─────────────────────────────────────────
-// Document builder — shared shape for both create paths.
-// approvalStatus stays null here — only official orders (next slice) use
-// it, mirroring café's exact convention (null unless subjectType is the
-// official one).
+// Document builder — shared shape for all three create paths (self, proxy,
+// official). billingDestination, costCentreCode, sponsoringEmployeeNumber/
+// Name, and officialGuestName default to self/proxy's original values —
+// only createOfficialTeabarOrderBatch overrides them. approvalStatus is
+// derived automatically from bookingSource: 'pending_approval' for official
+// orders, 'not_applicable' for everything else (fixed 04-Jul-2026 — see
+// TeaBar_Official_Orders_Design_Lock_04Jul2026.md §4).
 // ─────────────────────────────────────────
 function _buildOrderDoc({
   tenantId,
@@ -132,6 +135,11 @@ function _buildOrderDoc({
   locationName,
   menuItem,
   quantity,
+  billingDestination = BILLING_DESTINATIONS.EMPLOYEE_ACCOUNT,
+  costCentreCode = null,
+  sponsoringEmployeeNumber = null,
+  sponsoringEmployeeName = null,
+  officialGuestName = null,
 }) {
   const now = new Date();
   // No advance ordering — order date IS the consumption date, always.
@@ -159,12 +167,12 @@ function _buildOrderDoc({
     quantity,
     baseUnit: menuItem.baseUnit,
 
-    billingDestination: BILLING_DESTINATIONS.EMPLOYEE_ACCOUNT,
-    costCentreCode: null,
-    sponsoringEmployeeNumber: null,
-    sponsoringEmployeeName: null,
-    officialGuestName: null,
-    approvalStatus: null, // only official orders (next slice) use this
+    billingDestination,
+    costCentreCode,
+    sponsoringEmployeeNumber,
+    sponsoringEmployeeName,
+    officialGuestName,
+    approvalStatus: bookingSource === BOOKING_SOURCES.OFFICIAL ? 'pending_approval' : 'not_applicable',
 
     rateTargetKey: `${orderDate}_teabar_${menuItem.itemId}`,
     unitRate: null,
@@ -390,7 +398,266 @@ async function createProxyOrderBatch({
   };
 }
 
+// ─────────────────────────────────────────
+// createOfficialTeabarOrderBatch
+// teabar_attendant / admin / super_admin places an order billed to a
+// department (official account) instead of a person. Mirrors
+// createProxyOrderBatch for location handling (never accepted from the
+// client — always the placing user's own current assignment, locked
+// 04-Jul-2026) and menu validation. Differs in billing: the account holder
+// is a "sponsoring employee" who vouches for the order, and the order
+// enters a SEPARATE, parallel approval track (approvalStatus) that does
+// NOT block service — the attendant can hand the order over immediately;
+// admin approval only affects the billing/audit trail (Option A, matching
+// café's official-meal model — see TeaBar_Official_Orders_Design_Lock_04Jul2026.md §2).
+//
+// items: [{ itemId, quantity }]
+// ─────────────────────────────────────────
+async function createOfficialTeabarOrderBatch({
+  uid,
+  officialEmployeeNumber,     // placing attendant/admin's own number (creator)
+  tenantId,
+  userRole,
+  sponsoringEmployeeNumber,   // required — the employee who vouches / account holder
+  costCentreCode,             // optional free-text note
+  officialGuestName,          // optional descriptive text
+  items,
+}) {
+  if (!sponsoringEmployeeNumber) {
+    throw new Error('sponsoringEmployeeNumber is required for official Tea Bar orders.');
+  }
+  _validateItemsArray(items);
+
+  const nowMin = pktMinutesOfDay(new Date());
+  if (!_isWithinTeabarHours(nowMin)) {
+    throw new Error(
+      'Tea Bar orders are accepted 07:30–13:00 and 14:00–17:15 PKT only (closed for lunch 13:00–14:00).'
+    );
+  }
+
+  // Resolve the PLACING USER's own location — never from the request body.
+  // Same rule as proxy orders (locked 04-Jul-2026).
+  const location = await teabarLocationService.getLocationForAttendant({
+    tenantId,
+    attendantUid: uid,
+  });
+  if (!location) {
+    throw new Error('You are not currently assigned to a Tea Bar location.');
+  }
+  if (location.isActive !== true) {
+    throw new Error('Your assigned Tea Bar location is not currently active.');
+  }
+
+  // Confirm the sponsoring employee exists, is active, correct tenant.
+  const sponsor = await _getEmployee({
+    tenantId,
+    officialEmployeeNumber: sponsoringEmployeeNumber,
+  });
+
+  const resolvedItems = [];
+  for (const line of items) {
+    const menuItem = await _resolveTeabarMenuItem({ tenantId, itemId: line.itemId });
+    resolvedItems.push({ menuItem, quantity: line.quantity });
+  }
+
+  const bookingGroupId = db.collection(COLLECTIONS.TEABAR_ORDERS).doc().id;
+
+  const batch = db.batch();
+  const created = [];
+
+  for (const { menuItem, quantity } of resolvedItems) {
+    const ref = db.collection(COLLECTIONS.TEABAR_ORDERS).doc();
+    const doc = _buildOrderDoc({
+      tenantId,
+      bookingGroupId,
+      createdByUid: uid,
+      createdByRole: userRole,
+      createdByEmployeeNumber: officialEmployeeNumber, // attendant/admin (creator)
+      employeeNumber: sponsoringEmployeeNumber,          // sponsor (account holder)
+      employeeName: sponsor.fullName,
+      bookingSource: BOOKING_SOURCES.OFFICIAL,
+      locationId: location.locationId,
+      locationName: location.locationName,
+      menuItem,
+      quantity,
+      billingDestination: BILLING_DESTINATIONS.OFFICIAL_ACCOUNT,
+      costCentreCode: costCentreCode || null,
+      sponsoringEmployeeNumber,
+      sponsoringEmployeeName: sponsor.fullName,
+      officialGuestName: officialGuestName || null,
+    });
+
+    batch.set(ref, doc);
+    created.push({
+      orderId: ref.id,
+      itemId: menuItem.itemId,
+      itemName: menuItem.itemName,
+      quantity,
+      rateTargetKey: doc.rateTargetKey,
+    });
+  }
+
+  await batch.commit();
+
+  return {
+    bookingGroupId,
+    locationId: location.locationId,
+    locationName: location.locationName,
+    orderCount: created.length,
+    orders: created,
+  };
+}
+
+// ─────────────────────────────────────────
+// approveOfficialTeabarOrderGroup
+// admin / super_admin only (enforced at route). Approves an ENTIRE
+// bookingGroupId at once — every document sharing that group moves from
+// pending_approval to approved together, in one atomic batch write.
+// Billing/audit only — never touches orderStatus or issueStatus, and does
+// NOT block service (locked 04-Jul-2026, see
+// TeaBar_Official_Orders_Design_Lock_04Jul2026.md §1-2).
+// ─────────────────────────────────────────
+async function approveOfficialTeabarOrderGroup({ bookingGroupId, tenantId, approvedByUid }) {
+  const snap = await db
+    .collection(COLLECTIONS.TEABAR_ORDERS)
+    .where('bookingGroupId', '==', bookingGroupId)
+    .where('tenantId', '==', tenantId)
+    .get();
+
+  if (snap.empty) {
+    throw new Error('No Tea Bar orders found for this bookingGroupId.');
+  }
+
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    if (data.bookingSource !== BOOKING_SOURCES.OFFICIAL) {
+      throw new Error(`Order ${doc.id} is not an official order.`);
+    }
+    if (data.approvalStatus !== 'pending_approval') {
+      throw new Error(`Cannot approve — order ${doc.id} is currently "${data.approvalStatus}", not "pending_approval".`);
+    }
+  }
+
+  const now = new Date();
+  const batch = db.batch();
+  for (const doc of snap.docs) {
+    batch.update(doc.ref, {
+      approvalStatus: 'approved',
+      approvedByUid,
+      approvedAt: now,
+      updatedAt: now,
+    });
+  }
+  await batch.commit();
+
+  return { bookingGroupId, approvalStatus: 'approved', orderCount: snap.docs.length };
+}
+
+// ─────────────────────────────────────────
+// rejectOfficialTeabarOrderGroup
+// Mirrors approveOfficialTeabarOrderGroup exactly, with an optional
+// approvalNote explaining why (e.g. "no valid cost centre provided").
+// ─────────────────────────────────────────
+async function rejectOfficialTeabarOrderGroup({ bookingGroupId, tenantId, rejectedByUid, approvalNote }) {
+  const snap = await db
+    .collection(COLLECTIONS.TEABAR_ORDERS)
+    .where('bookingGroupId', '==', bookingGroupId)
+    .where('tenantId', '==', tenantId)
+    .get();
+
+  if (snap.empty) {
+    throw new Error('No Tea Bar orders found for this bookingGroupId.');
+  }
+
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    if (data.bookingSource !== BOOKING_SOURCES.OFFICIAL) {
+      throw new Error(`Order ${doc.id} is not an official order.`);
+    }
+    if (data.approvalStatus !== 'pending_approval') {
+      throw new Error(`Cannot reject — order ${doc.id} is currently "${data.approvalStatus}", not "pending_approval".`);
+    }
+  }
+
+  const now = new Date();
+  const batch = db.batch();
+  for (const doc of snap.docs) {
+    batch.update(doc.ref, {
+      approvalStatus: 'rejected',
+      rejectedByUid,
+      rejectedAt: now,
+      approvalNote: approvalNote || null,
+      updatedAt: now,
+    });
+  }
+  await batch.commit();
+
+  return { bookingGroupId, approvalStatus: 'rejected', orderCount: snap.docs.length };
+}
+
+// ─────────────────────────────────────────
+// listOfficialPendingGroups
+// admin / super_admin only (enforced at route). Returns every official Tea
+// Bar order still awaiting approval, grouped by bookingGroupId — one entry
+// per order visit, not one entry per item (same "group is the unit of
+// meaning" principle used everywhere else — see
+// TeaBar_Official_Orders_Design_Lock_04Jul2026.md §1). Sorted oldest-first
+// so the admin naturally works through the longest-waiting requests first.
+//
+// Requires a composite index on teabarOrders:
+//   tenantId (asc), bookingSource (asc), approvalStatus (asc), createdAt (asc)
+// ─────────────────────────────────────────
+async function listOfficialPendingGroups({ tenantId }) {
+  const snap = await db
+    .collection(COLLECTIONS.TEABAR_ORDERS)
+    .where('tenantId', '==', tenantId)
+    .where('bookingSource', '==', BOOKING_SOURCES.OFFICIAL)
+    .where('approvalStatus', '==', 'pending_approval')
+    .orderBy('createdAt', 'asc')
+    .get();
+
+  // Firestore hands back individual item-documents — bundle them into one
+  // entry per bookingGroupId ourselves, in plain JavaScript (see Step 2
+  // above for why this can't be done by Firestore directly).
+  const groups = {};
+
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    const groupId = data.bookingGroupId;
+
+    if (!groups[groupId]) {
+      groups[groupId] = {
+        bookingGroupId: groupId,
+        locationId: data.locationId,
+        locationName: data.locationName,
+        sponsoringEmployeeNumber: data.sponsoringEmployeeNumber,
+        sponsoringEmployeeName: data.sponsoringEmployeeName,
+        officialGuestName: data.officialGuestName,
+        costCentreCode: data.costCentreCode,
+        createdByEmployeeNumber: data.createdByEmployeeNumber,
+        createdAt: data.createdAt,
+        items: [],
+      };
+    }
+
+    groups[groupId].items.push({
+      orderId: doc.id,
+      itemId: data.itemId,
+      itemName: data.itemName,
+      quantity: data.quantity,
+    });
+  }
+
+  const groupList = Object.values(groups);
+
+  return { groups: groupList, count: groupList.length };
+}
+
 module.exports = {
   createSelfOrderBatch,
   createProxyOrderBatch,
+  createOfficialTeabarOrderBatch,
+  approveOfficialTeabarOrderGroup,
+  rejectOfficialTeabarOrderGroup,
+  listOfficialPendingGroups,
 };

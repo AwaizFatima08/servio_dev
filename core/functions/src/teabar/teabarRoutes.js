@@ -331,4 +331,110 @@ router.post(
   }
 );
 
+// ─────────────────────────────────────────
+// POST /teabar/orders/official — order billed to a department, not a person
+// Body: { sponsoringEmployeeNumber, items: [{ itemId, quantity }],
+//         costCentreCode?, officialGuestName? }
+// locationId is intentionally NOT accepted — same rule as proxy orders,
+// always resolved from the placing user's own current assignment
+// (locked 04-Jul-2026).
+// ─────────────────────────────────────────
+router.post(
+  '/orders/official',
+  verifyToken,
+  verifyRole(ROLES.TEABAR_ATTENDANT, ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  async (req, res) => {
+    try {
+      if (!Array.isArray(req.body.items) || req.body.items.length === 0) {
+        return errorResponse(res, 'items array is required and must not be empty.', 400);
+      }
+      if (!req.body.sponsoringEmployeeNumber) {
+        return errorResponse(res, 'sponsoringEmployeeNumber is required.', 400);
+      }
+      const result = await teabarOrderService.createOfficialTeabarOrderBatch({
+        uid: req.user.uid,
+        officialEmployeeNumber: req.officialEmployeeNumber,
+        tenantId: req.tenantId,
+        userRole: req.userRole,
+        ...req.body,
+      });
+      return successResponse(res, result, `Official order placed. ${result.orderCount} item(s).`, 201);
+    } catch (err) {
+      console.error('[POST /teabar/orders/official] error:', err);
+      return errorResponse(res, err.message || 'Failed to place official order.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// GET /teabar/orders/official/pending — admin queue: official orders
+// awaiting approval, grouped by bookingGroupId. No body, no query params.
+// ─────────────────────────────────────────
+router.get(
+  '/orders/official/pending',
+  verifyToken,
+  verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  async (req, res) => {
+    try {
+      const result = await teabarOrderService.listOfficialPendingGroups({
+        tenantId: req.tenantId,
+      });
+      return successResponse(res, result, `${result.count} official order(s) pending approval.`);
+    } catch (err) {
+      console.error('[GET /teabar/orders/official/pending] error:', err);
+      return errorResponse(res, err.message || 'Failed to list pending official orders.', 500, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// PATCH /teabar/orders/official/:bookingGroupId/approve
+// admin / super_admin only. Approves EVERY order sharing this
+// bookingGroupId at once. No request body needed — approvedByUid always
+// comes from the verified token, never from anything the client sends.
+// ─────────────────────────────────────────
+router.patch(
+  '/orders/official/:bookingGroupId/approve',
+  verifyToken,
+  verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  async (req, res) => {
+    try {
+      const result = await teabarOrderService.approveOfficialTeabarOrderGroup({
+        bookingGroupId: req.params.bookingGroupId,
+        tenantId: req.tenantId,
+        approvedByUid: req.user.uid,
+      });
+      return successResponse(res, result, `Official order approved. ${result.orderCount} item(s).`);
+    } catch (err) {
+      console.error('[PATCH /teabar/orders/official/:bookingGroupId/approve] error:', err);
+      return errorResponse(res, err.message || 'Failed to approve official order.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// PATCH /teabar/orders/official/:bookingGroupId/reject
+// admin / super_admin only. Mirrors approve exactly. Body: { approvalNote? }
+// — optional, a free-text reason for the rejection.
+// ─────────────────────────────────────────
+router.patch(
+  '/orders/official/:bookingGroupId/reject',
+  verifyToken,
+  verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  async (req, res) => {
+    try {
+      const result = await teabarOrderService.rejectOfficialTeabarOrderGroup({
+        bookingGroupId: req.params.bookingGroupId,
+        tenantId: req.tenantId,
+        rejectedByUid: req.user.uid,
+        approvalNote: req.body.approvalNote,
+      });
+      return successResponse(res, result, `Official order rejected. ${result.orderCount} item(s).`);
+    } catch (err) {
+      console.error('[PATCH /teabar/orders/official/:bookingGroupId/reject] error:', err);
+      return errorResponse(res, err.message || 'Failed to reject official order.', 400, err);
+    }
+  }
+);
+
 module.exports = router;

@@ -272,7 +272,7 @@ This board (`docs/Servio_Command_Board_V1_Extension.md`) is the one to paste at 
 | Full V1 Extension scope definition | `Servio_V1_Extension_Scope_09Jun2026.md` | Referenced in §3 above. |
 ## Update Entry - 03-Jul-2026 23:15
 
-### V1.3 Tea Bar — Locations + Menu CLOSED (tested), Orders slice built (partially tested)
+### V1.3 Tea Bar — Locations + Menu CLOSED (tested), Orders slice built (tested)
 
 **Locations slice:** All 7 functions (create, list, edit, assign, unassign, self-lookup)
 live-tested on dev, success AND failure paths. Genuinely proven, not just deployed.
@@ -289,6 +289,43 @@ duplicate-constant SyntaxError (caught at deploy time, not silently). Tested ton
 bookingGroupId grouping, bad-location rejection, bad-item rejection — all need Tea Bar
 genuinely open (07:30–13:00 or 14:00–17:15 PKT).
 
-### Next session
-Resume after 07:30 PKT. Test order-placement success path first, then remaining
-failure paths, then design + build Official Orders (next slice).
+## Update Entry — 04-Jul-2026 (evening session)
+
+### Status
+V1.3 Tea Bar — Official Orders sub-slice: backend build substantially complete, most pieces field-tested on dev.
+
+### Completed & Field-Tested Today
+- `_buildOrderDoc` updated to accept official-order fields (billingDestination, costCentreCode, sponsoringEmployeeNumber/Name, officialGuestName) as optional inputs with safe defaults — self/proxy orders unaffected.
+- `approvalStatus` bug fixed: self/proxy orders now correctly write `not_applicable`; official orders write `pending_approval` (previously all order types incorrectly wrote `null`).
+- `createOfficialTeabarOrderBatch` — built, deployed, field-tested twice (simple order + order with optional costCentreCode/officialGuestName). Verified in Firestore: correct billing destination, sponsor identity kept separate from creator identity, correct approvalStatus.
+- `approveOfficialTeabarOrderGroup` — built, deployed, field-tested. Verified approvedByUid/approvedAt/updatedAt written correctly; confirmed orderStatus/issueStatus remain untouched (approval doesn't block service, by design).
+- `rejectOfficialTeabarOrderGroup` — built, deployed, field-tested including optional approvalNote (special characters confirmed intact).
+- `listOfficialPendingGroups` — built, deployed, field-tested (correctly returns empty list when nothing is pending).
+- Double-approval safety check confirmed firing correctly (attempted to re-approve an already-approved order — correctly refused).
+- Composite index added for teabarOrders (tenantId, bookingSource, approvalStatus, createdAt asc) — created in Firebase console AND added to firestore.indexes.json, file validity confirmed via `python3 -m json.tool`.
+- Location for official orders resolved automatically from the placing user's own current teabarLocations assignment — same rule as proxy orders, never picked from a list. Written into TeaBar_Official_Orders_Design_Lock_04Jul2026.md §6.
+- Five new audit fields (approvedByUid, approvedAt, rejectedByUid, rejectedAt, approvalNote) added to teabarOrders — correction to an oversight in the original TeaBar_Design_Lock_03Jul2026.md §10 field list. Documented in TeaBar_Official_Orders_Design_Lock_04Jul2026.md §7.
+
+### Decisions Locked Today
+- `bookingGroupId` is the unit of action everywhere: dashboard display, issuance, approval, AND cancellation — not just creation.
+- Official-order approval/rejection is group-based, deliberately improving on café's current live behaviour, which was confirmed by direct code review to approve only one document at a time despite design docs implying otherwise.
+- Partial-fulfilment/dispute risk at item level is accepted, not tracked at item level — justified by Tea Bar's small, close-knit user base and physical proximity enabling easy informal correction. Recorded as a revisitable assumption, not a permanent fact.
+- Cancellation will also be group-based (decided; not yet built).
+- The 3 old pre-fix test documents (n4xRehTFnZzhfA73Ahud, ir7iExBFrpQL84gKWzwz, PP27LXo8a2TeYrFCu8e7) deliberately left uncorrected — disposable test data, already scheduled for pre-prod deletion.
+
+### Pending / Not Yet Tested (real gaps — flagged, not forgotten)
+- Multi-item official order group approve/reject/list — both test orders used today had exactly 1 item each. Grouping is proven for order *creation* only so far.
+- Double-*rejection* safety check (only double-*approval* was actually tested).
+- `listOfficialPendingGroups` has only been tested against an empty result — never against real grouped data.
+
+### Not Started (separate, larger pieces — next after Official Orders closes)
+- Cancel (group-based, per locked decision above)
+- Attendant dashboard (live view, grouped cards, "Handed over" button)
+- Order history (employee's own view + attendant/location view)
+
+### Next Session — Resume Point
+1. Re-upload files fresh (see file list) before any edits.
+2. Confirm `firebase use` → dev.
+3. Once Tea Bar is open (07:30 PKT): create ONE fresh multi-item (2-3 item) official order, then run approve/reject/list against it specifically — the one thing today's testing genuinely couldn't cover.
+4. Test the double-rejection safety check.
+5. Then move to designing Cancel.
