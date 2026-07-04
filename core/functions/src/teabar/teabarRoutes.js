@@ -14,7 +14,6 @@
 //                                            same reasoning as /cafe/menu)
 //   POST   /teabar/admin/rebuild-menu       manager | admin | super_admin
 //   GET    /teabar/locations                any authenticated user (broad —
-//   GET    /teabar/locations                any authenticated user (broad —
 //                                            employees need this to pick a
 //                                            location when self-ordering)
 //   GET    /teabar/locations/mine            teabar_attendant | admin | super_admin
@@ -433,6 +432,190 @@ router.patch(
     } catch (err) {
       console.error('[PATCH /teabar/orders/official/:bookingGroupId/reject] error:', err);
       return errorResponse(res, err.message || 'Failed to reject official order.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// PATCH /teabar/orders/:bookingGroupId/cancel
+// Employee (own order only) | Tea Bar Attendant (own location only) |
+// Admin | Super Admin. Manager and every other role deliberately excluded
+// here — Manager and all contractual club staff are stationed at the main
+// club building and are not part of Tea Bar's plant-site ordering system
+// (confirmed 04-Jul-2026).
+//
+// This route-level list is only the OUTER, coarse gate — it just says
+// "these role types are even allowed to try." The real, fine-grained rule
+// (an employee can only cancel THEIR OWN order; an attendant can only
+// cancel orders at THEIR OWN location) is enforced inside
+// teabarOrderService.cancelTeabarOrderGroup, not here. No request body
+// needed — cancelledByUid always comes from the verified token.
+// ─────────────────────────────────────────
+router.patch(
+  '/orders/:bookingGroupId/cancel',
+  verifyToken,
+  verifyRole(ROLES.EMPLOYEE, ROLES.TEABAR_ATTENDANT, ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  async (req, res) => {
+    try {
+      const result = await teabarOrderService.cancelTeabarOrderGroup({
+        bookingGroupId: req.params.bookingGroupId,
+        tenantId: req.tenantId,
+        cancelledByUid: req.user.uid,
+        callerRole: req.userRole,
+        callerEmployeeNumber: req.officialEmployeeNumber,
+      });
+      return successResponse(res, result, 'Order cancelled.');
+    } catch (err) {
+      console.error('[PATCH /teabar/orders/:bookingGroupId/cancel] error:', err);
+      return errorResponse(res, err.message || 'Failed to cancel order.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// GET /teabar/orders/dashboard — the attendant's live counter view
+// Tea Bar Attendant ONLY. No location parameter accepted — always resolved
+// from the caller's own current assignment. Shows TODAY's still-pending
+// orders only, grouped by bookingGroupId.
+// ─────────────────────────────────────────
+router.get(
+  '/orders/dashboard',
+  verifyToken,
+  verifyRole(ROLES.TEABAR_ATTENDANT),
+  async (req, res) => {
+    try {
+      const result = await teabarOrderService.getTeabarDashboard({
+        tenantId: req.tenantId,
+        attendantUid: req.user.uid,
+      });
+      return successResponse(res, result, `${result.count} order(s) waiting.`);
+    } catch (err) {
+      console.error('[GET /teabar/orders/dashboard] error:', err);
+      return errorResponse(res, err.message || 'Failed to load dashboard.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// PATCH /teabar/orders/:bookingGroupId/issue — "Handed over" tap
+// Tea Bar Attendant ONLY (confirmed 04-Jul-2026 — no admin/super_admin
+// override; see comment on issueTeabarOrderGroup for why). No request body
+// needed — issuedByUid always comes from the verified token.
+// ─────────────────────────────────────────
+router.patch(
+  '/orders/:bookingGroupId/issue',
+  verifyToken,
+  verifyRole(ROLES.TEABAR_ATTENDANT),
+  async (req, res) => {
+    try {
+      const result = await teabarOrderService.issueTeabarOrderGroup({
+        bookingGroupId: req.params.bookingGroupId,
+        tenantId: req.tenantId,
+        issuedByUid: req.user.uid,
+      });
+      return successResponse(res, result, 'Order marked as handed over.');
+    } catch (err) {
+      console.error('[PATCH /teabar/orders/:bookingGroupId/issue] error:', err);
+      return errorResponse(res, err.message || 'Failed to mark order as issued.', 400, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// GET /teabar/orders/history/mine — employee's own past orders
+// Broad role set — deliberately matches the SAME roles already allowed on
+// POST /orders (self-order). Viewing your own past orders carries the
+// same risk profile as placing one, so the two lists are kept consistent
+// rather than inventing a narrower, different list here (the underlying
+// question of whether that list is too broad is the already-parked
+// contractual-staff issue, not something this route reopens).
+// ─────────────────────────────────────────
+router.get(
+  '/orders/history/mine',
+  verifyToken,
+  verifyRole(
+    ROLES.EMPLOYEE,
+    ROLES.MESS_SUPERVISOR,
+    ROLES.CAFE_SUPERVISOR,
+    ROLES.CAFE_WAITER,
+    ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+    ROLES.TEABAR_ATTENDANT,
+    ROLES.ACCOUNTS_SUPERVISOR,
+    ROLES.GH_SUPERVISOR,
+    ROLES.BOQ_SUPERVISOR,
+    ROLES.STORE_SUPERVISOR,
+    ROLES.PURCHASER,
+    ROLES.SPORTS_SUPERVISOR,
+    ROLES.MANAGER,
+    ROLES.ADMIN,
+    ROLES.SUPER_ADMIN,
+  ),
+  async (req, res) => {
+    try {
+      const result = await teabarOrderService.getEmployeeTeabarHistory({
+        tenantId: req.tenantId,
+        employeeNumber: req.officialEmployeeNumber,
+      });
+      return successResponse(res, result, `${result.count} order group(s) in the last 30 days.`);
+    } catch (err) {
+      console.error('[GET /teabar/orders/history/mine] error:', err);
+      return errorResponse(res, err.message || 'Failed to load order history.', 500, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// GET /teabar/orders/history/location — attendant's own location history
+// Tea Bar Attendant ONLY. locationId is NEVER accepted from the client —
+// always resolved from the caller's own current assignment, same rule
+// used everywhere else in this file.
+// ─────────────────────────────────────────
+router.get(
+  '/orders/history/location',
+  verifyToken,
+  verifyRole(ROLES.TEABAR_ATTENDANT),
+  async (req, res) => {
+    try {
+      const location = await teabarLocationService.getLocationForAttendant({
+        tenantId: req.tenantId,
+        attendantUid: req.user.uid,
+      });
+      if (!location) {
+        return errorResponse(res, 'You are not currently assigned to a Tea Bar location.', 400);
+      }
+      const result = await teabarOrderService.getTeabarHistory({
+        tenantId: req.tenantId,
+        locationId: location.locationId,
+      });
+      return successResponse(res, result, `${result.count} order group(s) in the last 30 days.`);
+    } catch (err) {
+      console.error('[GET /teabar/orders/history/location] error:', err);
+      return errorResponse(res, err.message || 'Failed to load location history.', 500, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// GET /teabar/orders/history/admin — admin/super_admin, any or all locations
+// Admin / Super Admin ONLY. Read-only for this first version — no cancel
+// action from this screen yet (deliberately deferred, 04-Jul-2026).
+// Optional query parameter: ?locationId=... to narrow to one location.
+// Omit it entirely to see every location at once.
+// ─────────────────────────────────────────
+router.get(
+  '/orders/history/admin',
+  verifyToken,
+  verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  async (req, res) => {
+    try {
+      const result = await teabarOrderService.getTeabarHistory({
+        tenantId: req.tenantId,
+        locationId: req.query.locationId || null,
+      });
+      return successResponse(res, result, `${result.count} order group(s) in the last 30 days.`);
+    } catch (err) {
+      console.error('[GET /teabar/orders/history/admin] error:', err);
+      return errorResponse(res, err.message || 'Failed to load admin history.', 500, err);
     }
   }
 );

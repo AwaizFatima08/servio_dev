@@ -157,6 +157,14 @@ exports.generateSnapshots = functions
     await run(null);
   });
 
+// Tea Bar — auto-cancel stale pending orders — runs at 17:15 PKT
+// (Tea Bar's official closing time). Locked 04-Jul-2026.
+exports.teabarAutoCancel = functions
+  .region('asia-south1')
+  .pubsub.schedule('15 17 * * *')
+  .timeZone('Asia/Karachi')
+  .onRun(require('./scheduled/teabarAutoCancel').run);
+
 // Overdue library checker — V2, not yet active
 // exports.checkOverdue = functions
 //   .region('asia-south1')

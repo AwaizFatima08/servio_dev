@@ -42,6 +42,19 @@ const pktDateStr = (date = new Date()) => {
 };
 
 /**
+ * Adds N days to a YYYY-MM-DD string, returning YYYY-MM-DD (PKT).
+ * Copied verbatim from cafe/cafeOrderService.js (04-Jul-2026) — moved here
+ * so Tea Bar's History slice can use it without depending on café's file.
+ * Café's own copy is untouched and unaffected — this is a pure ADDITION.
+ * Verified 04-Jul-2026 against 6 test cases including month/year boundaries.
+ */
+const addDaysToDateStr = (dateStr, days) => {
+  const d = new Date(`${dateStr}T00:00:00+05:00`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return pktDateStr(d);
+};
+
+/**
  * Generate a padded sequential ID
  * e.g. generateId('RES', 1) → 'RES_000001'
  */
@@ -74,6 +87,7 @@ module.exports = {
   errorResponse,
   nowISO,
   pktDateStr,
+  addDaysToDateStr,
   generateId,
   isNonEmptyString,
   validateRequired,

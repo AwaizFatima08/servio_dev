@@ -44,9 +44,10 @@ const {
   ISSUE_STATUS,
   BOOKING_SOURCES,
   BILLING_DESTINATIONS,
+  ROLES,
 } = require('../constants');
 
-const { pktDateStr } = require('../utils');
+const { pktDateStr, addDaysToDateStr } = require('../utils');
 const teabarLocationService = require('./teabarLocationService');
 
 // ─────────────────────────────────────────
@@ -155,6 +156,10 @@ function _buildOrderDoc({
     createdAt: now,
     updatedAt: now,
     bookingSource,
+    orderDate, // e.g. "2026-07-04" — added 04-Jul-2026 for Dashboard's
+               // "today only" query and the future Order History slice.
+               // No advance ordering means orderDate always equals the
+               // consumption date — there is no separate "requested" date.
 
     employeeNumber,
     employeeName,
@@ -653,6 +658,424 @@ async function listOfficialPendingGroups({ tenantId }) {
   return { groups: groupList, count: groupList.length };
 }
 
+// ─────────────────────────────────────────
+// cancelTeabarOrderGroup
+// Cancels an ENTIRE bookingGroupId at once — every document sharing that
+// group moves to orderStatus: 'cancelled' together, in one atomic batch
+// write (locked 04-Jul-2026 — same "group is the unit of action" principle
+// already used by approve/reject). No cancellation-reason field is written
+// — Tea Bar deliberately does not use café's reason-dropdown pattern
+// (locked 03-Jul-2026 backend addendum §2).
+//
+// HARD WALL: once ANY document in the group has issueStatus: 'issued', the
+// WHOLE group is locked from cancellation — no exceptions, not even for
+// admin. This mirrors café's PREPARED hard-wall principle exactly.
+//
+// Who may cancel what (locked 04-Jul-2026, confirmed with Homi):
+//   - employee         → ONLY their own order (employeeNumber must match),
+//                         and ONLY if bookingSource is self or proxy —
+//                         NEVER official, even if their employeeNumber
+//                         happens to equal the sponsor field on an official
+//                         order. Matching the sponsor field is a billing
+//                         coincidence, not actual control over that order.
+//   - teabar_attendant  → any order (self / proxy / official) but ONLY at
+//                         their OWN currently assigned location.
+//   - admin/super_admin → any order, any location, any booking source.
+//   - Manager and every other role → NOT PERMITTED. Confirmed 04-Jul-2026:
+//                         Manager and all contractual club staff (waiters,
+//                         support staff) are stationed at the main club
+//                         building, are not part of Tea Bar's plant-site
+//                         ordering system, and have no cancel authority here.
+// ─────────────────────────────────────────
+async function cancelTeabarOrderGroup({
+  bookingGroupId,
+  tenantId,
+  cancelledByUid,
+  callerRole,
+  callerEmployeeNumber,
+}) {
+  const snap = await db
+    .collection(COLLECTIONS.TEABAR_ORDERS)
+    .where('bookingGroupId', '==', bookingGroupId)
+    .where('tenantId', '==', tenantId)
+    .get();
+
+  if (snap.empty) {
+    throw new Error('No Tea Bar orders found for this bookingGroupId.');
+  }
+
+  const docs = snap.docs.map((d) => ({ ref: d.ref, data: d.data() }));
+
+  // Safety check 1 — nothing in the group may already be cancelled.
+  // Checked BEFORE permission, so a repeat/duplicate cancel attempt always
+  // gets the same clear answer regardless of who is asking.
+  for (const { data } of docs) {
+    if (data.orderStatus !== TEABAR_ORDER_STATUS.PLACED) {
+      throw new Error(`Cannot cancel — this order is already "${data.orderStatus}".`);
+    }
+  }
+
+  // Safety check 2 — HARD WALL. Nothing in the group may already be issued.
+  for (const { data } of docs) {
+    if (data.issueStatus === ISSUE_STATUS.ISSUED) {
+      throw new Error('Cannot cancel — this order has already been handed over.');
+    }
+  }
+
+  // Permission check — see the comment block above for the full rule table.
+  if (callerRole === ROLES.EMPLOYEE) {
+    for (const { data } of docs) {
+      if (data.employeeNumber !== callerEmployeeNumber) {
+        throw new Error('You may only cancel your own order.');
+      }
+      if (data.bookingSource === BOOKING_SOURCES.OFFICIAL) {
+        throw new Error('Official orders cannot be cancelled by an employee.');
+      }
+    }
+  } else if (callerRole === ROLES.TEABAR_ATTENDANT) {
+    const location = await teabarLocationService.getLocationForAttendant({
+      tenantId,
+      attendantUid: cancelledByUid,
+    });
+    if (!location) {
+      throw new Error('You are not currently assigned to a Tea Bar location.');
+    }
+    for (const { data } of docs) {
+      if (data.locationId !== location.locationId) {
+        throw new Error('You may only cancel orders at your own assigned location.');
+      }
+    }
+  } else if (callerRole === ROLES.ADMIN || callerRole === ROLES.SUPER_ADMIN) {
+    // No restriction — admin/super_admin may cancel any order.
+  } else {
+    throw new Error('You are not authorized to cancel Tea Bar orders.');
+  }
+
+  const now = new Date();
+  const batch = db.batch();
+  for (const { ref } of docs) {
+    batch.update(ref, {
+      orderStatus: TEABAR_ORDER_STATUS.CANCELLED,
+      cancelledAt: now,
+      cancelledByUid,
+      updatedAt: now,
+    });
+  }
+  await batch.commit();
+
+  return {
+    bookingGroupId,
+    orderStatus: TEABAR_ORDER_STATUS.CANCELLED,
+    orderCount: docs.length,
+  };
+}
+
+// ─────────────────────────────────────────
+// getTeabarDashboard
+// The attendant's live "what's waiting at my counter right now" screen.
+// Locked 04-Jul-2026: no location parameter accepted from the client —
+// always resolved from the caller's OWN current assignment, same rule
+// used everywhere else in this file. Shows TODAY's orders only, still
+// pending (not yet handed over) — orders older than today are left to the
+// end-of-day auto-cancel job, never shown here regardless of age.
+// Grouped by bookingGroupId — same pattern as listOfficialPendingGroups.
+// ─────────────────────────────────────────
+async function getTeabarDashboard({ tenantId, attendantUid }) {
+  const location = await teabarLocationService.getLocationForAttendant({
+    tenantId,
+    attendantUid,
+  });
+  if (!location) {
+    throw new Error('You are not currently assigned to a Tea Bar location.');
+  }
+
+  const today = pktDateStr(new Date());
+
+  const snap = await db
+    .collection(COLLECTIONS.TEABAR_ORDERS)
+    .where('tenantId', '==', tenantId)
+    .where('locationId', '==', location.locationId)
+    .where('orderDate', '==', today)
+    .where('issueStatus', '==', ISSUE_STATUS.PENDING)
+    .orderBy('createdAt', 'asc')
+    .get();
+
+  // Bundle flat item-documents into one entry per bookingGroupId — same
+  // approach as listOfficialPendingGroups, plain JavaScript, not a
+  // Firestore feature.
+  const groups = {};
+
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    const groupId = data.bookingGroupId;
+
+    if (!groups[groupId]) {
+      groups[groupId] = {
+        bookingGroupId: groupId,
+        bookingSource: data.bookingSource,
+        employeeNumber: data.employeeNumber,
+        employeeName: data.employeeName,
+        createdAt: data.createdAt,
+        items: [],
+      };
+    }
+
+    groups[groupId].items.push({
+      orderId: doc.id,
+      itemId: data.itemId,
+      itemName: data.itemName,
+      quantity: data.quantity,
+      baseUnit: data.baseUnit,
+    });
+  }
+
+  const groupList = Object.values(groups);
+
+  return {
+    locationId: location.locationId,
+    locationName: location.locationName,
+    orderDate: today,
+    groups: groupList,
+    count: groupList.length,
+  };
+}
+
+// ─────────────────────────────────────────
+// issueTeabarOrderGroup
+// The attendant's "Handed over" tap. Marks EVERY document sharing the given
+// bookingGroupId as issueStatus: 'issued', in one atomic batch — same
+// "group is the unit of action" principle as cancelTeabarOrderGroup.
+//
+// ATTENDANT ONLY — confirmed 04-Jul-2026. No admin/super_admin override,
+// deliberately: "handed over" is a claim of physically witnessing delivery,
+// which admin cannot honestly make from outside the location. If an order
+// gets truly stuck (attendant forgot, left, etc.), admin's existing CANCEL
+// power remains the escape hatch — not issuance.
+// ─────────────────────────────────────────
+async function issueTeabarOrderGroup({ bookingGroupId, tenantId, issuedByUid }) {
+  const location = await teabarLocationService.getLocationForAttendant({
+    tenantId,
+    attendantUid: issuedByUid,
+  });
+  if (!location) {
+    throw new Error('You are not currently assigned to a Tea Bar location.');
+  }
+
+  const snap = await db
+    .collection(COLLECTIONS.TEABAR_ORDERS)
+    .where('bookingGroupId', '==', bookingGroupId)
+    .where('tenantId', '==', tenantId)
+    .get();
+
+  if (snap.empty) {
+    throw new Error('No Tea Bar orders found for this bookingGroupId.');
+  }
+
+  const docs = snap.docs.map((d) => ({ ref: d.ref, data: d.data() }));
+
+  // Safety check 1 — every document must belong to THIS attendant's
+  // own assigned location. Blocks an attendant from issuing orders at a
+  // counter that isn't theirs.
+  for (const { data } of docs) {
+    if (data.locationId !== location.locationId) {
+      throw new Error('You may only issue orders at your own assigned location.');
+    }
+  }
+
+  // Safety check 2 — nothing in the group may already be cancelled.
+  for (const { data } of docs) {
+    if (data.orderStatus !== TEABAR_ORDER_STATUS.PLACED) {
+      throw new Error(`Cannot issue — this order is already "${data.orderStatus}".`);
+    }
+  }
+
+  // Safety check 3 — nothing in the group may already be issued
+  // (blocks a duplicate/repeat tap from doing anything unexpected).
+  for (const { data } of docs) {
+    if (data.issueStatus === ISSUE_STATUS.ISSUED) {
+      throw new Error('This order has already been marked as handed over.');
+    }
+  }
+
+  const now = new Date();
+  const batch = db.batch();
+  for (const { ref } of docs) {
+    batch.update(ref, {
+      issueStatus: ISSUE_STATUS.ISSUED,
+      issuedAt: now,
+      issuedByUid,
+      updatedAt: now,
+    });
+  }
+  await batch.commit();
+
+  return {
+    bookingGroupId,
+    issueStatus: ISSUE_STATUS.ISSUED,
+    orderCount: docs.length,
+  };
+}
+
+// ─────────────────────────────────────────
+// getTeabarHistory
+// Serves TWO different jobs with one function, since they're nearly
+// identical: (1) an attendant looking at their OWN location's past
+// orders, and (2) admin/super_admin looking at either one specific
+// location OR every location at once.
+//
+// locationId is OPTIONAL here — pass a real one to filter to that
+// location, or omit it (null) to see everything. The ROUTE layer decides
+// which caller is allowed to do which: an attendant's route always
+// resolves and passes their own locationId (never trusts the client for
+// this, same rule as everywhere else); admin's route accepts an optional
+// locationId from a query parameter.
+//
+// Defaults to the last 30 days (locked 04-Jul-2026) — see addDaysToDateStr
+// in utils.js for the date math, verified 04-Jul-2026.
+//
+// IMPORTANT Firestore rule (discovered while designing this, 04-Jul-2026):
+// because this query filters on orderDate with a range ("last 30 days"),
+// Firestore REQUIRES the first sort field to also be orderDate — you
+// cannot filter by a range on one field and sort primarily by a different
+// one. createdAt is added as a SECOND sort level, to break ties within
+// the same day, newest first.
+// ─────────────────────────────────────────
+async function getTeabarHistory({ tenantId, locationId = null }) {
+  const today = pktDateStr(new Date());
+  const sinceDate = addDaysToDateStr(today, -30);
+
+  let query = db
+    .collection(COLLECTIONS.TEABAR_ORDERS)
+    .where('tenantId', '==', tenantId)
+    .where('orderDate', '>=', sinceDate);
+
+  if (locationId) {
+    query = query.where('locationId', '==', locationId);
+  }
+
+  query = query.orderBy('orderDate', 'desc').orderBy('createdAt', 'desc');
+
+  const snap = await query.get();
+
+  const groups = {};
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    const groupId = data.bookingGroupId;
+
+    if (!groups[groupId]) {
+      groups[groupId] = {
+        bookingGroupId: groupId,
+        bookingSource: data.bookingSource,
+        employeeNumber: data.employeeNumber,
+        employeeName: data.employeeName,
+        locationId: data.locationId,
+        locationName: data.locationName,
+        orderDate: data.orderDate,
+        orderStatus: data.orderStatus,
+        issueStatus: data.issueStatus,
+        issuedAt: data.issuedAt,
+        issuedByUid: data.issuedByUid,
+        cancelledAt: data.cancelledAt,
+        cancelledByUid: data.cancelledByUid,
+        approvalStatus: data.approvalStatus,
+        sponsoringEmployeeNumber: data.sponsoringEmployeeNumber,
+        sponsoringEmployeeName: data.sponsoringEmployeeName,
+        costCentreCode: data.costCentreCode,
+        officialGuestName: data.officialGuestName,
+        createdAt: data.createdAt,
+        items: [],
+      };
+    }
+
+    groups[groupId].items.push({
+      orderId: doc.id,
+      itemId: data.itemId,
+      itemName: data.itemName,
+      quantity: data.quantity,
+      baseUnit: data.baseUnit,
+    });
+  }
+
+  const groupList = Object.values(groups);
+
+  return {
+    locationId: locationId || null,
+    sinceDate,
+    groups: groupList,
+    count: groupList.length,
+  };
+}
+
+// ─────────────────────────────────────────
+// getEmployeeTeabarHistory
+// An employee's OWN past orders — self and proxy only. Deliberately
+// EXCLUDES official orders even where this employee is the sponsor,
+// matching the exact same rule already locked for cancelTeabarOrderGroup
+// (04-Jul-2026): being named as a billing sponsor on a departmental order
+// is not the same as it being "your" personal order.
+//
+// The official-order exclusion is done in plain JavaScript AFTER the
+// database query, not as a database filter — deliberately, to keep the
+// Firestore index simple (one less field to index on). Order volume per
+// employee is tiny, so filtering in memory costs nothing meaningful.
+// ─────────────────────────────────────────
+async function getEmployeeTeabarHistory({ tenantId, employeeNumber }) {
+  const today = pktDateStr(new Date());
+  const sinceDate = addDaysToDateStr(today, -30);
+
+  const snap = await db
+    .collection(COLLECTIONS.TEABAR_ORDERS)
+    .where('tenantId', '==', tenantId)
+    .where('employeeNumber', '==', employeeNumber)
+    .where('orderDate', '>=', sinceDate)
+    .orderBy('orderDate', 'desc')
+    .orderBy('createdAt', 'desc')
+    .get();
+
+  const groups = {};
+  for (const doc of snap.docs) {
+    const data = doc.data();
+
+    // Exclude official orders — see comment block above for why.
+    if (data.bookingSource === BOOKING_SOURCES.OFFICIAL) continue;
+
+    const groupId = data.bookingGroupId;
+
+    if (!groups[groupId]) {
+      groups[groupId] = {
+        bookingGroupId: groupId,
+        bookingSource: data.bookingSource,
+        locationId: data.locationId,
+        locationName: data.locationName,
+        orderDate: data.orderDate,
+        orderStatus: data.orderStatus,
+        issueStatus: data.issueStatus,
+        issuedAt: data.issuedAt,
+        cancelledAt: data.cancelledAt,
+        createdAt: data.createdAt,
+        items: [],
+      };
+    }
+
+    groups[groupId].items.push({
+      orderId: doc.id,
+      itemId: data.itemId,
+      itemName: data.itemName,
+      quantity: data.quantity,
+      baseUnit: data.baseUnit,
+    });
+  }
+
+  const groupList = Object.values(groups);
+
+  return {
+    employeeNumber,
+    sinceDate,
+    groups: groupList,
+    count: groupList.length,
+  };
+}
+
 module.exports = {
   createSelfOrderBatch,
   createProxyOrderBatch,
@@ -660,4 +1083,9 @@ module.exports = {
   approveOfficialTeabarOrderGroup,
   rejectOfficialTeabarOrderGroup,
   listOfficialPendingGroups,
+  cancelTeabarOrderGroup,
+  getTeabarDashboard,
+  issueTeabarOrderGroup,
+  getTeabarHistory,
+  getEmployeeTeabarHistory,
 };

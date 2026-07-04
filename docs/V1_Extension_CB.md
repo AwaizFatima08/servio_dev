@@ -323,9 +323,43 @@ V1.3 Tea Bar — Official Orders sub-slice: backend build substantially complete
 - Attendant dashboard (live view, grouped cards, "Handed over" button)
 - Order history (employee's own view + attendant/location view)
 
-### Next Session — Resume Point
-1. Re-upload files fresh (see file list) before any edits.
-2. Confirm `firebase use` → dev.
-3. Once Tea Bar is open (07:30 PKT): create ONE fresh multi-item (2-3 item) official order, then run approve/reject/list against it specifically — the one thing today's testing genuinely couldn't cover.
-4. Test the double-rejection safety check.
-5. Then move to designing Cancel.
+## Update Entry — 05-Jul-2026 00:23 PKT
+
+### Session scope
+V1.3 Tea Bar backend — closed out Official Orders remaining tests, then designed and built Cancel, Attendant Dashboard, Issue ("Handed over"), the end-of-day auto-cancel scheduled job, and Order History (three views). All work paper-designed before code, per project rule #11.
+
+### Completed and deployed to dev tonight
+- **Cancel** (`cancelTeabarOrderGroup`) — employee cancels own order only (self/proxy, never official); teabar_attendant cancels any order at own location only (self/proxy/official); admin/super_admin unrestricted; Manager and all other roles excluded. Hard wall: locked once `issueStatus: issued`. No cancellation-reason field.
+- **Attendant Dashboard** (`getTeabarDashboard`) — attendant-only, auto-resolves own location, shows only orders matching today's `orderDate` with `issueStatus: pending`, grouped by `bookingGroupId`.
+- **Issue / "Handed over"** (`issueTeabarOrderGroup`) — attendant-only, own location only, deliberately **no admin override** (issuance is a physical-witness claim admin cannot honestly make; admin's existing Cancel power remains the escape hatch for stuck orders).
+- **End-of-day auto-cancel** — new file `scheduled/teabarAutoCancel.js`, wired into `index.js` as `exports.teabarAutoCancel`, runs daily at **17:15 PKT** (Tea Bar's close), mirroring the existing `.pubsub.schedule().timeZone('Asia/Karachi')` pattern used by `resolveDaily`/`generateSnapshots`. Sweeps **any** stuck `pending` order regardless of date (safety net for a missed run), not just today's. Uses sentinel `cancelledByUid: 'system_auto_cancel'` to distinguish system action from human action. Deployed separately via `firebase deploy --only functions:teabarAutoCancel`.
+- **Order History** — two functions: `getTeabarHistory` (shared by attendant-own-location and admin-any-or-all-locations via optional `locationId` param) and `getEmployeeTeabarHistory` (excludes official/sponsored orders, matching Cancel's ownership rule). Both default to a rolling **last-30-days** window. Admin's history view is **read-only** for now — a Cancel button there is intentionally deferred to a later follow-up, not built this session.
+
+### New shared utility
+`addDaysToDateStr` copied verbatim from `cafe/cafeOrderService.js` into `utils.js` (café's own copy untouched). Verified character-for-character against the original, and computationally tested — 6/6 cases including month and year boundaries — both standalone and combined with the real `pktDateStr`, including the midnight PKT/UTC boundary case.
+
+### New Firestore composite indexes (all confirmed Enabled)
+`teabarOrders` now has 5 total:
+1. `bookingSource, approvalStatus, createdAt` (+ `tenantId`) — official pending queue
+2. `locationId, orderDate, issueStatus, createdAt` (+ `tenantId`) — Dashboard
+3. `locationId, orderDate DESC, createdAt DESC` (+ `tenantId`) — location History
+4. `orderDate DESC, createdAt DESC` (+ `tenantId`) — admin all-locations History
+5. `employeeNumber, orderDate DESC, createdAt DESC` (+ `tenantId`) — employee History
+
+### Key technical lesson locked this session
+A Firestore range/inequality filter (e.g. `orderDate >= X`) **requires** the query's first `orderBy` to be that same field — cannot filter by range on one field while sorting primarily by a different one. History queries use `.orderBy('orderDate','desc').orderBy('createdAt','desc')` to satisfy this while still achieving newest-first ordering.
+
+### Parked risks carried forward (unchanged — do not lose these)
+1. **Tea Bar self-order route's role list is broader than it should be** (Manager, Café Waiter, and other contractual-staff roles can currently self-order when they shouldn't, per Homi's confirmation that contractual club staff are served through a separate arrangement). Left as-is deliberately — relies on audit trail + staff discipline. **Must be tightened before prod.**
+2. **`approvalStatus` and `orderStatus` are independent tracks by design** — an official order can end up simultaneously "approved for billing" and "cancelled" (now reachable via manual cancel **or** the new auto-cancel job). Future V1.5 billing logic must check `orderStatus != cancelled`, not just `approvalStatus`, before charging.
+
+### Not yet field-tested (blocked on Tea Bar operating hours, 07:30–13:00 + 14:00–17:15 PKT)
+Cancel, Dashboard, Issue, and the auto-cancel job (which additionally needs the clock to actually reach 17:15 with a real stale order present). **History is the one exception** — read-only, no operating-hours gate, testable any time.
+
+### Next session — starting point
+1. Re-upload fresh: `teabarOrderService.js`, `teabarRoutes.js`, `scheduled/teabarAutoCancel.js`, `utils.js`, `constants.js`, `firestore.indexes.json` — do not edit from memory of tonight's session.
+2. `firebase use` to confirm dev.
+3. During the 07:30–13:00 / 14:00–17:15 PKT window: field-test Cancel, Dashboard, and Issue with real orders (multi-item grouping, wrong-location rejection, already-issued/already-cancelled safety checks).
+4. Test History endpoints (can be done anytime, including before the window opens).
+5. Auto-cancel needs a genuinely stale pending order sitting untouched until 17:15 to prove itself — may need to deliberately leave one order un-issued during the window to test this.
+6. After Tea Bar backend is fully field-tested: move to Tea Bar **web frontend** (per Homi's stated plan).
