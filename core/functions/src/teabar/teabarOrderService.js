@@ -796,6 +796,7 @@ async function getTeabarDashboard({ tenantId, attendantUid }) {
     .where('tenantId', '==', tenantId)
     .where('locationId', '==', location.locationId)
     .where('orderDate', '==', today)
+    .where('orderStatus', '==', TEABAR_ORDER_STATUS.PLACED)
     .where('issueStatus', '==', ISSUE_STATUS.PENDING)
     .orderBy('createdAt', 'asc')
     .get();

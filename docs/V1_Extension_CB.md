@@ -363,3 +363,66 @@ Cancel, Dashboard, Issue, and the auto-cancel job (which additionally needs the 
 4. Test History endpoints (can be done anytime, including before the window opens).
 5. Auto-cancel needs a genuinely stale pending order sitting untouched until 17:15 to prove itself — may need to deliberately leave one order un-issued during the window to test this.
 6. After Tea Bar backend is fully field-tested: move to Tea Bar **web frontend** (per Homi's stated plan).
+## Update Entry — 05-Jul-2026 (full-day field-testing session)
+
+### Status
+V1.3 Tea Bar backend — FULLY FIELD-TESTED. Every slice built in prior sessions
+has now been proven working against real orders, not just deployed. One real
+bug found and fixed mid-session.
+
+### Fully Tested and Confirmed Working Today
+- Self-order creation + Dashboard visibility
+- Cancel — including the hard wall (cannot cancel an already-issued order)
+- Issue ("Handed over") — including duplicate-tap protection
+- Multi-item bookingGroupId grouping — proven across order creation, Dashboard,
+  Issue, Approve, and Reject (not just creation, as previously assumed)
+- Official order create/approve/reject — including multi-item groups and the
+  double-rejection safety check (previously only double-approval was proven)
+- Location-based cancel permission — both halves: attendant correctly
+  restricted to their own assigned location; admin correctly unrestricted
+- All three History views — employee's own (official/sponsored orders
+  correctly excluded), attendant's location (official orders correctly
+  included, other locations correctly excluded), admin all-locations
+  (everything correctly included) — each verified by matching every
+  individual bookingGroupId against a hand-built prediction, not just
+  comparing counts
+- End-of-day auto-cancel (17:15 PKT scheduled job) — proven live with a
+  genuinely stale order left untouched all day. Confirmed: orderStatus →
+  cancelled, issueStatus correctly left untouched at pending, cancelledByUid
+  correctly shows sentinel "system_auto_cancel"
+
+### Bug Found and Fixed This Session
+`getTeabarDashboard` was filtering only on `issueStatus`, so a **cancelled**
+order still incorrectly appeared as "waiting" on the attendant Dashboard.
+Fixed by adding `.where('orderStatus', '==', TEABAR_ORDER_STATUS.PLACED)`.
+New Firestore composite index created and confirmed Enabled **before**
+deploying the code (correct order, per project rule). Fix verified in both
+directions: cancelled orders now correctly hidden; normal pending orders
+still correctly show — confirming no overcorrection.
+
+### Live Confirmation of an Already-Known, Already-Accepted Risk
+Two official orders (one approved, one rejected) were never issued today and
+were both swept up by the 17:15 auto-cancel job — producing real, live
+examples of `approvalStatus` and `orderStatus` disagreeing (e.g.
+`approvalStatus: approved` + `orderStatus: cancelled` simultaneously on the
+same document). This is **not a new bug** — it was already flagged as an
+accepted risk in `TeaBar_Backend_Design_Addendum_03Jul2026.md` §4. Decision
+reconfirmed today: leave as-is. The existing code comment in
+`teabarAutoCancel.js` is sufficient documentation. The real fix belongs in
+V1.5 billing logic, which must check `orderStatus != cancelled`, not just
+`approvalStatus`.
+
+### Parked Risk — Unchanged
+Self-order route's role list is still broader than it should be (Manager and
+contractual staff can currently self-order Tea Bar when they shouldn't).
+Left as-is deliberately. Must be cleaned before prod.
+
+### Next Step
+Tea Bar backend is now genuinely closed out. Web frontend design discussion
+has started (separate chat) — a screen map is being built first, per project
+rule (list every screen and its responsibility before designing any one
+screen in detail). Draft list: 9 screens across employee/attendant/admin
+roles. Three open gaps flagged before frontend design proceeds further:
+whether a Tea Bar location-management screen already exists, whether the
+self-order menu should display as one flat list or grouped by foodTypeName,
+and what happens immediately after an employee submits a self-order.
