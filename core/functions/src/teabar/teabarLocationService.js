@@ -89,14 +89,24 @@ async function createLocation({ tenantId, locationName }) {
   }
   const trimmedName = locationName.trim();
 
-  const existing = await db
+  const trimmedNameLower = trimmedName.toLowerCase();
+
+  // Firestore cannot compare text case-insensitively, and the locked field
+  // list for this collection does not allow adding a second "lowercase
+  // copy" field just to search on. This collection is a small master list
+  // (a handful of locations, not thousands), so fetching the tenant's
+  // locations and comparing in code is cheap and correct — same reasoning
+  // already used elsewhere in this project for small collections.
+  const existingSnap = await db
     .collection(COLLECTIONS.TEABAR_LOCATIONS)
     .where('tenantId', '==', tenantId)
-    .where('locationName', '==', trimmedName)
-    .limit(1)
     .get();
 
-  if (!existing.empty) {
+  const duplicate = existingSnap.docs.some(
+    (doc) => (doc.data().locationName || '').trim().toLowerCase() === trimmedNameLower
+  );
+
+  if (duplicate) {
     throw new Error(`A Tea Bar location named "${trimmedName}" already exists.`);
   }
 
