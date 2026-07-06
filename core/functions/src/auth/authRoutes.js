@@ -8,6 +8,7 @@ const {
   registerEmployee, approveRegistration, getUserProfile,
   getPendingRequests, rejectRegistration,
   listUsers, changeUserRole, changeUserStatus, resetThrottle,
+  getUserByEmployeeNumber,
 } = require('./authService');
 const verifyToken = require('../middleware/verifyToken');
 const verifyRole = require('../middleware/verifyRole');
@@ -328,6 +329,41 @@ router.post('/users/:uid/reset-throttle',
     } catch (error) {
       console.error('POST reset-throttle error:', error);
       return errorResponse(res, 'Failed to reset throttle', 500, error);
+    }
+  }
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /auth/user-by-employee-number/:officialEmployeeNumber
+// Looks up ONE user account by employee number — returns minimal identity
+// fields, only for an ACTIVE account. Built for Tea Bar Screen 8 (attendant
+// assignment).
+// Manager / admin / super_admin only.
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/user-by-employee-number/:officialEmployeeNumber',
+  verifyToken,
+  verifyRole(ROLES.MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  async (req, res) => {
+    try {
+      const { officialEmployeeNumber } = req.params;
+      const tenantId = req.tenantId;
+
+      const result = await getUserByEmployeeNumber({ officialEmployeeNumber, tenantId });
+
+      if (!result.success) {
+        return errorResponse(res, result.message, 404);
+      }
+
+      return res.status(200).json({
+        fullName: result.fullName,
+        officialEmployeeNumber: result.officialEmployeeNumber,
+        uid: result.uid,
+        role: result.role,
+      });
+
+    } catch (error) {
+      console.error('GET user-by-employee-number error:', error);
+      return errorResponse(res, 'Failed to look up user', 500, error);
     }
   }
 );

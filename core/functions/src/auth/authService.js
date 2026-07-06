@@ -277,6 +277,53 @@ const getUserProfile = async (uid) => {
 };
 
 // ─────────────────────────────────────────
+// getUserByEmployeeNumber
+// Looks up ONE user account by employee number. Built for Tea Bar Screen 8
+// (attendant assignment) — a Manager only knows a person by employee number,
+// but assignAttendant needs their uid. This is the translator between the two.
+//
+// Returns minimal fields (fullName, officialEmployeeNumber, uid, role) and
+// ONLY for an ACTIVE account. A suspended/inactive account is rejected with
+// a generic message — the exact status is deliberately not revealed.
+// ─────────────────────────────────────────
+const getUserByEmployeeNumber = async ({ officialEmployeeNumber: rawEmployeeNumber, tenantId }) => {
+
+  // Same cleanup registerEmployee already does — "ffl-00002", "FFL00002",
+  // and "ffl00002" all become the same value before we search.
+  const officialEmployeeNumber = rawEmployeeNumber.replace(/-/g, '').trim().toUpperCase();
+
+  // Gate 1 — does a login account exist at all for this employee number?
+  const userSnap = await db.collection(COLLECTIONS.USERS)
+    .where('officialEmployeeNumber', '==', officialEmployeeNumber)
+    .where('tenantId', '==', tenantId)
+    .limit(1)
+    .get();
+
+  if (userSnap.empty) {
+    return { success: false, message: `No user account found for employee number ${officialEmployeeNumber}.` };
+  }
+
+  const user = userSnap.docs[0].data();
+
+  // Gate 2 — is the account currently active?
+  if (user.status !== ACCOUNT_STATUS.ACTIVE) {
+    return { success: false, message: 'This account cannot be assigned right now.' };
+  }
+
+  // Gate 3 — fetch the real name from employees, same pattern listUsers uses.
+  const employeeDoc = await db.collection(COLLECTIONS.EMPLOYEES).doc(officialEmployeeNumber).get();
+  const fullName = employeeDoc.exists ? (employeeDoc.data().fullName || '') : '';
+
+  return {
+    success: true,
+    fullName,
+    officialEmployeeNumber: user.officialEmployeeNumber,
+    uid: user.uid,
+    role: user.role,
+  };
+};
+
+// ─────────────────────────────────────────
 // Private helpers
 // ─────────────────────────────────────────
 
@@ -493,4 +540,5 @@ module.exports = {
   registerEmployee, approveRegistration, getUserProfile,
   getPendingRequests, rejectRegistration,
   listUsers, changeUserRole, changeUserStatus, resetThrottle,
+  getUserByEmployeeNumber,
 };
