@@ -518,15 +518,163 @@ planned commit sequence. No damage resulted, but worth a reminder for
 next time: run one git command, read its actual output, before running
 the next — especially before `push`.
 
+## Update Entry — 07-Jul-2026 (Tea Bar Screen 8 — build session: backend lookup + Slice 1 + Slice 2 partial)
+
+### Status
+Two connected pieces of work: (1) built the one remaining backend blocker
+from the previous session — `getUserByEmployeeNumber` — and (2) used it to
+build Screen 8 (Location Management)'s actual frontend, in two slices:
+Slice 1 (read-only list) and Slice 2 partial (Create, Edit, Unassign).
+Assign/Reassign — the most complex remaining piece — deliberately deferred
+to next session, per the "save the hardest piece for a fresh mind" decision
+made before starting tonight.
+
+### Completed and Verified Today
+
+**1. Backend: `getUserByEmployeeNumber` — built, deployed, tested in all
+three directions.** Lives in `authService.js` + `authRoutes.js`, new route
+`GET /auth/user-by-employee-number/:officialEmployeeNumber`. Allowed roles:
+manager, admin, super_admin. Returns `fullName`, `officialEmployeeNumber`,
+`uid`, `role` only, for an ACTIVE account only — a suspended/inactive
+account gets a deliberately generic rejection message (not "not found"),
+matching a locked decision made this session (reject with a message, not
+silently). Tested live via curl against dev: fake employee number → 404;
+real suspended account → 404 generic message; same account reactivated →
+200 with correct 4 fields. Also incidentally confirmed: missing "Bearer"
+token correctly rejected (401); non-admin/suspended caller correctly
+blocked before reaching the function at all. No Firestore index needed —
+confirmed by two clean live queries, not assumed.
+
+**2. Frontend: `teabarLocationService.js` (new file) — 5 functions,
+Style B token pattern (token passed as parameter, matching café's
+admin-facing pages).** Talks to the 5 existing location routes in
+`teabarRoutes.js`. Important technical note recorded in the file's own
+comment: these routes wrap their response in `{ success, message, data }`
+— different from `getUserByEmployeeNumber` (no wrapper) and `getUsers`
+(one plain box) — three different response shapes now exist in this app,
+confirmed by reading `utils.js` and `teabarRoutes.js` directly, not
+assumed. `listTeabarLocations` tested live from the browser console
+(not just curl) — this also proved no CORS issue exists on this route.
+
+**3. Frontend: `TeabarLocationsPage.jsx` + `.module.css` (new files) —
+built in slices, each slice verified before the next began:**
+- Slice 1: read-only table (Location / Status / Coverage), matching
+  design-lock's Covered/Unassigned tag requirement. Verified live against
+  real dev data (2 real locations at start of session).
+- Slice 2 (partial): Create (popup, empty-name validation, live-tested
+  both directions), Edit (popup pre-fills current name/active state,
+  live-tested both directions, including a real rename that visibly
+  auto-refreshed), Unassign (plain browser `window.confirm`, deliberately
+  chosen over a custom modal for speed/lower risk this session; button
+  only shows on Covered rows; OK path fully live-tested including
+  auto-refresh, confirmed by real screenshot showing the browser's own
+  "site says" wording — proof it's genuinely `window.confirm`, not a
+  custom popup).
+
+**4. Wiring: `App.jsx` (route) and `Sidebar.jsx` (new standalone "Tea Bar"
+section, manager/admin/super_admin) — both edited, both verified.**
+
+**5. Backend + frontend build/deploy discipline followed correctly:**
+`firebase use` checked before backend deploy (confirmed dev); `npm run
+build:dev` used for the web build (confirmed correct by the simple fact
+that dev login worked afterward — the dangerous bare `build` would have
+broken every test account's login, per the project's own standing
+warning).
+
+### Real Mistakes Made and Caught This Session — recorded honestly, not
+smoothed over, since this is exactly what the CB is for
+
+1. **`App.jsx`:** a manual edit accidentally duplicated an existing,
+   unrelated `CafeHistoryPage` import and route. Would have broken the
+   entire app's build if shipped (JavaScript does not allow declaring
+   the same import name twice). Caught by direct `grep` count (found 4
+   occurrences, expected 2) before any deploy. Fixed, then re-verified
+   by count (confirmed back to 2).
+2. **`Sidebar.jsx`, first mistake:** while adding the new "Tea Bar"
+   section to three roles (manager/admin/super_admin), the anchor text
+   used to locate the insertion point got duplicated alongside the new
+   block, in all three roles — not just added after, but copied a second
+   time. Caught by reading the file closely, confirmed the exact pattern
+   in all three role blocks.
+3. **`Sidebar.jsx`, second mistake (while fixing the first):** removing
+   the duplicated anchor lines in Admin and Super Admin also
+   accidentally removed the opening `{` that belonged to the new Tea Bar
+   block in those two roles (Manager's fix was done correctly; the same
+   mistake did not repeat there). This was NOT caught by eye — it was
+   caught by an actual bracket-count script (95 closing braces vs 93
+   opening — a real, provable mismatch), followed by a stricter
+   stack-based nesting-order check once fixed, confirming the fix was
+   structurally sound, not just count-matched.
+4. **Git commit message, tonight's Slice 2 commit:** the message included
+   the literal text `!confirmed` (from a code snippet being quoted). Bash
+   interpreted the `!` as a history-reuse command, failed to find a match,
+   and silently dropped that entire line of the message — producing a
+   grammatically broken sentence in the saved commit, even though the
+   actual code commit succeeded correctly. Caught by reading `git log -1`
+   in full afterward, not just trusting the "success" output. Fixed via
+   `git commit --amend` (safe here specifically because the broken
+   commit had not yet been pushed to GitHub) with the sentence reworded
+   to avoid `!` entirely, rather than just retyping the same risky text.
+   **Lesson for future sessions: avoid `!` in commit messages typed
+   directly into bash — rephrase instead of relying on careful retyping.**
+
+### Decisions Locked Tonight
+- Unassign's confirmation uses the browser's plain built-in `window.confirm`,
+  not a custom-styled modal — chosen deliberately for lower risk and less
+  new code late in a session, not by default. Revisit only if a real
+  Manager finds the plain browser styling confusing in practice.
+- `getUserByEmployeeNumber` rejects a non-active account with a generic
+  message ("This account cannot be assigned right now"), not the specific
+  status — deliberately not distinguishable from a true "not found," at
+  both the message AND the HTTP status code level (both cases return 404),
+  so no information leaks even at a technical/network-inspection level.
+
+### Not Done — carries to next session (real, named blocker for Screen 8's
+completion)
+**Assign/Reassign attendant flow — not started.** This is the last piece
+of Screen 8. Needs: a search box calling `getUserByEmployeeNumber`
+(already built and tested tonight), a "Confirm assignment" button that is
+greyed out unless the found person's role is exactly `teabar_attendant`,
+and a call to the already-existing `assignAttendant` backend function
+(unused by any frontend code so far — the 5th of 5 location-service
+functions still to be exercised). Deliberately saved for a fresh session
+— it is the most complex remaining piece (most moving parts, most
+decision points), and tonight's session ran late (post-midnight,
+alongside a live match).
+
+### Open Items — flagged honestly, not silently marked done
+1. **Unassign's Cancel path** — correct by reading the code (a single
+   `if (!confirmed) return;` guard clause, low complexity/low risk), but
+   NOT re-tested live tonight. Could not be cleanly retested without
+   re-covering a location first, which needs the not-yet-built Assign
+   feature. First thing to confirm once Assign exists.
+2. **Two test locations soft-deactivated** (`Test Location - Delete Me`,
+   `CCR II -Main Building`, the latter has a real spacing typo in its
+   name — harmless, cosmetic, never corrected) — both dropped out of the
+   visible list after being marked inactive (expected behaviour, since
+   `listTeabarLocations` defaults to active-only — confirmed this is
+   consistent with existing soft-delete conventions elsewhere in the
+   app, not a bug). However, the Edit-and-Save action itself was not
+   independently re-confirmed as error-free — it was inferred successful
+   from the location disappearing from the list, not directly observed.
+   Quick confirm next session: re-open Edit on either one, confirm no
+   stale error state, confirm Active checkbox correctly shows unchecked.
+
+### Backlog (unchanged, low priority, not blocking)
+- `listLocations`'s stale code comment (claims index "not yet created" —
+  it exists) — cosmetic, same category as café's already-parked
+  stale-comment cleanup.
+- Self-order route's role list too broad — parked, not urgent, must clean
+  before prod.
+
 ### Next Session — Starting Point
-1. Paste this entry + `TeaBar_Screen8_LocationManagement_DesignLock_06Jul2026.md`
-   to restore context.
-2. `firebase use` to confirm dev, `git status --short` to confirm clean
+1. Paste this entry to restore context.
+2. `firebase use` to confirm dev; `git status --short` to confirm clean
    start (should be empty, per tonight's closing state).
-3. Build `getUserByEmployeeNumber` (backend `auth` module) — the one
-   remaining item before Screen 8 can be built. Verify with real curl
-   tests (found account, not-found account) before moving on, same
-   discipline as tonight.
-4. Add the matching frontend call to `userManagementService.js`.
-5. Only then: begin Screen 8's actual frontend build, per the locked
-   design doc.
+3. Build the Assign/Reassign flow — search box → `getUserByEmployeeNumber`
+   → role check → `assignAttendant`. This is the last piece of Screen 8.
+4. Once Assign works, retest Unassign's Cancel path (Open Item 1 above).
+5. Quick confirm on the two deactivated test locations (Open Item 2
+   above).
+6. Only once all of the above is done: Screen 8 is genuinely complete —
+   move to the next Tea Bar frontend screen per the locked screen map.
