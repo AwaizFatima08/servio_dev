@@ -426,3 +426,107 @@ roles. Three open gaps flagged before frontend design proceeds further:
 whether a Tea Bar location-management screen already exists, whether the
 self-order menu should display as one flat list or grouped by foodTypeName,
 and what happens immediately after an employee submits a self-order.
+## Update Entry — 06-Jul-2026 (Tea Bar Screen 8 — design lock + backend session)
+
+### Status
+Two separate pieces of work today: (1) Screen 8 (Location Management)
+frontend design fully locked on paper — see separate document
+`TeaBar_Screen8_LocationManagement_DesignLock_06Jul2026.md`. (2) A
+backend-focused session to clear two known risks flagged in that design
+doc before Screen 8 can be built. One of two backend items is genuinely
+done; the third planned item (a new lookup function) was designed but
+NOT yet built — carries to next session, see "Not Done" below.
+
+### Completed and Verified Today (dev only, via direct curl testing)
+
+**1. `createLocation` duplicate-name bug — FIXED, tested, committed, pushed.**
+The comment claimed the duplicate-name check was case-insensitive; the
+actual comparison was exact-match only. Fixed by fetching the tenant's
+locations (small, fixed-size collection — cheap to do) and comparing
+names in code via `.toLowerCase()`, rather than adding a second
+lowercase field to Firestore (would have broken the collection's locked
+field list). Verified with three live tests against the dev server:
+new name succeeds → same name in different case is rejected → a
+different new name still succeeds (rules out over-blocking). Commit
+`766b1f2`.
+
+**2. `listLocations` composite index — CHECKED, already existed.**
+The code comment warned this query (two `where()` + one `orderBy()`)
+needed a composite index "not yet created." Tested directly against the
+live server — succeeded cleanly. Cross-checked `firestore.indexes.json`
+directly: an index covering exactly `isActive` + `tenantId` +
+`locationName` already exists. Conclusion: the index was built at some
+earlier point and the code comment was simply never updated — stale
+documentation, not a real gap. **No code change made.** This also
+clears the earlier worry that this might be silently blocking Screen
+1's employee-facing location dropdown — it isn't, since the index was
+never actually missing.
+
+### Housekeeping found and resolved mid-session
+A separate, already-tested fix from the 05-Jul field-testing session
+(the `getTeabarDashboard` cancelled-orders bug — adding the
+`orderStatus` filter + its matching index) was found sitting staged in
+git, never committed. Verified its actual content matched the 05-Jul
+session notes exactly before committing it as its own separate,
+clearly-labeled checkpoint (commit `bec9c5b`) — kept deliberately apart
+from today's unrelated fix, per the "commit each fix before opening the
+next" rule. Both commits pushed to `main`.
+
+### Test data hygiene
+Two test locations created during live testing (`CCR I`, `Fix
+Verification Test`) were soft-deactivated (`isActive: false`) afterward
+via `updateLocation` — not hard-deleted, matching the project's
+no-hard-delete convention. Verified via a live `GET /teabar/locations`
+call that only the two real locations (`CCR I - Main Building`,
+`Workshop`) remain active.
+
+### Not Done — carries to next session (real blocker for Screen 8 build)
+**`getUserByEmployeeNumber` — designed on paper, NOT built.** This was
+Task 3 of the planned backend session and did not happen today. Spec is
+fully written in the Screen 8 design-lock doc §2: lives in the `auth`
+module (`authService.js` + `authRoutes.js`), takes an employee number,
+returns `fullName` / `officialEmployeeNumber` / `uid` / `role` only,
+allowed roles `manager` / `admin` / `super_admin`. Matching frontend
+call proposed for `userManagementService.js`. **Screen 8's frontend
+cannot be built until this exists** — the attendant-assignment search
+box has nothing to call without it.
+
+### Decisions locked today (Screen 8 design)
+- Reassignment confirmation message stays generic (does not name the
+  attendant's previous location) — v1 simplification, revisit only if
+  it causes real confusion in practice.
+- Location list shows a "Covered / Unassigned" tag only, not the
+  attendant's name — no existing function translates a `uid` back to a
+  name anywhere in the app today, and building one wasn't worth doing
+  before the simpler version is even field-tested. Revisit later as its
+  own small, separate addition if needed.
+- Confirmed (not assumed): `assignAttendant` already validates the
+  target account's role, tenant, and active status before saving —
+  Screen 8 does not need to duplicate this safety check, only display
+  whatever message the backend returns.
+
+### Backlog (low priority, not blocking)
+- `listLocations`'s code comment still incorrectly claims the index
+  "has not yet been created" — cosmetic, same category as café's
+  already-parked stale-comment cleanup. Fix whenever this file is next
+  touched for another reason.
+
+### Process note
+Mid-session, staged an old fix and today's new fix together without
+separating them at first, and ran `git push` before finishing the
+planned commit sequence. No damage resulted, but worth a reminder for
+next time: run one git command, read its actual output, before running
+the next — especially before `push`.
+
+### Next Session — Starting Point
+1. Paste this entry + `TeaBar_Screen8_LocationManagement_DesignLock_06Jul2026.md`
+   to restore context.
+2. `firebase use` to confirm dev, `git status --short` to confirm clean
+   start (should be empty, per tonight's closing state).
+3. Build `getUserByEmployeeNumber` (backend `auth` module) — the one
+   remaining item before Screen 8 can be built. Verify with real curl
+   tests (found account, not-found account) before moving on, same
+   discipline as tonight.
+4. Add the matching frontend call to `userManagementService.js`.
+5. Only then: begin Screen 8's actual frontend build, per the locked
+   design doc.
