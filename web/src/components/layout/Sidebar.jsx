@@ -133,6 +133,12 @@ const NAV_CONFIG = {
       ],
     },
     {
+      section: 'Tea Bar',
+      items: [
+        { label: 'Locations', icon: 'map-pin', to: '/teabar-locations' },
+      ],
+    },
+    {
       section: 'Reports & Admin',
       items: [
         { label: 'Reports',         icon: 'chart-bar',    to: '/reports' },
@@ -151,6 +157,12 @@ const NAV_CONFIG = {
         { label: 'User Management',       icon: 'user-check',   to: '/users' },
         { label: 'Menu Management',       icon: 'tool',         to: '/menu' },
         { label: 'Templates & Cycles',    icon: 'calendar',     to: '/templates' },
+      ],
+    },
+    { 
+      section: 'Tea Bar',
+      items: [
+        { label: 'Locations', icon: 'map-pin', to: '/teabar-locations' },
       ],
     },
     {
@@ -178,6 +190,12 @@ const NAV_CONFIG = {
         { label: 'All Users',         icon: 'users',      to: '/users' },
         { label: 'App Settings',      icon: 'settings',   to: '/settings' },
         { label: 'Deployment Config', icon: 'database',   to: '/deployment' },
+      ],
+    },
+    {  
+      section: 'Tea Bar',
+      items: [
+        { label: 'Locations', icon: 'map-pin', to: '/teabar-locations' },
       ],
     },
     {

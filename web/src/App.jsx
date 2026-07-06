@@ -33,6 +33,7 @@ import CafeKitchenPage        from './pages/admin/CafeKitchenPage';
 import CafeProxyOrderPage     from './pages/admin/CafeProxyOrderPage';
 import CafeOfficialPage       from './pages/admin/CafeOfficialPage';
 import CafeOfficialPendingPage from './pages/admin/CafeOfficialPendingPage';
+import TeabarLocationsPage    from './pages/admin/TeabarLocationsPage';
 import CafeHistoryPage        from './pages/admin/CafeHistoryPage';
 import ProxyBookingPage       from './pages/admin/ProxyBookingPage';
 import WalkInPage             from './pages/admin/WalkInPage';
@@ -212,7 +213,8 @@ export default function App() {
             <Route path="/feedback-admin"        element={<WithToken Page={FeedbackDashboardPage} />} />
             <Route path="/guest-approvals"       element={<WithToken Page={OfficialGuestApprovalsPage} />} />
             <Route path="/cafe-official-pending" element={<WithToken Page={CafeOfficialPendingPage} />} />
-            
+            <Route path="/teabar-locations" element={<WithToken Page={TeabarLocationsPage} />} />
+
             {/* ── Shared: Contact Us (all roles) ── */}
             <Route path="/contact"    element={<WithToken Page={ContactUsPage} />} />
 
