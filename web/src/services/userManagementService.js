@@ -63,6 +63,22 @@ export const getUsers = async () => {
   return data.users ?? [];
 };
 
+// ── GET /auth/user-by-employee-number/:officialEmployeeNumber ─────────────
+// Looks up ONE user by employee number. Used by Tea Bar Screen 8 to find an
+// attendant to assign. NOTE: unlike the other functions in this file, this
+// route's response has NO wrapper — fields come back directly, confirmed
+// by direct curl testing (06-Jul-2026), not assumed. Do not copy the
+// ".data.users"-style pattern here.
+export const getUserByEmployeeNumber = async (officialEmployeeNumber) => {
+  const token = await getToken();
+  const res = await fetch(`${BASE_URL}/auth/user-by-employee-number/${officialEmployeeNumber}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to find user');
+  return data; // { fullName, officialEmployeeNumber, uid, role }
+};
+
 // ── PATCH /auth/users/:uid/role ────────────────────────────────────────────
 // Change a user's role
 export const updateUserRole = async (uid, role) => {
