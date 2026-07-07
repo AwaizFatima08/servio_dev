@@ -11,7 +11,7 @@
 | GitHub | `AwaizFatima08/servio_dev` |
 | NAS Path | `/mnt/storage/projects/servio_dev/` |
 | Consolidated on | 03 July 2026 |
-| Last Updated | 03 July 2026 (review pass) — café flow COMPLETE; cleanup mostly done; V1.3 next. Duplicated §9 block removed; M5/M6 open items added; Pipeline/Backlog list added; §11 Reference Index added. |
+| Last Updated | 08 July 2026 — V1.3 Tea Bar backend field-tested (05-Jul); Screen 8 (Location Management) frontend COMPLETE (07/08-Jul), all open items closed. |
 
 > **Reading note.** This is the compact working board — paste it to restore context at the start of a session. The full dated history (every session log, June–July 2026) lives in `docs/Servio_CB_V1Extension_Archive.md`. Older V1-era history is in `Servio_CB_V1.md`.
 
@@ -24,7 +24,8 @@ V1 is live on prod (frozen for the 15-day tester trial — do not develop on pro
 - **V1.1 Family CRUD** — complete on backend + web. Mobile deferred to the end of V1 Extension.
 - **V1.2 Café + Outdoor Mini Café + kitchen dashboard** — **COMPLETE** on backend + web. Employee ordering, kitchen board (whole-order model), proxy/walk-in, café history, and official meals (dine-in + takeaway, same-day + future-dated), with pickup-dated billing keys. Official ordering is whole across both dining modes and both time horizons. Mobile deferred.
 - **Café cleanup** — mostly done (admin sidebar trimmed; orphan index file, dead constant, dead CSS removed; dead single-order routes labelled for later removal; `addDaysToDateStr` move examined and declined). Small remainder: a couple of stale code comments (low priority).
-- **V1.3 (Tea Bar + Tuck Shop + Bakery)** and **V1.4 (BBQ)** — scope-locked, not started.
+- **V1.3 (Tea Bar)** — backend fully field-tested (05-Jul). Web frontend: **Screen 8 (Location Management) COMPLETE** — Assign/Reassign built and tested, both carried-over open items closed, plus two real bugs found and fixed along the way (missing Firestore index, missing role in User Management's dropdown). Screens 1–7 not yet built. Tuck Shop and Bakery (also part of V1.3's original scope) not started.
+- **V1.4 (BBQ)** — scope-locked, not started.
 - Mobile build for V1.1–V1.4 is bundled at the end of V1 Extension.
 ---
 
@@ -48,7 +49,7 @@ git log --oneline -3    # confirm last session's work is here
 
 | Priority | Task | Platform | Notes |
 |----------|------|----------|-------|
-| 1 | **V1.3 design-lock** (Tea Bar + Tuck Shop + Bakery) | Paper first | Design on paper before any code. Café lifecycle (kitchen board, accept→prepared→history) is the proven template to copy. **First: verify/fix the schema doc (M4) — it has wrong field names and could mislead new-table work.** |
+| 1 | **Tea Bar frontend — Screen 1 (Self-order)** | Dev | Screen 8 (Locations) is closed — this is the next logical piece per the locked screen map, since Screen 1's location dropdown depends on real locations existing. See `TeaBar_Frontend_Screen_Map_and_History_Filters_05Jul2026.md` §1. |
 | 2 | **PROD blocker: password-reset email** | Prod | `firebaseapp.com` sender is silently dropped by Gmail/corporate filters. Need custom SMTP / SendGrid sender before the real prod launch. |
 | 3 | **PROD blocker: secrets in GDrive backup** | Dev/Prod | `service-account.json` private key + web API key sit in plaintext in the backup folder. Rotate the dev key; exclude secrets from backups. |
 | 4 | Finish café cleanup (stale comments only) | Dev | Low priority. Two stale comments left: `constants.js` (~lines 427–429, café cancel) and `cafeService.js` `cancelOrder` header. Cosmetic. |
@@ -64,7 +65,7 @@ Reference: `Servio_V1_Extension_Scope_09Jun2026.md` in `docs/`.
 |---------|-------|--------|-------|
 | V1.1 | Family Member CRUD | 🔒 LOCKED | Backend ✅ · Web ✅ · Mobile deferred |
 | V1.2 | Café + Outdoor Mini Café + kitchen dashboard | 🔒 LOCKED | Backend ✅ · Web ✅ (all slices) · Mobile deferred |
-| V1.3 | Tea Bar + Tuck Shop + Bakery — own `tuckshop_bakery_supervisor` role, own dashboard, own full order flow (accept → prepared → history), mirroring café | 🔒 LOCKED | Not started. Role split `cafe_bakery_tuckshop_supervisor → cafe_supervisor + tuckshop_bakery_supervisor` lands here. |
+| V1.3 | Tea Bar + Tuck Shop + Bakery — own `tuckshop_bakery_supervisor` role, own dashboard, own full order flow (accept → prepared → history), mirroring café | 🔒 LOCKED | **Tea Bar:** Backend ✅ (field-tested 05-Jul) · Web: Screen 8 (Locations) ✅ (07/08-Jul), Screens 1–7 not started. **Tuck Shop + Bakery:** not started. Role split `cafe_bakery_tuckshop_supervisor → cafe_supervisor + tuckshop_bakery_supervisor` lands here. |
 | V1.4 | BBQ | 🔒 LOCKED | Not started |
 | V1.5 | Dashboards + analytics + reporting + billing | Design after V1.4 | — |
 | V1.6 | Notifications + reporting alignment | Design after V1.4 | — |
@@ -87,7 +88,8 @@ Sorted by priority. **HIGH / prod-blockers first** — do not let these reach re
 | # | Item | Notes |
 |---|------|-------|
 | P1 | Seed prod appSettings | Prod project needs `maxFamilyMembersPerEmployee: 12` + `familyMemberFeatureActive: true` seeded (they were missing on dev and had to be seeded — prod needs the same). |
-| P2 | Dev test-data wipe | Clear `CAFE_TEST_*` menuItems, the `serviceMenuConfigs/cafe` resolver output, the 2 legacy items (`Cardimom Tea` — misspelled — and `Black Coffee`), and all accumulated `cafeOrders` test fixtures (incl. KEYTEST/DINEIN orders). Fold into the wipe-prod-after-test-run plan. |
+| P2 | Dev test-data wipe | Clear `CAFE_TEST_*` menuItems, the `serviceMenuConfigs/cafe` resolver output, the 2 legacy items (`Cardimom Tea` — misspelled — and `Black Coffee`), and all accumulated `cafeOrders` test fixtures (incl. KEYTEST/DINEIN orders). **Also, added 08-Jul:** four leftover `teabarLocations` test documents — `CCR I` (name collides confusingly with the real, active `CCR I - Main Building`), `Fix Verification Test`, `Test Location - Delete Me`, `CCR II - Main Building`. Fold into the wipe-prod-after-test-run plan. |
+| P3 | Prod-side Firestore index for `teabarLocations` show-inactive query | Added 08-Jul. Only built on dev (`servio-dev-55d2d`) so far — needed on prod before any Tea Bar prod deploy. Not urgent yet (Tea Bar isn't going to prod before V1.5/billing, per existing locked decision), but flagged now so it isn't forgotten. |
 
 ### Medium
 
@@ -113,6 +115,9 @@ Sorted by priority. **HIGH / prod-blockers first** — do not let these reach re
 | L8 | Two stale code comments | `constants.js` (~427–429) + `cafeService.js` `cancelOrder` header describe pre-cancellation-flow rules. Cosmetic. |
 | L9 | Dead single-order café routes | Labelled in `cafeRoutes.js` (dead-code register). Superseded by group versions. Verify no frontend caller, then remove before prod. **Do NOT remove `/orders/:orderId/cancel` — still live (employee cancel screen).** |
 | L10 | Crossed test-account emails | `cafe.supervisor@…` vs `supervisor.cafe@…` are swapped between Rashid and Majid. Cosmetic dev-only; tidy before the test run. |
+| L11 | `listLocations`'s stale code comment | Claims the composite index "has not yet been created" — it exists, and was confirmed existing 06-Jul. Cosmetic, same category as café's already-parked stale-comment cleanup. Fix whenever this file is next touched for another reason. |
+| L12 | Tea Bar self-order route's role list too broad | Manager and other contractual-staff roles can currently self-order Tea Bar when they shouldn't. Left as-is deliberately (relies on audit trail + staff discipline). **Must be cleaned before prod.** |
+| L13 | `CCR II - Main Building` name discrepancy | 07-Jul session notes described it as `"CCR II -Main Building"` (missing space); 08-Jul direct Firestore read shows `"CCR II - Main Building"` (space present). Not chased down — either already fixed at some point, or the earlier note was imprecise. |
 
 ### Carried from V1 (before full rollout)
 
@@ -151,7 +156,8 @@ Note: café `rateTargetKey` is now **pickup/consumption-dated** (FFL convention,
 - Seed prod appSettings (P1 above).
 - Fix password-reset email (H1) and rotate/exclude secrets (H2).
 - Mobile env-config before any prod mobile build: `app.config.js` + EAS profiles + prod `google-services.json` (api.js/firebase.js currently hardcoded to dev; reconcile `org.homilabs.servio` vs `com.homilabs.servio`).
-- Wipe dev/prod test data (P2).
+- Wipe dev/prod test data (P2), including the Tea Bar location test documents added 08-Jul.
+- Build the prod-side Tea Bar `teabarLocations` composite index (P3).
 - After the test run: WIPE prod + relaunch as real prod.
 ---
 
@@ -247,6 +253,8 @@ Each line is the rule you must not break. The dated reasoning behind each lives 
 **Café billing key = pickup date (01-Jul):** café cost is incurred on the consumption/pickup date. `rateTargetKey` = `{effectivePickupDate}_cafe_{itemId}`, where advance orders use the chosen pickup date and same-day orders use the order date.
 
 **Future official dine-in — Route 2 / Proposal A (02-Jul):** future-dated official dine-in rides the `anytime_takeaway` advance-order engine with `diningMode: dine_in`. Same-day dine-in stays the quick `cafe_hours` path. The advance path always requires a serving time. Accepted oddity: an advance dine-in carries `orderType: anytime_takeaway` — "advance order," not literally takeaway. Order type NOT renamed.
+
+**Tea Bar location management — inactive locations get zero actions except Edit (08-Jul):** an inactive location cannot be Assigned, Reassigned, or Unassigned — absolute rule, not selectively enforced per action. Edit remains the sole path back to active. "Show inactive" toggle defaults to off.
 ---
 
 ## 10. Tokens / Quick Reference
@@ -270,6 +278,11 @@ This board (`docs/Servio_Command_Board_V1_Extension.md`) is the one to paste at 
 | **Open question — does BBQ need family-member tagging?** | Unresolved — decide at V1.4 design-lock | `family_member_flow.md` excludes BBQ from family tagging. But the `_memberHasTransactions()` stub (M5 above) is written to also check `bbqOrders` for `consumerFamilyMemberId`, implying BBQ orders CAN be tagged to a family member. These two sources disagree. Resolve explicitly on paper before BBQ (V1.4) design-lock — don't let the stub's assumption default the decision by accident. |
 | Authoritative current Firestore schema | `Servio_V1_Schema_Reference.docx` | Cross-check against live data before trusting it for new tables — see M4. |
 | Full V1 Extension scope definition | `Servio_V1_Extension_Scope_09Jun2026.md` | Referenced in §3 above. |
+| Tea Bar frontend screen map, access matrix, History filters | `TeaBar_Frontend_Screen_Map_and_History_Filters_05Jul2026.md` | Locked 8-screen list, per-role access matrix, and the Screen 6 (Shared History) filter design. Read before starting Screen 1. |
+| Screen 8 (Location Management) detailed design | `TeaBar_Screen8_LocationManagement_DesignLock_06Jul2026.md` | Now historical record of a completed, closed screen — kept for reference on the reasoning behind Assign/Reassign's design (role-gate nicety vs backend safety check, v1 simplifications on old-location naming and attendant-name display). |
+
+---
+
 ## Update Entry - 03-Jul-2026 23:15
 
 ### V1.3 Tea Bar — Locations + Menu CLOSED (tested), Orders slice built (tested)
@@ -363,6 +376,7 @@ Cancel, Dashboard, Issue, and the auto-cancel job (which additionally needs the 
 4. Test History endpoints (can be done anytime, including before the window opens).
 5. Auto-cancel needs a genuinely stale pending order sitting untouched until 17:15 to prove itself — may need to deliberately leave one order un-issued during the window to test this.
 6. After Tea Bar backend is fully field-tested: move to Tea Bar **web frontend** (per Homi's stated plan).
+
 ## Update Entry — 05-Jul-2026 (full-day field-testing session)
 
 ### Status
@@ -426,6 +440,7 @@ roles. Three open gaps flagged before frontend design proceeds further:
 whether a Tea Bar location-management screen already exists, whether the
 self-order menu should display as one flat list or grouped by foodTypeName,
 and what happens immediately after an employee submits a self-order.
+
 ## Update Entry — 06-Jul-2026 (Tea Bar Screen 8 — design lock + backend session)
 
 ### Status
@@ -667,14 +682,58 @@ alongside a live match).
 - Self-order route's role list too broad — parked, not urgent, must clean
   before prod.
 
+## Update Entry — 08-Jul-2026 (Tea Bar Screen 8 — Assign/Reassign, final piece + two follow-on fixes)
+
+### Session Scope
+Screen 8 — Assign/Reassign attendant flow (final piece), plus two follow-on fixes
+
+### Completed Tonight
+
+**1. Assign/Reassign attendant flow — built, tested, both directions confirmed live:**
+- Search box calling `getUserByEmployeeNumber` (already built/tested last session, now finally exercised from a real screen).
+- Found-person card showing name, employee number, role.
+- Role gate: "Confirm assignment" disabled unless role is exactly `teabar_attendant`, with a plain-language explanation shown otherwise — confirmed both directions (Nadir Shah, `cafe_waiter`, correctly blocked; Shahid Hussain, `teabar_attendant`, correctly enabled).
+- Wired to `assignTeabarAttendant` — first real frontend call to this function, the 5th and last of the five location-service functions to be exercised.
+- **Verified live:** assigning an attendant already covering one location to a second location correctly auto-clears the first (per the backend's documented one-attendant-one-location guarantee) — confirmed via UI observation AND a full browser refresh afterward, ruling out "looked right in memory only."
+
+### 2. Open Item 1 (Unassign's Cancel path)
+Closed, verified live, not just re-confirmed by reading code. Clicking Cancel on the native `window.confirm` leaves the location's covered state unchanged; no network call fires.
+
+### 3. Open Item 2 (Edit-and-Save correctness on deactivated locations)
+Closed, verified two ways:
+- Direct Firestore read confirmed both known deactivated test locations (`Test Location - Delete Me`, `CCR II - Main Building`) have correct `isActive: false` and intact `locationName`.
+- Once the "show inactive" toggle (below) existed, the actual UI-level check was finally done: opening Edit on a deactivated location shows the Active checkbox correctly unchecked, no stale error state.
+
+### 4. New: "Show inactive" toggle built
+Was a real gap — no way to view/edit/reactivate a deactivated location existed anywhere in the app before tonight.
+- Checkbox added next to Refresh, off by default (matches existing soft-delete convention).
+- Per locked decision: **inactive rows get zero actions except Edit** — no Assign/Reassign/Unassign on an inactive location, full stop, not case-by-case.
+- **Caught a real, previously-undetected bug in the process:** `listLocations`'s "include inactive" query path had no Firestore composite index — exactly the risk flagged (but not yet checked) in the 05-Jul-2026 screen-map document, §6 Issue 2. Error was `FAILED_PRECONDITION`, Firestore auto-generated the correct index-creation link from the failed query, index built and confirmed Enabled in the Firebase console before trusting the toggle. Confirmed afterward against the real `firestore.indexes.json` — two separate index entries for `teabarLocations` now exist (active-only 3-field query; show-all 2-field query), both legitimate, not a duplicate.
+
+### 5. New: User Management's role dropdown was missing `teabar_attendant` entirely
+A real gap, not cosmetic. Discovered when trying to find a second test account to hold this role and finding no way to grant it through the app at all (the only existing `teabar_attendant` account, Shahid Hussain, had been set by hand directly in Firestore, bypassing the app). Root cause: backend's `constants.js` `ROLES` object already had it; `UserManagementPage.jsx`'s own separately-maintained `ROLES` array simply never got updated. Fixed (added to both the array and `ROLE_LABELS`, positioned to match backend ordering) and verified end-to-end: granted `teabar_attendant` to Rashid Khan (CLB00020) through the app, confirmed his role is correctly recognized by the Assign flow, completed a real assignment.
+
+### Real Findings — Recorded Honestly
+
+- **Four inactive `teabarLocations` documents exist, not two.** Command Board previously only tracked `Test Location - Delete Me` and `CCR II - Main Building`. Tonight's toggle also surfaced two untracked leftover test documents: **`CCR I`** (name collides confusingly with the real, active `CCR I - Main Building` — worth deleting first, given the confusion risk) and **`Fix Verification Test`**. Folded into existing backlog item P2 (Dev test-data wipe).
+- **CCR II - Main Building's name** — last session's note described it as `"CCR II -Main Building"` (missing space); tonight's direct Firestore read shows `"CCR II - Main Building"` (space present). Discrepancy noted, not chased down — either it was already fixed at some point or the earlier note was imprecise. Now tracked as backlog item L13.
+- **CCR II - Main Building was deliberately, temporarily reactivated** mid-session to test the Edit flow live, then deliberately deactivated again before session close. Confirmed back to `isActive: false` before backup.
+
+### New Backlog Items
+
+- **No prod-side Firestore index exists yet for `teabarLocations`'** show-inactive query — only built on dev (`servio-dev-55d2d`) tonight. Not urgent (Tea Bar isn't going to prod before V1.5/billing per existing locked decision), but worth a note now so it isn't forgotten months from now. Tracked as P3.
+
+### Decisions Locked Tonight
+
+- Inactive locations get **zero actions except Edit** — absolute rule, not selectively enforced per action.
+- "Show inactive" toggle defaults to **off**.
+
+### Not Done — carries to next session
+None — Screen 8 is now genuinely, fully complete. All prior open items closed, both new findings during tonight's work were fixed and verified (not just logged for later), not deferred.
+
 ### Next Session — Starting Point
-1. Paste this entry to restore context.
-2. `firebase use` to confirm dev; `git status --short` to confirm clean
-   start (should be empty, per tonight's closing state).
-3. Build the Assign/Reassign flow — search box → `getUserByEmployeeNumber`
-   → role check → `assignAttendant`. This is the last piece of Screen 8.
-4. Once Assign works, retest Unassign's Cancel path (Open Item 1 above).
-5. Quick confirm on the two deactivated test locations (Open Item 2
-   above).
-6. Only once all of the above is done: Screen 8 is genuinely complete —
-   move to the next Tea Bar frontend screen per the locked screen map.
+
+1. Paste this entry (plus tonight's updated top-of-board summary) to restore context.
+2. `firebase use` to confirm dev; `git status --short` to confirm clean start.
+3. **Screen 8 is closed.** Per the locked screen map's build order, move to the next Tea Bar frontend screen — check `TeaBar_Frontend_Screen_Map_and_History_Filters_05Jul2026.md` §1 for the agreed order (Screen 1, Self-order, is the next logical piece since it's what actually depends on locations existing).
+4. Small housekeeping carried forward, not blocking: prod-side Tea Bar index still needed before any prod deploy (not yet, per V1.5 gate) — tracked as P3.

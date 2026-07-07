@@ -154,6 +154,11 @@
   cursor: pointer;
 }
 
+.modalConfirmBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .editBtn {
   padding: 5px 10px;
   border: 1px solid #ccc;
