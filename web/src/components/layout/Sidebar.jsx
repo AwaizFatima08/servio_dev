@@ -35,6 +35,13 @@ const NAV_CONFIG = {
       ],
     },
     {
+      section: 'Tea Bar',
+      items: [
+        { label: 'Tea Bar',           icon: 'cup',     to: '/teabar-order' },
+        { label: 'My Tea Bar Orders', icon: 'receipt', to: '/my-teabar-orders' },
+      ],
+    },
+    {
       section: 'Club',
       items: [
         { label: 'Events',        icon: 'calendar-event', to: '/events' },

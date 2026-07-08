@@ -25,6 +25,8 @@ import MyProfilePage      from './pages/employee/MyProfilePage';
 import MyFamilyPage       from './pages/employee/MyFamilyPage';
 import CafePage           from './pages/employee/CafePage';
 import MyCafeOrdersPage  from './pages/employee/MyCafeOrdersPage';
+import TeabarSelfOrderPage from './pages/employee/TeabarSelfOrderPage';
+import MyTeabarOrdersPage  from './pages/employee/MyTeabarOrdersPage';
 
 // ── Supervisor pages ──
 import IssuanceDashboardPage  from './pages/admin/IssuanceDashboardPage';
@@ -182,6 +184,8 @@ export default function App() {
             <Route path="/my-family"    element={<WithToken Page={MyFamilyPage} />} />
             <Route path="/cafe"         element={<WithToken Page={CafePage} />} />
             <Route path="/my-cafe-orders" element={<WithToken Page={MyCafeOrdersPage} />} />
+            <Route path="/teabar-order"     element={<WithToken Page={TeabarSelfOrderPage} />} />
+            <Route path="/my-teabar-orders" element={<WithToken Page={MyTeabarOrdersPage} />} />
 
 
             {/* ── Supervisor screens ── */}
