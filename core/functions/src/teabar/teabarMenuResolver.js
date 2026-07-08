@@ -43,13 +43,16 @@ const TEABAR_SERVICE_LABEL = 'Tea Bar';
 // foodTypes lookup — cached per call to avoid N reads. Duplicated from
 // cafeMenuResolver.js rather than shared, matching this project's existing
 // convention of each service module being self-contained.
-async function _loadFoodTypeNameMap() {
+async function _loadFoodTypeMap() {
   const snap = await db.collection(COLLECTIONS.FOOD_TYPES).get();
   const map = {};
   snap.docs.forEach((d) => {
     const data = d.data();
     if (data && data.foodTypeCode) {
-      map[data.foodTypeCode] = data.displayName || data.foodTypeCode;
+      map[data.foodTypeCode] = {
+        displayName: data.displayName || data.foodTypeCode,
+        sortOrder: typeof data.sortOrder === 'number' ? data.sortOrder : 999,
+      };
     }
   });
   return map;
@@ -75,26 +78,41 @@ async function rebuildTeabarMenu({ tenantId, triggeredByUid }) {
     .where('isVisible', '==', true)
     .get();
 
-  // 2. Load food type name map for denormalisation.
-  const foodTypeMap = await _loadFoodTypeNameMap();
+  // 2. Load food type map (name + sortOrder) for denormalisation and grouping.
+  const foodTypeMap = await _loadFoodTypeMap();
 
   // 3. Build ONE flat items array (no beverages[] split — see file header).
-  //    Sort by sortOrder ascending.
+  //    Grouped by food type first — using foodTypes.sortOrder, the
+  //    admin-controlled display order for food types themselves — then by
+  //    each item's own sortOrder within that food type. Matches the locked
+  //    design decision in
+  //    TeaBar_Frontend_Screen_Map_and_History_Filters_05Jul2026.md §1a.
+  //    Fixed 08-Jul-2026 — this resolver previously sorted by item
+  //    sortOrder only, with no food-type grouping at all; caught while
+  //    building Screen 1.
   const items = snap.docs
     .map((d) => {
       const m = d.data();
+      const foodType = foodTypeMap[m.foodTypeCode] || { displayName: m.foodTypeCode, sortOrder: 999 };
       return {
-        itemId:        m.itemId || d.id,
-        itemName:      m.itemName,
-        foodTypeCode:  m.foodTypeCode,
-        foodTypeName:  foodTypeMap[m.foodTypeCode] || m.foodTypeCode,
-        baseUnit:      m.baseUnit,
-        sortOrder:     typeof m.sortOrder === 'number' ? m.sortOrder : 999,
-        unitRate:      null,            // FFL is retrospective
-        rateType:      m.rateType || 'retrospective',
+        itemId:             m.itemId || d.id,
+        itemName:           m.itemName,
+        foodTypeCode:       m.foodTypeCode,
+        foodTypeName:       foodType.displayName,
+        baseUnit:           m.baseUnit,
+        sortOrder:          typeof m.sortOrder === 'number' ? m.sortOrder : 999,
+        unitRate:           null,            // FFL is retrospective
+        rateType:           m.rateType || 'retrospective',
+        _foodTypeSortOrder: foodType.sortOrder, // temp, sort key only — stripped below
       };
     })
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .sort((a, b) => {
+      if (a._foodTypeSortOrder !== b._foodTypeSortOrder) {
+        return a._foodTypeSortOrder - b._foodTypeSortOrder;
+      }
+      return a.sortOrder - b.sortOrder;
+    })
+    .map(({ _foodTypeSortOrder, ...item }) => item); // strip temp field before writing to Firestore
 
   // 4. Write the fat document.
   const now = new Date();
