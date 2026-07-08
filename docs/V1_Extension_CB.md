@@ -731,9 +731,179 @@ A real gap, not cosmetic. Discovered when trying to find a second test account t
 ### Not Done — carries to next session
 None — Screen 8 is now genuinely, fully complete. All prior open items closed, both new findings during tonight's work were fixed and verified (not just logged for later), not deferred.
 
-### Next Session — Starting Point
+----------------------------------------------------------
+## Update Entry - 08-Jul-2026 18:32
 
-1. Paste this entry (plus tonight's updated top-of-board summary) to restore context.
-2. `firebase use` to confirm dev; `git status --short` to confirm clean start.
-3. **Screen 8 is closed.** Per the locked screen map's build order, move to the next Tea Bar frontend screen — check `TeaBar_Frontend_Screen_Map_and_History_Filters_05Jul2026.md` §1 for the agreed order (Screen 1, Self-order, is the next logical piece since it's what actually depends on locations existing).
-4. Small housekeeping carried forward, not blocking: prod-side Tea Bar index still needed before any prod deploy (not yet, per V1.5 gate) — tracked as P3.
+### Status
+V1.3 Tea Bar frontend — Screens 1 (Self-order) and 2 (My order history)
+built, wired, committed, pushed, backed up. One backend bug found and fixed
+mid-session (pre-existing, not introduced today) before Screen 1 build
+began.
+
+### Backend fix — teabarMenuResolver.js
+Pre-build technical check (flagged in screen map §7) surfaced a real gap:
+the resolver sorted items by `sortOrder` (item-level) only — no food-type
+grouping, despite the locked design decision at screen map §1a ("items
+silently sorted by food type"). Root cause: resolver never implemented the
+grouping; only the per-item order was ever coded.
+
+Fix: `_loadFoodTypeMap()` now also loads each `foodTypes` doc's own
+`sortOrder`; the items array sorts by food-type `sortOrder` first, then
+item `sortOrder` within each group. Temp sort key stripped before write —
+no new fields persisted to Firestore, additive-only respected.
+
+Verified: mock-data logic test (including unmatched-foodTypeCode fallback
+to 999), then real dev-data test using `CAFE_TEST_TEA` deliberately edited
+to `foodTypeCode: "BEV"` (no matching `foodTypes` doc) — confirmed landed
+last in the resolved array as expected, both via direct Firestore read and
+later via the live Screen 1 UI.
+
+Caught one process gap during this fix: first rebuild-menu call was made
+before `firebase deploy --only functions` had run, so it silently re-ran
+the OLD logic and looked like the fix had failed. Re-deployed, re-ran,
+confirmed correct. No repeat of this mistake for the frontend work.
+
+### Frontend — new files (all committed, pushed)
+- `web/src/services/teabarMenuService.js` — `getTeabarMenu(token)`
+- `web/src/services/teabarOrderService.js` — `createSelfOrder`,
+  `getMyTeabarHistory`, `cancelTeabarOrder`
+- `web/src/pages/employee/TeabarSelfOrderPage.jsx` + `.module.css`
+- `web/src/pages/employee/MyTeabarOrdersPage.jsx` + `.module.css`
+- `App.jsx` — routes `/teabar-order`, `/my-teabar-orders`
+- `Sidebar.jsx` — new "Tea Bar" section under `employee` role nav
+
+### Screen 1 (Self-order) — design decisions locked this session
+- Two-step flow: location chosen FIRST (Step A, tap-to-select cards), menu
+  + cart shown only after (Step B) — explicit decision, location is NOT a
+  modal field like café's "Order for".
+- Changing location mid-browsing clears the cart and restarts fully — same
+  behaviour as post-order "Order again". No partial-reset path exists.
+- Hours (07:30–13:00, 14:00–17:15) shown as plain info text, NOT actively
+  blocked client-side — matches café's actual precedent (checked directly
+  in `CafePage.jsx` before assuming otherwise). Backend's real rejection
+  message surfaces in the modal if someone orders outside hours.
+- Success screen structurally copies café's `SuccessScreen` exactly, plus
+  one added line showing pickup location (own judgement call, not locked).
+
+### Screen 2 (History) — simplifications vs café, confirmed correct by
+reading backend directly (not assumed):
+- Whole-group cancel only — `cancelTeabarOrderGroup` cancels every line in
+  a `bookingGroupId` atomically; no per-line cancel exists.
+- No cancel-reason picker — backend route takes no reason/note field at
+  all; plain `window.confirm()` used, matching `TeabarLocationsPage.jsx`'s
+  existing unassign pattern.
+- No amount/"Rate pending" per line — `getEmployeeTeabarHistory`'s item
+  objects don't return `unitRate`/`amount` at all. Flagged as a real data
+  gap, not built around with a guess.
+- No date-range picker — backend always returns fixed last-30-days window.
+- Active/History tab split is MY OWN default (orderStatus 'placed' AND
+  issueStatus not 'issued' = Active) — not explicitly locked on paper,
+  confirm or revise next session if it doesn't feel right in practice.
+
+### Verified live in browser (08-Jul, ~18:29 PKT)
+- Screen 1 renders, location picker → menu flow works.
+- Food-type grouping confirmed end-to-end: Hot Beverages → Snacks → broken-
+  foodType item last, exactly as the resolver fix intended.
+- Hours enforcement confirmed: order attempted at 18:29 PKT (past 17:15
+  close) correctly rejected with the backend's real error message in the
+  modal — no client-side pre-check needed, works as designed.
+
+### NOT yet tested — needs Tea Bar open (07:30–13:00 or 14:00–17:15 PKT)
+- A successful order placement end-to-end (success screen content, order
+  actually landing in `teabarOrders`).
+- "Order again" full reset behaviour.
+- Screen 2 rendering against real order data, and the cancel flow.
+
+### Commits (all pushed to origin/main, all backed up)
+- `31e06e6` — teabarMenuResolver.js food-type sort fix
+- `6df7a72` — Tea Bar routes + Sidebar nav wiring
+- `af06efd` — Tea Bar frontend: services + Screen 1 + Screen 2 page files
+
+### Backup runs
+- 17:35:11 — covers resolver fix only (ran before frontend files existed)
+- 18:32:25 — covers everything above; local rsync + git clean + GDrive
+  sync all confirmed complete
+
+### Known open item (parked, not a bug to fix urgently)
+`CAFE_TEST_TEA`'s `foodTypeCode` is still deliberately set to `"BEV"` (no
+matching `foodTypes` doc) from this session's sort-order test. Needs
+restoring to a real value before it confuses future testing — low priority,
+does not block anything.
+
+## Update Entry — 09-Jul-2026 (Tea Bar Screen 3 — Live Dashboard)
+
+### Session Scope
+Screen 3 (Live Dashboard) — built, wired, deployed, verified live for two of
+three states.
+
+### Completed Tonight
+- `teabarOrderService.js` (web) — added `getTeabarDashboard` and
+  `issueTeabarOrderGroup`, both hitting existing backend routes.
+- `TeabarDashboardPage.jsx` + `.module.css` — new page, one card per
+  bookingGroupId, single "Handed over" action (no accept/prepare stage —
+  confirmed Tea Bar has no kitchen concept), attendant-level Cancel with
+  inline confirm, 30s auto-refresh, dedicated "no location assigned" state
+  (distinct from the generic error banner).
+- `App.jsx` — route `/teabar-dashboard` wired.
+- `Sidebar.jsx` — **real pre-existing gap found and fixed:** `NAV_CONFIG`
+  had no `teabar_attendant` entry at all; role fell through to the generic
+  `employee` menu, so the attendant had no way to reach any Tea Bar
+  operational screen. Added a `teabar_attendant` section (Home, Dashboard).
+
+### Bug caught and fixed mid-session
+Stray `fv` characters landed after the import statement in `App.jsx`
+(paste artifact), producing `Uncaught ReferenceError: fv is not defined` —
+a whole-app blank-page crash on `servio-dev-55d2d.web.app`, not scoped to
+Tea Bar. Build and deploy both succeeded despite the error (invalid token
+sat after a complete statement, so it wasn't caught until runtime). Fixed,
+rebuilt, redeployed, confirmed clean.
+
+### Verified live tonight
+- Shahid Hussain (FFL00105, assigned to CCR I – Main Building): dashboard
+  loads, header correctly shows "CCR I – Main Building" from the backend
+  response, empty state ("No orders waiting right now") renders correctly,
+  auto-refresh and manual refresh both working.
+- Ahmed Khan (FFL00003, unassigned): "No location assigned yet" state
+  renders correctly, no error banner shown alongside it (confirms the
+  `NOT_ASSIGNED_MSG` guard is working as designed).
+
+### New finding — not a regression, parked
+`RoleDashboard` in `App.jsx` only special-cases `employee` and
+`accounts_supervisor` in its role switch; every other role (including
+`teabar_attendant`, `mess_supervisor`, `cafe_supervisor`, `manager`,
+`admin`) falls through to a generic "coming in the next phase" placeholder
+on `/dashboard`. Pre-existing, not caused tonight — became visible tonight
+because `teabar_attendant` now has a working sidebar Home link pointing at
+it. Not blocking, not addressed tonight.
+
+### NOT yet tested — needs Tea Bar open (07:30–13:00 or 14:00–17:15 PKT)
+Carried forward from 08-Jul, plus one new item:
+- A successful order placement end-to-end (success screen content, order
+  actually landing in `teabarOrders`).
+- "Order again" full reset behaviour.
+- Screen 2 rendering against real order data, and the cancel flow.
+- **Screen 3, added 09-Jul:** an order actually appearing on the dashboard
+  once placed, the "Handed over" action, and Cancel from Screen 3 itself.
+  Only the empty and not-assigned states were verified tonight — the
+  populated/working path remains untested.
+
+### Known open item (parked, unchanged)
+`CAFE_TEST_TEA`'s `foodTypeCode` still deliberately set to `"BEV"` from the
+08-Jul sort-order test. Still low priority, still not restored.
+
+### Screen 6 — decision made, not yet actioned
+Two real backend gaps confirmed present in `getTeabarHistory` (only
+`locationId` filtering exists; no Day or Employee Number filter) and no
+Manager-accessible route exists for Shared History at all (only
+`/orders/history/admin`, admin/super_admin only — Manager has no route
+despite being granted read-only all-locations access in the screen map's
+access matrix). Decision: fix backend gaps before building Screen 6's
+frontend — not building a reduced version first.
+
+### Next session
+Screen 4 (Proxy-order). Reuse the `getUserByEmployeeNumber` lookup pattern
+already built and verified in `TeabarLocationsPage.jsx`'s Assign flow
+(returns `{ fullName, officialEmployeeNumber, uid, role }`) for resolving
+the target employee — not café's `getFamilyForEmployee` workaround, since
+Tea Bar orders have no family-member consumer concept at all (confirmed:
+no `consumerType` field anywhere in a Tea Bar order document).
