@@ -52,3 +52,27 @@ export const cancelTeabarOrder = async (token, bookingGroupId) => {
   if (!res.ok) throw new Error(data.message || 'Failed to cancel order');
   return data.data;
 };
+
+// ── GET /teabar/orders/dashboard — attendant's live counter view ────────
+// No params — backend always resolves the caller's own assigned location
+// server-side; a locationId sent from here would be ignored anyway.
+export const getTeabarDashboard = async (token) => {
+  const res = await fetch(`${BASE_URL}/teabar/orders/dashboard`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to load dashboard');
+  return data.data;
+};
+
+// ── PATCH /teabar/orders/:bookingGroupId/issue — "Handed over" tap ──────
+// No body — issuedByUid always comes from the verified token, server-side.
+export const issueTeabarOrderGroup = async (token, bookingGroupId) => {
+  const res = await fetch(`${BASE_URL}/teabar/orders/${bookingGroupId}/issue`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to mark order as issued');
+  return data.data;
+};

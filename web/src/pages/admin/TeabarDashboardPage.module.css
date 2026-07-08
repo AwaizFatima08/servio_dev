@@ -1,0 +1,374 @@
+/* web/src/pages/admin/TeabarDashboardPage.module.css
+   Tea Bar Live Dashboard — Screen 3. Same design language as
+   CafeKitchenPage.module.css (Playfair headings, DM Sans body, #0F6E56
+   green) so Tea Bar's operational screens read as one product with café's,
+   matching Screens 1 and 2's existing styling. */
+
+.page {
+  padding: 28px 32px;
+  min-height: 100%;
+}
+
+/* ─── Header ─── */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #042C1E;
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.autoLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.autoLabel input {
+  accent-color: #0F6E56;
+}
+
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  background: #0F6E56;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.refreshBtn:hover:not(:disabled) {
+  background: #042C1E;
+}
+
+.refreshBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─── Error ─── */
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ─── Loading ─── */
+.detailLoading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  color: #6b7280;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #0F6E56;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Empty state ─── */
+.emptyState {
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 48px 24px;
+  text-align: center;
+  color: #9ca3af;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.emptyState i {
+  font-size: 36px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.emptyState p {
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ─── Not-assigned state — its own calm screen, not a red error ───
+   No equivalent on café's board, since café has no per-attendant location
+   assignment concept. */
+.notAssignedCard {
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 56px 24px;
+  text-align: center;
+  color: #6b7280;
+  font-family: 'DM Sans', sans-serif;
+  max-width: 480px;
+  margin: 40px auto 0;
+}
+
+.notAssignedCard i {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 16px;
+  color: #9ca3af;
+}
+
+.notAssignedCard h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  color: #042C1E;
+  margin: 0 0 8px 0;
+}
+
+.notAssignedCard p {
+  font-size: 14px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ─── Order grid ─── */
+.orderGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* Single card style — no placed/accepted/overrun tones, since Tea Bar has
+   only one working state (confirmed via TEABAR_ORDER_STATUS: PLACED and
+   CANCELLED only). Uses the same amber "needs attention" accent as café's
+   .orderCardPlaced, since every card here IS an unhandled, waiting order. */
+.orderCard {
+  background: white;
+  border: 2px solid #fcd34d;
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 2px 12px rgba(217, 119, 6, 0.08);
+}
+
+/* Top row: just the source badge — no pickup time, no dining mode */
+.cardTop {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sourceBadge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #0F6E56;
+  background: #EBF9F4;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid #3DBFA0;
+}
+
+/* Consumer line */
+.consumerLine {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.consumerLine i {
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+.viaEmp {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+/* Item line */
+.itemLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.itemName {
+  font-size: 16px;
+  font-weight: 600;
+  color: #042C1E;
+}
+
+.qty {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0F6E56;
+}
+
+/* Actions */
+.cardActions {
+  margin-top: 2px;
+}
+
+/* Single action button — no separate Accept/Prepare split, since Tea Bar
+   has no kitchen stage. "Handed over" is the only working action. */
+.issueBtn {
+  width: 100%;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 0;
+  background: #0F6E56;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.issueBtn:hover:not(:disabled) {
+  background: #042C1E;
+}
+
+.issueBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Cancel — attendant-level, not supervisor-gated (Tea Bar's cancel rule is
+   the opposite of café's: the attendant themselves has cancel authority at
+   their own counter), so it's always shown, not role-conditional. */
+.cancelLink {
+  width: 100%;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 0;
+  background: none;
+  color: #b91c1c;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cancelLink:hover { background: #fef2f2; }
+
+.cancelConfirm {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cancelConfirmText {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+}
+.cancelConfirmBtns {
+  display: flex;
+  gap: 6px;
+}
+.cancelConfirmYes {
+  flex: 1;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 0;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cancelConfirmYes:hover:not(:disabled) { background: #b91c1c; }
+.cancelConfirmYes:disabled { opacity: 0.6; cursor: not-allowed; }
+.cancelConfirmNo {
+  flex: 1;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 0;
+  background: white;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cancelConfirmNo:hover:not(:disabled) { background: #f9fafb; }
+.cancelConfirmNo:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Refresh note */
+.refreshNote {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: right;
+  margin-top: 16px;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 640px) {
+  .page {
+    padding: 20px 16px;
+  }
+  .orderGrid {
+    grid-template-columns: 1fr;
+  }
+}

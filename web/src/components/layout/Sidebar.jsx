@@ -101,6 +101,16 @@ const NAV_CONFIG = {
     },
   ],
 
+  teabar_attendant: [
+    {
+      section: 'Tea Bar Operations',
+      items: [
+        { label: 'Home',      icon: 'home', to: '/dashboard' },
+        { label: 'Dashboard', icon: 'cup',  to: '/teabar-dashboard' },
+      ],
+    },
+  ],
+
   cafe_waiter: [
     {
       section: 'Café Operations',
