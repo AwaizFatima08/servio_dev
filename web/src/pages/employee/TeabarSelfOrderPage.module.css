@@ -1,0 +1,429 @@
+/* ─────────────────────────────────────────
+   TeabarSelfOrderPage.module.css
+   HomiLabs | Servio | V1.3 (Tea Bar — Self-order, Screen 1)
+
+   Structural copy of CafePage.module.css (08-Jul-2026) — same brand tokens,
+   same class names for every element Tea Bar shares with café. Five new
+   classes added for the parts café doesn't have: .locationGrid,
+   .locationCard, .locationStrip, .changeLocationBtn, .successLocation.
+
+   Brand tokens (matching the rest of the app):
+     deep green   #042C1E
+     mid green    #0F6E56
+     bright green #3DBFA0
+     pale green   #EBF9F4
+     accent gold  #D4960A
+   ───────────────────────────────────────── */
+
+/* ── Page ─────────────────────────────────────────────────────────────── */
+.page {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Page header ──────────────────────────────────────────────────────── */
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pageTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #042C1E;
+  margin: 0 0 4px;
+}
+
+.pageSub {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+}
+
+/* ── Loading / error banners ──────────────────────────────────────────── */
+.loading {
+  color: #6b7280;
+  padding: 40px 0;
+  text-align: center;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+}
+
+.errorBanner {
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ── Empty card ("menu is being set up" / "no locations") ────────────────── */
+.emptyCard {
+  background: #fff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 14px;
+  padding: 36px 28px;
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 40px;
+  color: #3DBFA0;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.emptyTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  color: #042C1E;
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.emptyBody {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.6;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ── NEW: Location grid — Step A ─────────────────────────────────────────── */
+.locationGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.locationCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 16px;
+  background: #fff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #042C1E;
+  text-align: center;
+}
+.locationCard:hover { border-color: #0F6E56; background: #EBF9F4; }
+.locationCard i { font-size: 26px; color: #0F6E56; }
+
+/* ── NEW: Location strip — Step B, shown above the menu ──────────────────── */
+.locationStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #EBF9F4;
+  border: 1px solid #C6F0E5;
+  border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #042C1E;
+}
+.locationStrip i { color: #0F6E56; margin-right: 4px; }
+
+.changeLocationBtn {
+  padding: 5px 12px;
+  border: 1px solid #0F6E56;
+  border-radius: 6px;
+  background: #fff;
+  color: #0F6E56;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.changeLocationBtn:hover { background: #0F6E56; color: #fff; }
+
+/* ── Section title ("Menu") ────────────────────────────────────────────── */
+.sectionTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  color: #042C1E;
+  margin: 8px 0 0;
+  font-weight: 600;
+}
+
+/* ── Menu list ────────────────────────────────────────────────────────── */
+.menuList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.menuRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #ecfdf5;
+  background: #fff;
+}
+.menuRow:last-child {
+  border-bottom: none;
+}
+
+.menuRowLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.menuRowName {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #042C1E;
+}
+
+.menuRowDetail {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.menuRowRight {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menuBadge {
+  background: #EBF9F4;
+  color: #0F6E56;
+  border: 1px solid #3DBFA0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* ── Cart controls ────────────────────────────────────────────────────── */
+.addBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border: 1.5px solid #0F6E56;
+  border-radius: 8px;
+  background: #fff;
+  color: #0F6E56;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.addBtn:hover { background: #0F6E56; color: #fff; }
+
+.qtyStepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qtyBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1.5px solid #C6F0E5;
+  background: #fff;
+  color: #0F6E56;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.qtyBtn:hover { border-color: #0F6E56; background: #EBF9F4; }
+
+.qtyValue {
+  min-width: 20px;
+  text-align: center;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #042C1E;
+}
+
+.cartBar {
+  position: sticky;
+  bottom: 16px;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+  background: #fff;
+  border: 1.5px solid #3DBFA0;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(4, 44, 30, 0.12);
+}
+
+.cartSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #042C1E;
+}
+.cartSummary i { color: #0F6E56; font-size: 18px; }
+
+.cartReviewBtn {
+  padding: 10px 22px;
+  border: none;
+  border-radius: 8px;
+  background: #0F6E56;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.cartReviewBtn:hover { background: #0A5340; }
+
+/* ── Review modal ─────────────────────────────────────────────────────── */
+.modalOverlay {
+  position: fixed; inset: 0;
+  background: rgba(4, 44, 30, 0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 20px;
+}
+.modal {
+  background: #fff; border-radius: 16px; padding: 24px;
+  width: 100%; max-width: 460px;
+  max-height: 90vh; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.modalTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px; font-weight: 700; color: #042C1E;
+}
+
+.modalLines { display: flex; flex-direction: column; gap: 8px; }
+.modalLine {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 8px 12px;
+  background: #F7FCFA; border: 1px solid #E0F0EA; border-radius: 8px;
+}
+.modalLineName { font-size: 14px; font-weight: 600; color: #042C1E; }
+
+.modalHint { font-size: 11px; color: #9ca3af; }
+
+.modalError {
+  display: flex; align-items: center; gap: 8px;
+  background: #fef2f2; border: 1px solid #fecaca; color: #dc2626;
+  border-radius: 8px; padding: 10px 14px; font-size: 13px;
+}
+
+.modalActions { display: flex; gap: 10px; margin-top: 4px; }
+.modalCancelBtn {
+  flex: 1; padding: 10px; background: #fff; color: #6b7280;
+  border: 1px solid #d1d5db; border-radius: 8px;
+  font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: background 0.15s;
+}
+.modalCancelBtn:hover:not(:disabled) { background: #f9fafb; }
+.modalCancelBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.modalConfirmBtn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px; background: #0F6E56; color: #fff; border: none; border-radius: 8px;
+  font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s;
+}
+.modalConfirmBtn:hover:not(:disabled) { background: #0A5340; }
+.modalConfirmBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.spinnerSm {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff;
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Success screen ───────────────────────────────────────────────────── */
+.successBody {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 40px 24px; gap: 10px; text-align: center;
+}
+.successIcon { font-size: 56px; color: #0F6E56; line-height: 1; }
+.successTitle {
+  font-family: 'Playfair Display', serif; font-size: 24px;
+  color: #042C1E; margin: 4px 0 0;
+}
+/* NEW — small location line under the title, café has no equivalent */
+.successLocation {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 8px;
+}
+.successDetails {
+  width: 100%; max-width: 380px;
+  background: #F7FCFA; border: 1px solid #C6F0E5; border-radius: 12px;
+  overflow: hidden;
+}
+.successRow {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-bottom: 1px solid #E0F0EA;
+}
+.successRow:last-child { border-bottom: none; }
+.successItem { font-size: 14px; color: #042C1E; }
+.successQty  { font-size: 14px; color: #0F6E56; font-weight: 600; }
+.successNote { font-size: 12px; color: #9ca3af; margin: 4px 0 0; max-width: 360px; }
+.successActions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
+.successLink {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 20px; background: #0F6E56; color: #fff; border-radius: 8px;
+  text-decoration: none; font-size: 14px; font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+}
+.successLink:hover { background: #0A5340; }
+.successAgainBtn {
+  padding: 10px 20px; background: #fff; color: #0F6E56;
+  border: 1.5px solid #0F6E56; border-radius: 8px;
+  font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.successAgainBtn:hover { background: #EBF9F4; }

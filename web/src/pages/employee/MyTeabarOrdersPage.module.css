@@ -1,0 +1,216 @@
+/* ─────────────────────────────────────────
+   MyTeabarOrdersPage.module.css
+   HomiLabs | Servio | V1.3 (Tea Bar — Order history, Screen 2)
+
+   Subset of MyCafeOrdersPage.module.css (08-Jul-2026) — reuses every class
+   Tea Bar's simpler screen actually needs (no date-range picker, no
+   collapse/expand, no per-line cancel/amount, no custom cancel modal —
+   see the .jsx header comment for why each was dropped). One new class:
+   .locationLine.
+   ───────────────────────────────────────── */
+
+.page {
+  padding: 28px 32px;
+  min-height: 100%;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ─── Header ─── */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #042C1E;
+  margin: 0 0 4px 0;
+}
+
+.subtitle { font-size: 13px; color: #6b7280; margin: 0; }
+
+/* ─── Tabs ─── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab:hover { color: #0F6E56; }
+.tabActive  { color: #0F6E56; border-bottom-color: #0F6E56; font-weight: 600; }
+
+/* ─── Banners ─── */
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+/* ─── Loading ─── */
+.loadingBlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #0F6E56;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.spinnerSm {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Empty state ─── */
+.emptyState {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 48px 24px;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.emptyState i { font-size: 32px; display: block; margin-bottom: 12px; }
+.emptyState p { font-size: 14px; margin: 0; color: #6b7280; }
+
+/* ─── Date groups ─── */
+.dateGroup {
+  margin-bottom: 24px;
+}
+
+.dateGroupLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+  padding-left: 2px;
+}
+
+/* ─── Order card (always fully expanded — no chevron/collapse) ─── */
+.orderCard {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  transition: box-shadow 0.15s;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.orderCard:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+
+.orderHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: 'DM Sans', sans-serif;
+}
+.orderHeadLeft { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+
+.orderTopRow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.orderRef {
+  font-size: 13px; font-weight: 700; color: #042C1E;
+  font-family: 'DM Sans', sans-serif; letter-spacing: 0.02em;
+}
+.orderTime { font-size: 12px; color: #9ca3af; }
+
+.locationLine {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 13px; color: #042C1E; font-weight: 600;
+}
+.locationLine i { color: #0F6E56; }
+
+.orderMeta { font-size: 12px; color: #6b7280; }
+
+.orderHeadRight { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; }
+
+.statusPill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* Cancel-order strip */
+.orderHeadActions {
+  display: flex; justify-content: flex-end;
+  border-top: 1px solid #f3f4f6;
+  padding-top: 10px;
+}
+.cancelOrderBtn {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+  padding: 6px 12px; background: none; color: #dc2626;
+  border: 1px solid #fecaca; border-radius: 8px; cursor: pointer;
+  transition: background 0.15s;
+}
+.cancelOrderBtn:hover:not(:disabled) { background: #fef2f2; }
+.cancelOrderBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Item list — always visible, no expand/collapse */
+.orderLines {
+  border-top: 1px solid #f3f4f6;
+  padding-top: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.lineRow {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 4px 0;
+}
+
+.lineLeft { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.lineName { font-size: 14px; font-weight: 600; color: #042C1E; }
+.lineQty  { font-size: 13px; color: #6b7280; }
