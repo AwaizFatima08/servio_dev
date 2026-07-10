@@ -8,7 +8,7 @@ Companion reference: `Servio_V1_Schema_Reference.docx` Appendix B (original one-
 
 ## 0. How to read this document
 
-This is the written record of a design conversation. Every field below traces back to something you actually said, or is something I proposed and you agreed to — nothing here is invented from scratch. Where I'm making an assumption rather than repeating a decision, it's marked **⚠ ASSUMPTION — CONFIRM**. Please go through Section 8 (Open Items) before anything else — those are the pieces that are NOT yet settled.
+This is the written record of a design conversation. Every field below traces back to something you actually said, or is something I proposed and you agreed to — nothing here is invented from scratch. Sections 8 and 9 are both fully resolved as of 10-Jul — the whole document is locked.
 
 ---
 
@@ -101,7 +101,7 @@ Document ID: Firestore auto-ID
 | costCentreCode | string\|null | Official only |
 | orderStatus | string | `placed` \| `accepted` \| `prepared` \| `cancelled` — **reused verbatim from café's own enum, no fifth value** (Option B locked 10-Jul — see §8.1 history) |
 | acceptedAt / acceptedByUid | | BBQ supervisor |
-| preparedAt / preparedByUid | | Marks food left the collection point — triggers the "ready for delivery" notification |
+| preparedAt / preparedByUid | | Marks food left the collection point for waiter pickup. Feeds `bbqLiveItemStatus`'s "delivered" count and the elapsed-time KPI. **Does not trigger a notification in V1.4** — confirmed 10-Jul, notifications deferred to the collective V1.5 flow. |
 | isLateRequest | boolean | true only for a preorder order submitted after `bbqSettings.preorderCutoffTime`. Default false. |
 | lateRequestApprovalStatus | string\|null | `pending` \| `approved` \| `rejected` — only present when `isLateRequest` is true. `orderStatus` stays at its normal `placed` value throughout the review — nothing in the kitchen flow acts on it until Manager approves and it proceeds into the normal accept/prepare pipeline. |
 | cancellationRequestStatus | string\|null | `pending` \| `approved` \| `rejected` — **only present while a cancel-request is under review**; `orderStatus` itself is never touched during this review, so the kitchen's live view stays accurate |
@@ -175,7 +175,7 @@ Document ID: `{tenantId}_{eventDate}`
 | 12 | Menu Draft | Manager | Builds the week's `bbqEvents.menu` from the `menuItems` catalogue, saves as `draft`/`pending_review` |
 | 13 | Menu Approve & Publish | Admin | Separate screen from #12 (locked 10-Jul) — approve/return/publish |
 
-**No-phone / floor-relay scenario (employee can't use their own device):** No new screen needed — this is the existing **Proxy Order screen (#4)** used from either a supervisor's handheld tablet or the fixed terminal (fed by a paper slip). The only real requirement this adds is that Screen #4 needs to render usably on a tablet-width viewport, not a new build item. ⚠ **Hardware availability (tablets for supervisors) is a procurement question outside this design doc.**
+**No-phone / floor-relay scenario (employee can't use their own device):** No new screen needed — this is the existing **Proxy Order screen (#4)**. Confirmed 10-Jul: floor-supervisor tablet access is an administrative decision, and its frontend is deferred to the mobile build phase along with the rest of V1.1–V1.4 mobile — not a V1.4 web concern. For now, this scenario is handled from the fixed terminal only, fed by a paper slip if needed.
 
 **⚠ Flagging plainly:** this is a bigger build than Tea Bar (13 screens vs. 8). Worth knowing that going in, not discovering partway through.
 
@@ -184,11 +184,11 @@ Document ID: `{tenantId}_{eventDate}`
 ## 4. Roles Touched
 
 - `employee` — order (both types), cancel/edit requests, table booking requests
-- `bbq_supervisor` — new role, needs adding to `users.role` controlled vocabulary — accept/prepared actions, cumulative dashboard
-- `manager` — override authority (cancel/edit after lock, late-preorder acceptance), exception review queue, table booking confirmation, menu draft
-- `admin` — menu approval/publish, table booking approval
+- `bbq_supervisor` — new role, needs adding to `users.role` controlled vocabulary. **Confirmed 10-Jul: one flat role, held by multiple people (typically 4), all with equal rights and interchangeable** — one is usually at the fixed terminal running backend/kitchen coordination, others cover the floor physically, but there is no role-level distinction between them. Accept/prepared actions, cumulative dashboard, official order initiation.
+- `manager` — a genuinely separate person from `bbq_supervisor` (confirmed 10-Jul, supervisors report to manager) — override authority (cancel/edit after lock, late-preorder acceptance), exception review queue, table booking confirmation, menu draft, official-order approval alongside supervisor-initiated ones
+- `admin` — menu approval/publish, table booking approval, official-order billing approval
 
-**⚠ ASSUMPTION — CONFIRM:** I've listed `manager` as menu-drafter based on your original brief ("manager responsibility with approval from admin"), separately from `bbq_supervisor` who runs the floor. Confirm these are genuinely two different people/roles on BBQ night, not the same person wearing two hats.
+**Floor-device access (tablets for supervisors walking table-side) is confirmed as an administrative/procurement decision, and the frontend for it is explicitly deferred to the mobile build phase** (per the existing project convention: "Mobile build for V1.1–V1.4 is bundled at the end of V1 Extension"). Not a V1.4 web-build concern.
 
 ---
 
@@ -198,7 +198,8 @@ Document ID: `{tenantId}_{eventDate}`
 |---|---|---|
 | `bbqKitchenTargetLocker` | Scheduled, 17:30 every Friday | Snapshots `bbqLiveItemStatus`'s preorder counts into `bbqEvents.kitchenTargetSnapshot`, locks it |
 | `bbqLiveItemAggregator` | On `bbqOrders` write | Updates `bbqLiveItemStatus` — same pattern as `attendanceAggregator` |
-| (reuse existing) `notificationDispatcher` | On `notifications` write | No new function — BBQ just writes to the existing generic collection like every other module |
+
+**Not built in V1.4:** no `notifications` write anywhere in this backend — confirmed deferred to the collective V1.5 flow (see §7).
 
 ---
 
@@ -210,7 +211,6 @@ Document ID: `{tenantId}_{eventDate}`
 - `consumerType: self|family_member` (café)
 - `cutoffWaived`/`overrideReason`/`overrideByUid` override pattern (mess)
 - Events' personal-event three-party approval sequence (table booking)
-- Generic `notifications`/`notificationDeliveries` pipeline (all modules)
 - `foodTypeCode: BBQ` and `serviceCategories: bbq` — already exist, nothing to add
 
 **Genuinely new:**
@@ -223,7 +223,7 @@ Document ID: `{tenantId}_{eventDate}`
 
 ## 7. What's Explicitly Deferred
 
-Feedback, rate entry, and billing for BBQ — all deferred to the combined V1.5 flow, same as mess. **⚠ ASSUMPTION — CONFIRM:** I'm reading your original brief's mention of "notification... integrated... in a combined separate flow" as meaning BBQ reuses the *already-built* generic notification system (the way mess, café, and events all already do) — not that notifications themselves are deferred. If you actually meant no BBQ notifications at all until V1.5 (including the "order ready for delivery" one), tell me now, because that changes §2.3's `preparedAt` trigger and removes it from V1.4 scope.
+Feedback, rate entry, billing, **and notifications** for BBQ — all deferred to the collective flow (see §10 for current naming — pending Homi's confirmation on final version numbers). **Confirmed 10-Jul:** no `notifications` document gets written anywhere in the V1.4 BBQ backend. `bbqOrders.preparedAt` still gets recorded (needed for the dashboard and the KPI), it just doesn't fire a notification yet.
 
 ---
 
@@ -243,6 +243,23 @@ Menu Draft (Manager) and Menu Approve & Publish (Admin) are two separate screens
 
 ---
 
-## 9. Suggested Next Step
+## 9. Version Naming — RESOLVED (10-Jul)
 
-All open items from this draft are now settled — this document serves as the locked reference for BBQ V1.4, same role Tea Bar's screen map document played for that build. Next: field-by-field backend build, same discipline as Tea Bar — backend built and tested first, screen by screen after, each verified live before the next opens.
+Confirmed: V1.5 stays aligned to its **old** definition (dashboards + analytics + reporting + billing) — the earlier message just meant *adding* the missing pieces to it, not replacing it. Final table:
+
+| Version | Scope |
+|---|---|
+| V1.3 | Tea Bar only |
+| V1.4 | BBQ |
+| V1.4b | Tuck Shop |
+| V1.4c | Bakery |
+| V1.5 | Dashboards + analytics + reporting + billing + rate entry + notification + feedback — collective flow, for **all** flows (mess, café, Tea Bar, BBQ, Tuck Shop, Bakery) |
+| V1.6 | Retired — fully absorbed into V1.5, no longer a separate version |
+
+This needs propagating into `V1_Extension_CB.md`'s Build Status table (see next message for that update).
+
+---
+
+## 10. Suggested Next Step
+
+Everything in this document — BBQ design (§8) and version naming (§9) — is now resolved. Next: field-by-field backend build, same discipline as Tea Bar — backend built and tested first, screen by screen after, each verified live before the next opens.

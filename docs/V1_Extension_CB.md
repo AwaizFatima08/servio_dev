@@ -11,7 +11,7 @@
 | GitHub | `AwaizFatima08/servio_dev` |
 | NAS Path | `/mnt/storage/projects/servio_dev/` |
 | Consolidated on | 03 July 2026 |
-| Last Updated | 09 July 2026 (late night) — V1.3 Tea Bar frontend COMPLETE: all 8 screens built, deployed, live-tested. `firebase deploy --only firestore:indexes` IPv6 issue permanently resolved (verified persistent). Next: V1.4 BBQ. |
+| Last Updated | 10 July 2026 — V1.4 BBQ design LOCKED (see `docs/BBQ_V1.4_Design_Draft_10Jul2026.md`). Roadmap renumbered: V1.3 is Tea Bar only now; Tuck Shop/Bakery split out to V1.4b/V1.4c; V1.6 retired, absorbed into V1.5. Backend build starting next session. |
 
 > **Reading note.** This is the compact working board — paste it to restore context at the start of a session. The full dated history (every session log, June–July 2026) lives in `docs/Servio_CB_V1Extension_Archive.md`. Older V1-era history is in `Servio_CB_V1.md`.
 
@@ -24,9 +24,10 @@ V1 is live on prod (frozen for the 15-day tester trial — do not develop on pro
 - **V1.1 Family CRUD** — complete on backend + web. Mobile deferred to the end of V1 Extension.
 - **V1.2 Café + Outdoor Mini Café + kitchen dashboard** — **COMPLETE** on backend + web. Employee ordering, kitchen board (whole-order model), proxy/walk-in, café history, and official meals (dine-in + takeaway, same-day + future-dated), with pickup-dated billing keys. Official ordering is whole across both dining modes and both time horizons. Mobile deferred.
 - **Café cleanup** — mostly done (admin sidebar trimmed; orphan index file, dead constant, dead CSS removed; dead single-order routes labelled for later removal; `addDaysToDateStr` move examined and declined). Small remainder: a couple of stale code comments (low priority).
-- **V1.3 (Tea Bar)** — backend fully field-tested (05-Jul). Web frontend: **ALL 8 SCREENS COMPLETE** — built, deployed, and live-tested with real data across multiple roles (attendant, employee, manager, admin) as of 09-Jul-2026 evening. Tuck Shop and Bakery (also part of V1.3's original scope) not started — parked, not blocking V1.4.
-- **V1.4 (BBQ)** — scope-locked, not started.
-- Mobile build for V1.1–V1.4 is bundled at the end of V1 Extension.
+- **V1.3 (Tea Bar)** — backend fully field-tested (05-Jul). Web frontend: **ALL 8 SCREENS COMPLETE** — built, deployed, and live-tested with real data across multiple roles (attendant, employee, manager, admin) as of 09-Jul-2026 evening. **V1.3 is fully complete** — Tuck Shop and Bakery renumbered out to V1.4b/V1.4c on 10-Jul (see §3 Build Status), no longer part of V1.3's scope.
+- **V1.4 (BBQ)** — design locked 10-Jul, see `docs/BBQ_V1.4_Design_Draft_10Jul2026.md`. Backend build starting.
+- **V1.4b (Tuck Shop) / V1.4c (Bakery)** — new 10-Jul, split out of old V1.3. Not started.
+- Mobile build for V1.1–V1.4c is bundled at the end of V1 Extension.
 ---
 
 ## 2. Next Session — Start Here
@@ -49,7 +50,7 @@ git log --oneline -3    # confirm last session's work is here
 
 | Priority | Task | Platform | Notes |
 |----------|------|----------|-------|
-| 1 | **V1.4 BBQ — start design** | Dev | Tea Bar frontend is complete (all 8 screens, live-tested). Only a one-line schema stub exists for `bbqEvents`/`bbqOrders` so far (Appendix B of `Servio_V1_Schema_Reference.docx`) — no field list, no screen map yet. Waiting on Homi to supply BBQ design/screen-map docs before any build work starts. |
+| 1 | **V1.4 BBQ — backend build** | Dev | Design locked 10-Jul — `docs/BBQ_V1.4_Design_Draft_10Jul2026.md`. Start with `bbqSettings` + `bbqEvents` (menu draft/approve), since `bbqOrders`, table requests, and the live item rollup all depend on an event/menu existing first. Same discipline as Tea Bar: backend built and field-tested before any screen work starts. |
 | 2 | **PROD blocker: password-reset email** | Prod | `firebaseapp.com` sender is silently dropped by Gmail/corporate filters. Need custom SMTP / SendGrid sender before the real prod launch. |
 | 3 | **PROD blocker: secrets in GDrive backup** | Dev/Prod | `service-account.json` private key + web API key sit in plaintext in the backup folder. Rotate the dev key; exclude secrets from backups. |
 | 4 | Finish café cleanup (stale comments only) | Dev | Low priority. Two stale comments left: `constants.js` (~lines 427–429, café cancel) and `cafeService.js` `cancelOrder` header. Cosmetic. |
@@ -65,10 +66,11 @@ Reference: `Servio_V1_Extension_Scope_09Jun2026.md` in `docs/`.
 |---------|-------|--------|-------|
 | V1.1 | Family Member CRUD | 🔒 LOCKED | Backend ✅ · Web ✅ · Mobile deferred |
 | V1.2 | Café + Outdoor Mini Café + kitchen dashboard | 🔒 LOCKED | Backend ✅ · Web ✅ (all slices) · Mobile deferred |
-| V1.3 | Tea Bar + Tuck Shop + Bakery — own `tuckshop_bakery_supervisor` role, own dashboard, own full order flow (accept → prepared → history), mirroring café | 🔒 LOCKED | **Tea Bar:** Backend ✅ (field-tested 05-Jul) · Web: all 8 screens ✅ (07-09-Jul), live-tested. **Tuck Shop + Bakery:** not started. Role split `cafe_bakery_tuckshop_supervisor → cafe_supervisor + tuckshop_bakery_supervisor` lands here. |
-| V1.4 | BBQ | 🔒 LOCKED | Not started |
-| V1.5 | Dashboards + analytics + reporting + billing | Design after V1.4 | — |
-| V1.6 | Notifications + reporting alignment | Design after V1.4 | — |
+| V1.3 | Tea Bar — own `tuckshop_bakery_supervisor` role split, own dashboard, own full order flow (accept → prepared → history), mirroring café. **Renumbered 10-Jul: Tuck Shop and Bakery moved OUT to V1.4b/V1.4c, no longer bundled here.** | 🔒 LOCKED | Backend ✅ (field-tested 05-Jul) · Web: all 8 screens ✅ (07-09-Jul), live-tested. **V1.3 is fully complete.** |
+| V1.4 | BBQ | 🔒 LOCKED — design doc `BBQ_V1.4_Design_Draft_10Jul2026.md` | Design done 10-Jul. Backend build starting. |
+| V1.4b | Tuck Shop | New 10-Jul, split out of old V1.3 | Not started |
+| V1.4c | Bakery | New 10-Jul, split out of old V1.3 | Not started |
+| V1.5 | Dashboards + analytics + reporting + billing + rate entry + notification + feedback — collective flow, for **all** flows (mess, café, Tea Bar, BBQ, Tuck Shop, Bakery). **Old V1.6 fully absorbed here 10-Jul — V1.6 no longer exists as a separate version.** | Design after V1.4/V1.4b/V1.4c | — |
 | Mobile Extension | F9–F12 admin/manager/supervisor mobile dashboards | Deferred | — |
 ---
 
@@ -99,7 +101,7 @@ Sorted by priority. **HIGH / prod-blockers first** — do not let these reach re
 | M2 | Timestamp serialization | Café API returns Firestore Timestamps as `{_seconds,_nanoseconds}`, not ISO. Frontend coerces via a `toDate` helper. Normalize at the API boundary later, then simplify the frontend. |
 | M3 | Cascade UI warning | `setEmployeeStatus` deactivates family but does not reactivate. Admin web UI should warn admins about manual reactivation. |
 | M4 | Schema Reference doc drift ⬆ | `Servio_V1_Schema_Reference.docx` says `memberName`/`relationship`; live data uses `fullName`/`relation`. **Elevated — verify/fix BEFORE building V1.3 tables (see Work Order #1); a wrong schema doc would mislead new-table work.** |
-| M5 | `_memberHasTransactions()` stub always returns `false` ⬆ | Placeholder only — never actually checks anything. Real implementation must check `cafeOrders` / `tuckshopOrders` / `bbqOrders` for a matching `consumerFamilyMemberId` before a family member can be safely deactivated without silently orphaning their order history. **Elevated — implement before family-member consumer tagging goes live in any order-taking module (café already tags consumers; V1.3 tuck shop/bakery and V1.4 BBQ will too).** See also Reference Index (§11) for the open BBQ-scope question this connects to. |
+| M5 | `_memberHasTransactions()` stub always returns `false` ⬆ | Placeholder only — never actually checks anything. Real implementation must check `cafeOrders` / `tuckshopOrders` / `bbqOrders` for a matching `consumerFamilyMemberId` before a family member can be safely deactivated without silently orphaning their order history. **Elevated — implement before family-member consumer tagging goes live in any order-taking module (café already tags consumers; V1.4b/V1.4c tuck shop/bakery and V1.4 BBQ will too).** See also Reference Index (§11) for the open BBQ-scope question this connects to. |
 | M6 | `setEmployeeStatus` response missing `familyMembersDeactivated` field | The cascade itself runs correctly on the backend (family members ARE deactivated), but the HTTP response sent back to the caller omits this field, so the web UI can't currently show "X family members were also deactivated." Fix is web-facing only. Should be closed alongside M3 (reactivation warning UI), since that UI needs this field to be useful. |
 ### Low — not blocking
 
@@ -1083,3 +1085,79 @@ earlier same-day afternoon session.
 ### Next session
 Confirmed unchanged: V1.3 Tea Bar frontend is complete. Next: move to
 V1.4 BBQ per the original roadmap.
+
+---
+
+## Update Entry — 10-Jul-2026 — V1.4 BBQ design locked; roadmap renumbered
+
+### Session Scope
+Full BBQ design conversation, conducted in-chat, written up as
+`docs/BBQ_V1.4_Design_Draft_10Jul2026.md` — the same role Tea Bar's
+screen map document played before that build. No code touched this
+session; paper design only.
+
+### Design outcome (see the design doc for full field-level detail)
+- New collections: `bbqEvents` (fat doc, resolved weekly menu +
+  Manager-draft/Admin-approve lifecycle, mirrors `events`' official
+  vocabulary), `bbqSettings` (policy doc mirroring `reservationSettings`),
+  `bbqOrders` (split by `orderType: preorder | live`, each with its own
+  independent lock rule), `bbqTableRequests` (lightweight request only —
+  no table/seat entity, "reserved" tag is physical/off-system),
+  `bbqLiveItemStatus` (new live per-item rollup, Cloud-Function
+  maintained, mirrors `eventAttendanceSummaries`' aggregation pattern).
+- `bbqOrders.orderStatus` reuses café's exact four-value enum
+  (`placed|accepted|prepared|cancelled`) — deliberately not given a
+  fifth value for late-preorder requests; those use a separate
+  `isLateRequest`/`lateRequestApprovalStatus` pair instead, keeping
+  `orderStatus`'s meaning identical everywhere it's used.
+- Three separate approval-style fields on `bbqOrders`, each answering a
+  different question: `lateRequestApprovalStatus` (honor a late order at
+  all), `cancellationRequestStatus` (cancel an already-accepted order —
+  Manager-only override, `orderStatus` itself untouched during review so
+  the kitchen dashboard never misreads a pending review as "not
+  active"), and `approvalStatus` (billing sign-off on official orders,
+  reused from café — order is served regardless of outcome).
+- Confirmed: `bbq_supervisor` is one flat role held by ~4 people
+  (typically 1 at the fixed terminal, others covering the floor),
+  interchangeable, no role-level distinction. `manager` is a genuinely
+  separate person. Floor-tablet frontend work is explicitly deferred to
+  the mobile build phase, not a V1.4 web concern.
+- Confirmed: no `notifications` write in the V1.4 backend at all —
+  deferred to the collective V1.5 flow along with feedback/rate/billing.
+  `bbqOrders.preparedAt` still gets recorded (feeds the dashboard + a
+  future KPI), it just doesn't fire a notification yet.
+- Screen count: 13 (vs. Tea Bar's 8) — flagged explicitly as a bigger
+  build going in.
+
+### Roadmap renumbered (propagated into §3 Build Status and §1 Current
+Status above)
+- **V1.3 is now Tea Bar only.** Tuck Shop and Bakery — previously
+  bundled into V1.3's scope — split out to **V1.4b (Tuck Shop)** and
+  **V1.4c (Bakery)**.
+- **V1.5** stays aligned to its original definition (dashboards +
+  analytics + reporting + billing) — the earlier-discussed addition of
+  rate entry/notification/feedback is exactly that, an *addition* to the
+  existing V1.5, not a replacement of it.
+- **V1.6 (notifications + reporting alignment) is retired** — fully
+  absorbed into V1.5. V1.6 no longer exists as a separate version
+  anywhere in this roadmap.
+
+### Two real mistakes caught and corrected mid-session (worth keeping
+visible, not just quietly fixed)
+1. First draft of the design doc silently assumed `manager` (menu
+   drafter) and `bbq_supervisor` (floor runner) might be the same
+   person wearing two hats — flagged as an assumption rather than
+   stated as fact, then confirmed wrong (they're two different people).
+2. First draft silently assumed BBQ's "order ready" notification was in
+   V1.4 scope, based on an ambiguous reading of the original brief —
+   flagged as an assumption, then confirmed wrong (deferred to V1.5).
+
+Both were caught by explicitly marking them as assumptions requiring
+confirmation rather than treating an inference as a decision — the
+design doc would have been built around two wrong guesses otherwise.
+
+### Next session
+Design is fully locked, roadmap renumbering is fully reflected here.
+Start backend build: `bbqSettings` + `bbqEvents` first (menu draft/
+approve flow), since every other new collection depends on an event
+existing. Same discipline as Tea Bar throughout.
