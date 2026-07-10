@@ -427,3 +427,41 @@
   font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;
 }
 .successAgainBtn:hover { background: #EBF9F4; }
+
+/* ── NEW: No-attendant warning — Screen 1 fix, 09-Jul-2026. Option 2:
+   informational only, never blocks ordering. Amber, distinct from the
+   green brand palette, so it reads as "notice" not "error". ──────────── */
+.locationCardWarning {
+  border-color: #fcd34d;
+}
+.locationCardWarning:hover {
+  border-color: #d97706;
+  background: #fffbeb;
+}
+.noAttendantBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #d97706;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.noAttendantBadge i { font-size: 12px; color: #d97706; }
+
+.noAttendantStrip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #92400e;
+}
+.noAttendantStrip i { color: #d97706; font-size: 15px; }

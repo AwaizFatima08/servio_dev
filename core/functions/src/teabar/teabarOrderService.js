@@ -941,20 +941,36 @@ async function issueTeabarOrderGroup({ bookingGroupId, tenantId, issuedByUid }) 
 // one. createdAt is added as a SECOND sort level, to break ties within
 // the same day, newest first.
 // ─────────────────────────────────────────
-async function getTeabarHistory({ tenantId, locationId = null }) {
-  const today = pktDateStr(new Date());
-  const sinceDate = addDaysToDateStr(today, -30);
+async function getTeabarHistory({ tenantId, locationId = null, day = null, employeeNumber = null }) {
+  let query = db.collection(COLLECTIONS.TEABAR_ORDERS).where('tenantId', '==', tenantId);
+  let sinceDate = null;
 
-  let query = db
-    .collection(COLLECTIONS.TEABAR_ORDERS)
-    .where('tenantId', '==', tenantId)
-    .where('orderDate', '>=', sinceDate);
+  // Day wins outright — locationId/employeeNumber are ignored entirely
+  // when a specific day is picked (same precedence rule café's own
+  // history endpoint already uses: "day WINS over days"). This keeps the
+  // set of composite indexes this function needs small — a day-filtered
+  // query never also needs a locationId or employeeNumber index, because
+  // those two filters simply don't apply in this branch.
+  if (day) {
+    query = query.where('orderDate', '==', day);
+    query = query.orderBy('createdAt', 'desc');
+  } else {
+    const today = pktDateStr(new Date());
+    sinceDate = addDaysToDateStr(today, -30);
+    query = query.where('orderDate', '>=', sinceDate);
 
-  if (locationId) {
-    query = query.where('locationId', '==', locationId);
+    // One filter at a time within the 30-day window too — matches the
+    // locked screen-map decision (Location OR Employee Number, never
+    // combined). employeeNumber takes precedence if somehow both are
+    // sent, so behaviour is always well-defined.
+    if (employeeNumber) {
+      query = query.where('employeeNumber', '==', employeeNumber);
+    } else if (locationId) {
+      query = query.where('locationId', '==', locationId);
+    }
+
+    query = query.orderBy('orderDate', 'desc').orderBy('createdAt', 'desc');
   }
-
-  query = query.orderBy('orderDate', 'desc').orderBy('createdAt', 'desc');
 
   const snap = await query.get();
 
@@ -1000,7 +1016,9 @@ async function getTeabarHistory({ tenantId, locationId = null }) {
   const groupList = Object.values(groups);
 
   return {
-    locationId: locationId || null,
+    locationId: day ? null : (locationId || null),
+    employeeNumber: day ? null : (employeeNumber || null),
+    day: day || null,
     sinceDate,
     groups: groupList,
     count: groupList.length,
@@ -1077,6 +1095,28 @@ async function getEmployeeTeabarHistory({ tenantId, employeeNumber }) {
   };
 }
 
+// ─────────────────────────────────────────
+// lookupEmployeeForOrder
+// Resolves an employee number to a name for the proxy/official order search
+// step — checks the EMPLOYEES collection (HR master, everyone on staff),
+// NOT the users collection (only people who've signed up for a login).
+// This distinction matters: getUserByEmployeeNumber (used by Screen 8's
+// attendant-assignment search) checks users and requires an account + role;
+// a proxy-order TARGET needs neither — they just need to exist and be
+// active. Reuses the same private _getEmployee() the order-placement
+// functions already validate against, so a name resolved here is
+// guaranteed to also be accepted at submit time. Returns only the fields
+// safe to show a supervisor doing a lookup — not the full employee record
+// (no cnicLast4, dateOfBirth, phoneNumber, etc.).
+// ─────────────────────────────────────────
+async function lookupEmployeeForOrder({ tenantId, officialEmployeeNumber }) {
+  const employee = await _getEmployee({ tenantId, officialEmployeeNumber });
+  return {
+    officialEmployeeNumber,
+    fullName: employee.fullName,
+  };
+}
+
 module.exports = {
   createSelfOrderBatch,
   createProxyOrderBatch,
@@ -1089,4 +1129,5 @@ module.exports = {
   issueTeabarOrderGroup,
   getTeabarHistory,
   getEmployeeTeabarHistory,
+  lookupEmployeeForOrder,
 };

@@ -84,3 +84,15 @@ export const unassignTeabarAttendant = async (token, locationId) => {
   if (!res.ok) throw new Error(data.message || 'Failed to unassign attendant');
   return data.data;
 };
+
+// ── GET /teabar/locations/mine — "which location do I currently cover?" ──
+// Returns null (not an error) if the caller is not currently assigned —
+// the backend always answers 200 here, so check the value, not a catch.
+export const getMyTeabarLocation = async (token) => {
+  const res = await fetch(`${BASE_URL}/teabar/locations/mine`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to load your Tea Bar location');
+  return data.data.location;
+};

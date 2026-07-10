@@ -331,6 +331,32 @@ router.post(
 );
 
 // ─────────────────────────────────────────
+// GET /teabar/orders/employee-lookup/:employeeNumber — resolve a name for
+// the proxy/official order search step. Checks the EMPLOYEES collection
+// (everyone on staff), not users (only people with a login) — see
+// lookupEmployeeForOrder's own comment for why that distinction matters.
+// Same role gate as proxy/official order placement — this is only useful
+// as a pre-step to those two actions.
+// ─────────────────────────────────────────
+router.get(
+  '/orders/employee-lookup/:employeeNumber',
+  verifyToken,
+  verifyRole(ROLES.TEABAR_ATTENDANT, ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  async (req, res) => {
+    try {
+      const result = await teabarOrderService.lookupEmployeeForOrder({
+        tenantId: req.tenantId,
+        officialEmployeeNumber: req.params.employeeNumber,
+      });
+      return successResponse(res, result, 'Employee found.');
+    } catch (err) {
+      console.error('[GET /teabar/orders/employee-lookup] error:', err);
+      return errorResponse(res, err.message || 'Employee not found.', 404, err);
+    }
+  }
+);
+
+// ─────────────────────────────────────────
 // POST /teabar/orders/official — order billed to a department, not a person
 // Body: { sponsoringEmployeeNumber, items: [{ itemId, quantity }],
 //         costCentreCode?, officialGuestName? }
@@ -596,23 +622,31 @@ router.get(
 );
 
 // ─────────────────────────────────────────
-// GET /teabar/orders/history/admin — admin/super_admin, any or all locations
-// Admin / Super Admin ONLY. Read-only for this first version — no cancel
-// action from this screen yet (deliberately deferred, 04-Jul-2026).
-// Optional query parameter: ?locationId=... to narrow to one location.
-// Omit it entirely to see every location at once.
+// GET /teabar/orders/history/admin — manager/admin/super_admin, any or all
+// locations. Manager added here (09-Jul-2026 fix) — the screen map's own
+// access matrix already granted Manager read-only all-locations access to
+// Shared History, but no route existed for it; this was a real gap, not a
+// deliberate exclusion like proxy/official order placement.
+// Read-only for this version — no cancel action from this screen yet.
+// Query params (mutually exclusive, one at a time — see getTeabarHistory):
+//   ?day=YYYY-MM-DD          single-day pick, wins over everything else
+//   ?employeeNumber=...      filter to one employee's orders
+//   ?locationId=...          filter to one location
+// Omit all three to see every location, every employee, last 30 days.
 // ─────────────────────────────────────────
 router.get(
   '/orders/history/admin',
   verifyToken,
-  verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN),
+  verifyRole(ROLES.MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN),
   async (req, res) => {
     try {
       const result = await teabarOrderService.getTeabarHistory({
         tenantId: req.tenantId,
         locationId: req.query.locationId || null,
+        day: req.query.day || null,
+        employeeNumber: req.query.employeeNumber || null,
       });
-      return successResponse(res, result, `${result.count} order group(s) in the last 30 days.`);
+      return successResponse(res, result, `${result.count} order group(s).`);
     } catch (err) {
       console.error('[GET /teabar/orders/history/admin] error:', err);
       return errorResponse(res, err.message || 'Failed to load admin history.', 500, err);

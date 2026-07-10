@@ -105,8 +105,10 @@ const NAV_CONFIG = {
     {
       section: 'Tea Bar Operations',
       items: [
-        { label: 'Home',      icon: 'home', to: '/dashboard' },
-        { label: 'Dashboard', icon: 'cup',  to: '/teabar-dashboard' },
+        { label: 'Home',           icon: 'home',          to: '/dashboard' },
+        { label: 'Dashboard',      icon: 'cup',            to: '/teabar-dashboard' },
+        { label: 'Proxy Order',    icon: 'shopping-bag',   to: '/teabar-proxy-order' },
+        { label: 'Official Order', icon: 'receipt',        to: '/teabar-official-order' },
       ],
     },
   ],
@@ -153,6 +155,7 @@ const NAV_CONFIG = {
       section: 'Tea Bar',
       items: [
         { label: 'Locations', icon: 'map-pin', to: '/teabar-locations' },
+        { label: 'History',   icon: 'history', to: '/teabar-history' },
       ],
     },
     {
@@ -180,6 +183,8 @@ const NAV_CONFIG = {
       section: 'Tea Bar',
       items: [
         { label: 'Locations', icon: 'map-pin', to: '/teabar-locations' },
+        { label: 'Approvals', icon: 'receipt-2', to: '/teabar-official-approvals' },
+        { label: 'History',   icon: 'history', to: '/teabar-history' },
       ],
     },
     {
@@ -209,10 +214,12 @@ const NAV_CONFIG = {
         { label: 'Deployment Config', icon: 'database',   to: '/deployment' },
       ],
     },
-    {  
+    { 
       section: 'Tea Bar',
       items: [
         { label: 'Locations', icon: 'map-pin', to: '/teabar-locations' },
+        { label: 'Approvals', icon: 'receipt-2', to: '/teabar-official-approvals' },
+        { label: 'History',   icon: 'history', to: '/teabar-history' },
       ],
     },
     {

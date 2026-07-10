@@ -1,0 +1,123 @@
+/* Same search/not-assigned classes as TeabarProxyOrderPage.module.css,
+   plus two new form-field classes for cost centre / guest name — not
+   present in TeabarSelfOrderPage.module.css since Screen 1's review modal
+   has no text inputs at all. */
+
+.searchCard {
+  background: #fff;
+  border: 1.5px solid #d1fae5;
+  border-radius: 14px;
+  padding: 24px;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.searchLabel {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6B8F7E;
+}
+.searchRow { display: flex; gap: 10px; }
+.searchInput {
+  flex: 1;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  padding: 11px 14px;
+  border: 1.5px solid #C6F0E5;
+  border-radius: 8px;
+  color: #042C1E;
+  background: #fff;
+  outline: none;
+  text-transform: uppercase;
+}
+.searchInput:focus { border-color: #0F6E56; }
+.searchBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #0F6E56;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.searchBtn:hover:not(:disabled) { background: #0A5340; }
+.searchBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+.searchError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+}
+.changeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid #C6F0E5;
+  border-radius: 8px;
+  background: #fff;
+  color: #0F6E56;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.changeBtn:hover { background: #EBF9F4; border-color: #0F6E56; }
+
+.notAssignedCard {
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 56px 24px;
+  text-align: center;
+  color: #6b7280;
+  font-family: 'DM Sans', sans-serif;
+  max-width: 480px;
+  margin: 40px auto 0;
+}
+.notAssignedCard i { font-size: 40px; display: block; margin-bottom: 16px; color: #9ca3af; }
+.notAssignedCard h2 { font-family: 'Playfair Display', serif; font-size: 20px; color: #042C1E; margin: 0 0 8px 0; }
+.notAssignedCard p { font-size: 14px; margin: 0; line-height: 1.5; }
+
+/* ── New: form fields for the official order modal ── */
+.formRow {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.fieldLabel {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B8F7E;
+}
+.textInput {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  padding: 9px 12px;
+  border: 1.5px solid #C6F0E5;
+  border-radius: 8px;
+  color: #042C1E;
+  outline: none;
+}
+.textInput:focus { border-color: #0F6E56; }

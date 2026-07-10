@@ -65,17 +65,25 @@ function LocationPicker({ locations, loading, error, onSelect }) {
 
       {!loading && !error && locations.length > 0 && (
         <div className={styles.locationGrid}>
-          {locations.map((loc) => (
-            <button
-              key={loc.locationId}
-              type="button"
-              className={styles.locationCard}
-              onClick={() => onSelect(loc)}
-            >
-              <i className="ti ti-map-pin" />
-              <span>{loc.locationName}</span>
-            </button>
-          ))}
+          {locations.map((loc) => {
+            const noAttendant = !loc.assignedAttendantUid;
+            return (
+              <button
+                key={loc.locationId}
+                type="button"
+                className={`${styles.locationCard} ${noAttendant ? styles.locationCardWarning : ''}`}
+                onClick={() => onSelect(loc)}
+              >
+                <i className="ti ti-map-pin" />
+                <span>{loc.locationName}</span>
+                {noAttendant && (
+                  <span className={styles.noAttendantBadge}>
+                    <i className="ti ti-alert-triangle" /> No attendant on duty
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -405,6 +413,12 @@ export default function TeabarSelfOrderPage({ token }) {
           Change
         </button>
       </div>
+
+      {!selectedLocation.assignedAttendantUid && (
+        <div className={styles.noAttendantStrip}>
+          <i className="ti ti-alert-triangle" /> No attendant currently on duty here — your order may be delayed. You can pick a nearby location instead.
+        </div>
+      )}
 
       <h2 className={styles.sectionTitle}>Menu</h2>
       <MenuList items={items} cart={cart} onAdd={addItem} onInc={incItem} onDec={decItem} />

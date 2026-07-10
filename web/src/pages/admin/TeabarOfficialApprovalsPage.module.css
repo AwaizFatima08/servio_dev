@@ -1,0 +1,166 @@
+/* web/src/pages/admin/CafeOfficialPendingPage.module.css
+   Card-per-order layout for the official-meal billing-approval queue. */
+
+.page { padding: 24px; max-width: 1100px; margin: 0 auto; }
+
+.header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 20px;
+}
+.title {
+  font-family: 'Playfair Display', serif; font-size: 24px;
+  color: #042C1E; margin: 0;
+}
+.subtitle {
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+  color: #6B8F7E; margin: 4px 0 0;
+}
+.refreshBtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 16px; border: 1.5px solid #C6F0E5; border-radius: 8px;
+  background: #fff; color: #0F6E56; font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: background 0.15s;
+}
+.refreshBtn:hover:not(:disabled) { background: #EBF9F4; }
+.refreshBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.errorBanner {
+  display: flex; align-items: center; gap: 8px;
+  background: #FDECEA; border: 1px solid #f5c6cb; color: #c0392b;
+  border-radius: 8px; padding: 10px 14px; font-size: 13px;
+  font-family: 'DM Sans', sans-serif; margin-bottom: 16px;
+}
+
+.loading {
+  font-family: 'DM Sans', sans-serif; color: #6B8F7E;
+  padding: 40px; text-align: center;
+}
+.emptyCard {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 48px 24px; color: #6B8F7E; font-family: 'DM Sans', sans-serif;
+  background: #fff; border: 1.5px solid #d1fae5; border-radius: 14px;
+}
+.emptyIcon { font-size: 40px; color: #0F6E56; }
+
+.cardGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+.card {
+  background: #fff; border: 1.5px solid #d1fae5; border-radius: 14px;
+  padding: 18px; display: flex; flex-direction: column; gap: 12px;
+}
+.cardTop {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.sponsorName {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700;
+  color: #042C1E;
+}
+.sponsorNum { font-weight: 400; color: #6B8F7E; }
+.diningBadge {
+  font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 600;
+  color: #0F6E56; background: #EBF9F4; padding: 3px 10px; border-radius: 20px;
+  white-space: nowrap;
+}
+
+.lines {
+  display: flex; flex-direction: column; gap: 6px;
+  border-top: 1px solid #EBF9F4; border-bottom: 1px solid #EBF9F4;
+  padding: 10px 0;
+}
+.line { display: flex; align-items: center; justify-content: space-between; }
+.lineName { font-family: 'DM Sans', sans-serif; font-size: 14px; color: #042C1E; }
+.lineQty {
+  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+  color: #0F6E56;
+}
+
+.meta { display: flex; flex-direction: column; gap: 5px; }
+.metaRow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.metaLabel {
+  font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em; color: #aac8bc;
+  white-space: nowrap;
+}
+.metaValue {
+  font-family: 'DM Sans', sans-serif; font-size: 13px; color: #042C1E;
+  text-align: right;
+}
+
+.rowError {
+  display: flex; align-items: center; gap: 6px;
+  color: #c0392b; font-family: 'DM Sans', sans-serif; font-size: 12px;
+}
+
+.actions { display: flex; gap: 10px; }
+.approveBtn {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px; border: none; border-radius: 8px;
+  background: #0F6E56; color: #fff;
+  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s;
+}
+.approveBtn:hover:not(:disabled) { background: #042C1E; }
+.approveBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.rejectBtn {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px; border: 1.5px solid #f5c6cb; border-radius: 8px;
+  background: #fff; color: #c0392b;
+  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s;
+}
+.rejectBtn:hover:not(:disabled) { background: #FDECEA; }
+.rejectBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Reject modal ── */
+.overlay {
+  position: fixed; inset: 0; background: rgba(4, 44, 30, 0.4);
+  display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px;
+}
+.modal {
+  background: #fff; border-radius: 14px; width: 100%; max-width: 440px;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.modalHeader {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; border-bottom: 1px solid #EBF9F4;
+  font-family: 'Playfair Display', serif; font-size: 17px; color: #042C1E;
+}
+.iconBtn {
+  border: none; background: none; color: #6B8F7E; cursor: pointer;
+  width: 28px; height: 28px; border-radius: 6px; font-size: 16px;
+}
+.iconBtn:hover:not(:disabled) { background: #EBF9F4; color: #042C1E; }
+.modalBody { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.modalNote {
+  font-family: 'DM Sans', sans-serif; font-size: 13px; color: #6B8F7E; margin: 0;
+  line-height: 1.5;
+}
+.textarea {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  font-family: 'DM Sans', sans-serif; font-size: 14px;
+  padding: 10px 12px; border: 1.5px solid #C6F0E5; border-radius: 8px;
+  color: #042C1E; outline: none;
+}
+.textarea:focus { border-color: #3DBFA0; }
+.modalFooter {
+  display: flex; justify-content: flex-end; gap: 10px;
+  padding: 14px 18px; border-top: 1px solid #EBF9F4;
+}
+.ghostBtn {
+  padding: 9px 16px; border: 1.5px solid #C6F0E5; border-radius: 8px;
+  background: #fff; color: #6B8F7E;
+  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.ghostBtn:hover:not(:disabled) { background: #EBF9F4; }
+.ghostBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.rejectConfirmBtn {
+  padding: 9px 16px; border: none; border-radius: 8px;
+  background: #c0392b; color: #fff;
+  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.rejectConfirmBtn:hover:not(:disabled) { background: #a93226; }
+.rejectConfirmBtn:disabled { opacity: 0.5; cursor: not-allowed; }

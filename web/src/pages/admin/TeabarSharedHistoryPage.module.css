@@ -1,0 +1,117 @@
+/* Combines CafeHistoryPage's filter-bar language with
+   CafeOfficialPendingPage's card-grid language — Screen 6 is a filtered
+   read view over card-shaped data, not a table, since one Tea Bar order
+   can have several item lines. */
+
+.page { padding: 24px; max-width: 1200px; margin: 0 auto; }
+
+.header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 20px; flex-wrap: wrap;
+}
+.title { font-family: 'Playfair Display', serif; font-size: 24px; color: #042C1E; margin: 0; }
+.subtitle { font-family: 'DM Sans', sans-serif; font-size: 13px; color: #6b7280; margin: 4px 0 0; }
+.refreshBtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 16px; border: 1.5px solid #C6F0E5; border-radius: 8px;
+  background: #fff; color: #0F6E56; font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.refreshBtn:hover:not(:disabled) { background: #EBF9F4; }
+.refreshBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.filterBar {
+  display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+  background: white; border: 1px solid #e5e7eb; border-radius: 12px;
+  padding: 16px 18px; margin-bottom: 20px; font-family: 'DM Sans', sans-serif;
+}
+.filterField { display: flex; flex-direction: column; gap: 5px; }
+.filterLabel {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; color: #6b7280;
+}
+.filterInput {
+  font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 8px 12px;
+  border: 1px solid #d1d5db; border-radius: 8px; color: #042C1E;
+  background: white; min-width: 180px;
+}
+.filterInput:focus { outline: none; border-color: #0F6E56; box-shadow: 0 0 0 3px rgba(15, 110, 86, 0.12); }
+.filterActions { display: flex; align-items: center; gap: 8px; padding-bottom: 1px; }
+.applyBtn {
+  display: flex; align-items: center; gap: 6px;
+  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+  padding: 9px 18px; background: #0F6E56; color: white; border: none;
+  border-radius: 8px; cursor: pointer; transition: background 0.15s;
+}
+.applyBtn:hover:not(:disabled) { background: #042C1E; }
+.applyBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+.clearBtn {
+  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+  padding: 9px 16px; background: white; color: #6b7280;
+  border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer;
+}
+.clearBtn:hover:not(:disabled) { background: #f9fafb; }
+.clearBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.errorBanner {
+  display: flex; align-items: center; gap: 8px;
+  background: #fef2f2; border: 1px solid #fecaca; color: #dc2626;
+  border-radius: 10px; padding: 12px 16px; font-size: 13px;
+  margin-bottom: 20px; font-family: 'DM Sans', sans-serif;
+}
+.loading {
+  font-family: 'DM Sans', sans-serif; color: #6b7280; padding: 40px; text-align: center; font-size: 14px;
+}
+.emptyState {
+  background: white; border-radius: 14px; border: 1px solid #e5e7eb;
+  padding: 48px 24px; text-align: center; color: #9ca3af; font-family: 'DM Sans', sans-serif;
+}
+.emptyState i { font-size: 36px; display: block; margin-bottom: 12px; }
+.emptyState p { font-size: 14px; margin: 0; }
+
+.cardGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px; font-family: 'DM Sans', sans-serif;
+}
+.card {
+  background: white; border: 1.5px solid #d1fae5; border-radius: 14px;
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
+}
+.cardTop { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sourceBadge {
+  font-size: 11px; font-weight: 600; color: #0F6E56; background: #EBF9F4;
+  padding: 3px 10px; border-radius: 20px; border: 1px solid #3DBFA0;
+}
+.createdCell { font-size: 12px; color: #9ca3af; white-space: nowrap; }
+
+.consumerLine { display: flex; align-items: center; gap: 5px; font-size: 13px; color: #6b7280; }
+.consumerLine i { font-size: 14px; color: #9ca3af; }
+.viaEmp { color: #9ca3af; font-size: 12px; }
+
+.lines { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #EBF9F4; border-bottom: 1px solid #EBF9F4; padding: 8px 0; }
+.line { display: flex; align-items: center; justify-content: space-between; }
+.lineName { font-size: 14px; color: #042C1E; }
+.lineQty { font-size: 13px; font-weight: 600; color: #0F6E56; }
+
+.meta { display: flex; flex-direction: column; gap: 5px; }
+.metaRow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.metaLabel { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #aac8bc; white-space: nowrap; }
+.metaValue { font-size: 13px; color: #042C1E; text-align: right; }
+
+.pillRow { display: flex; flex-wrap: wrap; gap: 6px; }
+.statusPill, .issuePill, .approvalPill {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: 20px; border: 1px solid transparent; white-space: nowrap;
+}
+.status_placed { color: #0F6E56; background: #EBF9F4; border-color: #3DBFA0; }
+.status_cancelled { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
+.issue_pending { color: #d97706; background: #fffbeb; border-color: #fcd34d; }
+.issue_issued { color: #042C1E; background: #d1fae5; border-color: #6ee7b7; }
+.approval_pending_approval { color: #9A6800; background: #FEF3CD; border-color: #f5d98a; }
+.approval_approved { color: #0F6E56; background: #EBF9F4; border-color: #3DBFA0; }
+.approval_rejected { color: #c0392b; background: #FDECEA; border-color: #f5c6cb; }
+
+@media (max-width: 640px) {
+  .page { padding: 16px; }
+  .cardGrid { grid-template-columns: 1fr; }
+}

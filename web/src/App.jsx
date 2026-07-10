@@ -37,6 +37,9 @@ import CafeOfficialPage       from './pages/admin/CafeOfficialPage';
 import CafeOfficialPendingPage from './pages/admin/CafeOfficialPendingPage';
 import TeabarLocationsPage    from './pages/admin/TeabarLocationsPage';
 import TeabarDashboardPage    from './pages/admin/TeabarDashboardPage';
+import TeabarProxyOrderPage   from './pages/admin/TeabarProxyOrderPage';
+import TeabarOfficialOrderPage from './pages/admin/TeabarOfficialOrderPage';
+import TeabarOfficialApprovalsPage from './pages/admin/TeabarOfficialApprovalsPage';
 import CafeHistoryPage        from './pages/admin/CafeHistoryPage';
 import ProxyBookingPage       from './pages/admin/ProxyBookingPage';
 import WalkInPage             from './pages/admin/WalkInPage';
@@ -57,6 +60,7 @@ import NotificationCentrePage from './pages/admin/NotificationCentrePage';
 import AppSettingsPage        from './pages/admin/AppSettingsPage';
 import FeedbackDashboardPage        from './pages/admin/FeedbackDashboardPage';
 import OfficialGuestApprovalsPage   from './pages/admin/OfficialGuestApprovalsPage';
+import TeabarSharedHistoryPage from './pages/admin/TeabarSharedHistoryPage';
 
 // ── Shared pages (all roles) ──
 import ContactUsPage from './pages/shared/ContactUsPage';
@@ -220,6 +224,10 @@ export default function App() {
             <Route path="/cafe-official-pending" element={<WithToken Page={CafeOfficialPendingPage} />} />
             <Route path="/teabar-locations" element={<WithToken Page={TeabarLocationsPage} />} />
             <Route path="/teabar-dashboard" element={<WithToken Page={TeabarDashboardPage} />} />
+            <Route path="/teabar-proxy-order" element={<WithToken Page={TeabarProxyOrderPage} />} />
+            <Route path="/teabar-official-order" element={<WithToken Page={TeabarOfficialOrderPage} />} />
+            <Route path="/teabar-official-approvals" element={<WithToken Page={TeabarOfficialApprovalsPage} />} />
+            <Route path="/teabar-history" element={<WithToken Page={TeabarSharedHistoryPage} />} />
 
 
             {/* ── Shared: Contact Us (all roles) ── */}
