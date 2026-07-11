@@ -457,6 +457,15 @@ const BBQ_ORDER_TYPES = {
   LIVE:     'live',
 };
 
+const BBQ_TABLE_REQUEST_STATUS = {
+  PENDING:   'pending',
+  APPROVED:  'approved',
+  RETURNED:  'returned',
+  CONFIRMED: 'confirmed',
+  REJECTED:  'rejected',
+  CANCELLED: 'cancelled',
+};
+
 // ── COLLECTIONS ───────────────────────────────────────────────────────────────
 // Single source of truth — must match Firestore collection names exactly
 // Convention: camelCase — 28 collections across 6 layers
@@ -491,6 +500,7 @@ const COLLECTIONS = {
   BBQ_SETTINGS:                'bbqSettings',
   BBQ_EVENTS:                  'bbqEvents',
   BBQ_ORDERS:                  'bbqOrders',
+  BBQ_TABLE_REQUESTS:          'bbqTableRequests',
   // Events (6)
   EVENT_NOTE_TEMPLATES:       'eventNoteTemplates',
   EVENTS:                     'events',
@@ -525,5 +535,5 @@ module.exports = {
   NOTIFICATION_TYPES_EVENTS, NOTIFICATION_TYPES_BILLING, NOTIFICATION_TYPES_ADMIN,
   DELIVERY_STATUS, IN_APP_STATUS, REVIEW_STATUS, REPORT_TYPES, PERIOD_TYPES,
   CAFE_ORDER_TYPES, CAFE_ORDER_STATUS, TEABAR_ORDER_STATUS, CAFE_CONSUMER_TYPES, CAFE_CANCELLATION_REASONS,
-  COLLECTIONS, BBQ_MENU_GROUPS, BBQ_ORDER_TYPES,
+  COLLECTIONS, BBQ_MENU_GROUPS, BBQ_ORDER_TYPES, BBQ_TABLE_REQUEST_STATUS,
 };

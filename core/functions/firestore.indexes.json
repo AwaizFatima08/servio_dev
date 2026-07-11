@@ -911,6 +911,63 @@
         { "fieldPath": "__name__", "order": "DESCENDING" }
       ],
       "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "bbqTableRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tenantId", "order": "ASCENDING" },
+        { "fieldPath": "eventDate", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "bbqTableRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tenantId", "order": "ASCENDING" },
+        { "fieldPath": "employeeNumber", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "teabarOrders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tenantId", "order": "ASCENDING" },
+        { "fieldPath": "locationId", "order": "ASCENDING" },
+        { "fieldPath": "orderDate", "order": "ASCENDING" },
+        { "fieldPath": "issueStatus", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "bbqTableRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tenantId", "order": "ASCENDING" },
+        { "fieldPath": "eventDate", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ],
+      "density": "SPARSE_ALL"
+    },
+    {
+      "collectionGroup": "bbqTableRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tenantId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ],
+      "density": "SPARSE_ALL"
     }
   ],
   "fieldOverrides": []

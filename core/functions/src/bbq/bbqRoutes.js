@@ -29,6 +29,11 @@ const {
 const {
   createBbqOrder, createProxyBbqOrder, createOfficialBbqOrder,
 } = require('./bbqOrderService');
+const {
+  createTableRequest, approveTableRequest, returnTableRequest, rejectTableRequest,
+  resubmitTableRequest, confirmTableRequest, cancelTableRequest,
+  getTableRequests, getMyTableRequests,
+} = require('./bbqTableRequestService');
 
 const adminOnly       = [verifyToken, verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN)];
 const managerAndAbove = [verifyToken, verifyRole(ROLES.MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN)];
@@ -207,6 +212,114 @@ router.post('/orders/official', bbqSupervisorAndAbove, async (req, res) => {
     if (error.itemErrors) {
       return res.status(400).json({ success: false, message: error.message, itemErrors: error.itemErrors });
     }
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── POST /bbq/table-requests — employee submits ──
+router.post('/table-requests', anyAuthenticated, async (req, res) => {
+  try {
+    const { eventDate, expectedGuestCount, requestNote } = req.body;
+    const result = await createTableRequest({
+      tenantId: req.tenantId, eventDate, uid: req.user.uid,
+      officialEmployeeNumber: req.officialEmployeeNumber,
+      employeeName: req.body.employeeName || req.officialEmployeeNumber,
+      expectedGuestCount, requestNote,
+    });
+    return successResponse(res, result, 'Table request submitted', 201);
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── GET /bbq/table-requests — Admin/Manager list+filter ──
+router.get('/table-requests', managerAndAbove, async (req, res) => {
+  try {
+    const { eventDate, status } = req.query;
+    const requests = await getTableRequests({ tenantId: req.tenantId, eventDate, status });
+    return successResponse(res, { count: requests.length, requests }, 'Table requests retrieved');
+  } catch (error) {
+    return errorResponse(res, 'Failed to retrieve table requests', 500, error);
+  }
+});
+
+// ── GET /bbq/table-requests/mine — employee's own history ──
+router.get('/table-requests/mine', anyAuthenticated, async (req, res) => {
+  try {
+    const requests = await getMyTableRequests({ tenantId: req.tenantId, officialEmployeeNumber: req.officialEmployeeNumber });
+    return successResponse(res, { count: requests.length, requests }, 'Your table requests retrieved');
+  } catch (error) {
+    return errorResponse(res, 'Failed to retrieve your table requests', 500, error);
+  }
+});
+
+// ── PATCH /bbq/table-requests/:requestId/approve — Admin ──
+router.patch('/table-requests/:requestId/approve', adminOnly, async (req, res) => {
+  try {
+    const result = await approveTableRequest({ requestId: req.params.requestId, tenantId: req.tenantId, uid: req.user.uid });
+    return successResponse(res, result, 'Table request approved');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/table-requests/:requestId/return — Admin ──
+router.patch('/table-requests/:requestId/return', adminOnly, async (req, res) => {
+  try {
+    const result = await returnTableRequest({
+      requestId: req.params.requestId, tenantId: req.tenantId, uid: req.user.uid,
+      returnComments: req.body.returnComments,
+    });
+    return successResponse(res, result, 'Table request returned');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/table-requests/:requestId/reject — Admin ──
+router.patch('/table-requests/:requestId/reject', adminOnly, async (req, res) => {
+  try {
+    const result = await rejectTableRequest({
+      requestId: req.params.requestId, tenantId: req.tenantId, uid: req.user.uid,
+      rejectionReason: req.body.rejectionReason,
+    });
+    return successResponse(res, result, 'Table request rejected');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/table-requests/:requestId/resubmit — Employee (own request only) ──
+router.patch('/table-requests/:requestId/resubmit', anyAuthenticated, async (req, res) => {
+  try {
+    const result = await resubmitTableRequest({
+      requestId: req.params.requestId, tenantId: req.tenantId, uid: req.user.uid,
+      expectedGuestCount: req.body.expectedGuestCount, requestNote: req.body.requestNote,
+    });
+    return successResponse(res, result, 'Table request resubmitted');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/table-requests/:requestId/confirm — Manager ──
+router.patch('/table-requests/:requestId/confirm', managerAndAbove, async (req, res) => {
+  try {
+    const result = await confirmTableRequest({ requestId: req.params.requestId, tenantId: req.tenantId, uid: req.user.uid });
+    return successResponse(res, result, 'Table request confirmed');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/table-requests/:requestId/cancel — owner or Manager+ ──
+router.patch('/table-requests/:requestId/cancel', anyAuthenticated, async (req, res) => {
+  try {
+    const result = await cancelTableRequest({
+      requestId: req.params.requestId, tenantId: req.tenantId, uid: req.user.uid, userRole: req.userRole,
+    });
+    return successResponse(res, result, 'Table request cancelled');
+  } catch (error) {
     return errorResponse(res, error.message, 400, error);
   }
 });
