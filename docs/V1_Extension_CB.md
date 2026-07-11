@@ -1156,8 +1156,59 @@ Both were caught by explicitly marking them as assumptions requiring
 confirmation rather than treating an inference as a decision — the
 design doc would have been built around two wrong guesses otherwise.
 
-### Next session
-Design is fully locked, roadmap renumbering is fully reflected here.
-Start backend build: `bbqSettings` + `bbqEvents` first (menu draft/
-approve flow), since every other new collection depends on an event
-existing. Same discipline as Tea Bar throughout.
+## Update Entry - 11-Jul-2026 23:24
+
+### Status
+V1.4 BBQ backend build — session focus: bbqSettings, bbqEvents, bbqOrders (create + kitchen/approval), bbqTableRequests. All four field-tested end-to-end against live dev deploys, not just deployed-and-assumed-working. Three commits this session: de45ec9, 30619fa, 1b15c96.
+
+### Completed
+
+**bbqSettings** — tenantId-doc policy collection, admin-only GET/PATCH, mirrors reservationSettings exactly. Seed script: scripts/seedBbqSettings.js.
+
+**bbqEvents** — full Manager-draft / Admin-approve lifecycle (draft → pending_review → published/returned → cancelled), reusing EVENT_STATUS_OFFICIAL verbatim. Composite doc ID `{tenantId}_{eventDate}`, Friday-only validated. Menu resolver builds items[] arrays from Manager-selected itemIds (NOT auto-pulled from full catalogue — confirmed design decision).
+
+**menuItems schema extension** — new field `bbqMenuGroup`, required only for items tagged serviceCategories:['bbq']. Validated at both addMenuItem and updateMenuItem.
+
+**bbqOrders** — multi-item-per-document model (NOT one-item-per-doc like café). Create paths: createBbqOrder (self), createProxyBbqOrder (bbq_supervisor/manager), createOfficialBbqOrder (billing-approval flow). Server resolves item menuGroup against the published event's menu — never trusts client-sent classification, same principle as mess's menuSnapshot. Kitchen/approval (bbqKitchenService.js): acceptBbqOrder, markBbqOrderPrepared, cancelBbqOrder (plain self-cancel, placed-only), approveLateOrder/rejectLateOrder, requestCancellation/approveCancellationRequest/rejectCancellationRequest, approveOfficialBbqOrder/rejectOfficialBbqOrder.
+
+**bbqTableRequests** — full lifecycle: submit → pending → Admin approve/return/reject → (if returned) resubmit → pending → Manager confirm (only from approved). Cancel available to owning employee OR manager+.
+
+**New role added:** bbq_supervisor (ROLES.BBQ_SUPERVISOR).
+
+### Schema Amendments (locked doc §2.1 superseded, see dated note in design doc itself)
+
+- `breadsDesserts[]` (5-array menu design) split into `breadItems[]` + `dessertItems[]` (6 arrays). Corresponding menuItems.bbqMenuGroup now has 6 values, not 5: preorder | live_cook | kids | beverage | bread | dessert. Deliberate decision, confirmed mid-session, not a correction of an error.
+- Added audit fields not in original design doc, filling gaps caught during build (pattern: doc gave some decision paths audit trails but not others — fixed for consistency):
+  - bbqTableRequests: returnedByUid/returnedAt/returnComments, rejectedByUid/rejectedAt/rejectionReason
+  - bbqOrders: lateRequestDecisionByUid/lateRequestDecisionAt/lateRequestDecisionReason
+  - bbqOrders: cancelledAt/cancelledByUid/cancellationReason (needed for the new plain-cancel path below)
+- **New function beyond original design doc:** cancelBbqOrder — plain self-cancel for still-'placed' orders, no Manager approval needed. Original doc only defined an approval-gated cancel for already-accepted orders; a still-placed order had no cancel path at all. Confirmed addition, consistent with how café/mess handle pre-acceptance cancellation.
+
+### Firestore Indexes Added
+bbqEvents (×2), bbqTableRequests (×4 — two added mid-session after a live 500 error surfaced a missing eventDate-only query index), bbqOrders (×1, kitchen board query).
+
+### Decisions Locked This Session
+- Routing convention for BBQ: one combined bbqRoutes.js (café/Tea Bar style), not separate route files per collection (mess/events style).
+- bbqSettings GET/PATCH: admin-only, mirrors reservationSettings.
+- Manager picks a specific itemIds subset for each Friday's bbqEvents menu — NOT an auto-pulled full catalogue.
+- No preorder-per-employee limit (unlike original design doc's "one preorder" language — confirmed no cap).
+- Item validation always server-resolved against the published event's menu, never client-trusted.
+- Event must be published before any order or table request can be placed against it.
+- orderType is a frontend choice, backend only validates timing, doesn't infer.
+- An approved late preorder is treated as a fully regular preorder from that point on — isLateRequest stays true as history, but no operational difference.
+- A rejected late order is also cancelled (orderStatus flips) — doesn't sit as a phantom order.
+- approveCancellationRequest is atomic — approval IS the cancellation (cancellationRequestStatus + orderStatus flip together), no separate later action.
+- cancelBbqOrder / requestCancellation: owner or bbq_supervisor/manager/admin.
+- Official BBQ orders (proxy + official creation) require bbq_supervisor OR manager — a real gap caught before deploy: initial route gating used managerAndAbove which excludes bbq_supervisor entirely; fixed to a new bbqSupervisorAndAbove group.
+
+### Known Gaps (accepted, not blocking)
+- Owner-vs-non-owner cancel access control (bbqTableRequests AND bbqOrders) — logic written and reviewed but never tested against a genuine non-privileged second account; only tested with the single admin token available this session.
+- rejectOfficialBbqOrder — untested (directly mirrors the now-proven approveOfficialBbqOrder/café pattern, low risk).
+- No single-order GET endpoint for bbqOrders yet (kitchen board list is the only read path currently).
+- Late-request detection logic (_validateOrderWindow's "past cutoff, not yet closed" branch) verified only via manual Firestore field edit, not via genuine real-time cutoff timing — no real Friday date was reachable this session to test naturally.
+
+### Dev Data Residue (fold into existing P2 cleanup item)
+Several ffl_2026-08-14 / ffl_2026-07-31 / ffl_2026-08-07 test bbqEvents docs, ~15 test bbqOrders docs in various terminal states, 4 test bbqTableRequests docs, bbqSettings.closeoutTime left at "23:15" (test value, not reverted to seed default "23:00"), test menuItems (CAFE_TEST_TEA-style BBQ equivalents) with bbqMenuGroup drift from mid-session testing.
+
+### Next Session Starting Point
+Remaining from original V1.4 BBQ scope: bbqLiveItemStatus (Cloud Function aggregator, per-item real-time kitchen counts — "prepared" counts now testable since accept/prepare exists) + bbqKitchenTargetLocker (17:30 Friday scheduled snapshot function). Neither started. Read design doc §2.5 and §5 before proposing anything.
