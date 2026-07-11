@@ -31,6 +31,7 @@ const ROLES = {
   PURCHASER:                       'purchaser',
   SPORTS_SUPERVISOR:               'sports_supervisor',
   TEABAR_ATTENDANT:                'teabar_attendant',
+  BBQ_SUPERVISOR:                  'bbq_supervisor',
   EMPLOYEE:                        'employee',
 };
 
@@ -148,6 +149,15 @@ const SERVICE_CATEGORIES = {
   BAKERY_PREORDER:  'bakery_preorder',
   TEABAR:           'teabar',
   BEVERAGE:         'beverage',
+};
+
+const BBQ_MENU_GROUPS = {
+  PREORDER:      'preorder',
+  LIVE_COOK:     'live_cook',
+  KIDS:          'kids',
+  BEVERAGE:      'beverage',
+  BREAD:         'bread',
+  DESSERT:       'dessert',
 };
 
 const RATE_TYPES        = { RETROSPECTIVE: 'retrospective', PREDEFINED: 'predefined' };
@@ -442,6 +452,11 @@ const CAFE_CANCELLATION_REASONS = {
   OTHER:            'other',
 };
 
+const BBQ_ORDER_TYPES = {
+  PREORDER: 'preorder',
+  LIVE:     'live',
+};
+
 // ── COLLECTIONS ───────────────────────────────────────────────────────────────
 // Single source of truth — must match Firestore collection names exactly
 // Convention: camelCase — 28 collections across 6 layers
@@ -472,6 +487,10 @@ const COLLECTIONS = {
   // Tea Bar Operations (2) — V1.3
   TEABAR_LOCATIONS:           'teabarLocations',
   TEABAR_ORDERS:               'teabarOrders',
+  // BBQ Operations (1 so far) — V1.4
+  BBQ_SETTINGS:                'bbqSettings',
+  BBQ_EVENTS:                  'bbqEvents',
+  BBQ_ORDERS:                  'bbqOrders',
   // Events (6)
   EVENT_NOTE_TEMPLATES:       'eventNoteTemplates',
   EVENTS:                     'events',
@@ -506,5 +525,5 @@ module.exports = {
   NOTIFICATION_TYPES_EVENTS, NOTIFICATION_TYPES_BILLING, NOTIFICATION_TYPES_ADMIN,
   DELIVERY_STATUS, IN_APP_STATUS, REVIEW_STATUS, REPORT_TYPES, PERIOD_TYPES,
   CAFE_ORDER_TYPES, CAFE_ORDER_STATUS, TEABAR_ORDER_STATUS, CAFE_CONSUMER_TYPES, CAFE_CANCELLATION_REASONS,
-  COLLECTIONS,
+  COLLECTIONS, BBQ_MENU_GROUPS, BBQ_ORDER_TYPES,
 };

@@ -59,12 +59,35 @@ const addMenuItem = async ({
   baseUnit, supportsFeedback, supportsRate, sortOrder,
   constituentItemIds, constituentItemNames,
   rateType, tenantId, createdByUid,
+  bbqMenuGroup, // V1.4 BBQ — see below
 }) => {
 
   // Validate foodTypeCode exists
   const ftDoc = await db.collection(COLLECTIONS.FOOD_TYPES).doc(foodTypeCode).get();
   if (!ftDoc.exists) {
     return { success: false, message: `Food type ${foodTypeCode} not found` };
+  }
+
+  // V1.4 BBQ — bbqMenuGroup is the permanent catalogue-level classification
+  // an item belongs to (preorder | live_cook | kids | beverage |
+  // bread_dessert). Required only for items tagged 'bbq' — the weekly
+  // bbqEvents resolver depends on every BBQ-tagged item having this set,
+  // or it silently has nowhere to bucket the item. Not required, and not
+  // stored, for items outside the bbq service category — keeps the field
+  // scoped, doesn't pollute mess/café/Tea Bar items.
+  const isBbqItem = Array.isArray(serviceCategories) && serviceCategories.includes('bbq');
+  let resolvedBbqMenuGroup = null;
+
+  if (isBbqItem) {
+    const { BBQ_MENU_GROUPS } = require('../constants');
+    const validGroups = Object.values(BBQ_MENU_GROUPS);
+    if (!bbqMenuGroup || !validGroups.includes(bbqMenuGroup)) {
+      return {
+        success: false,
+        message: `bbqMenuGroup is required for BBQ items. Use one of: ${validGroups.join(', ')}`,
+      };
+    }
+    resolvedBbqMenuGroup = bbqMenuGroup;
   }
 
   const ref = db.collection(COLLECTIONS.MENU_ITEMS).doc();
@@ -87,6 +110,7 @@ const addMenuItem = async ({
     isVisible: true,
     sortOrder: sortOrder || 0,
     tenantId,
+    bbqMenuGroup: resolvedBbqMenuGroup,
     createdAt: ts(),
     updatedAt: ts(),
   });
@@ -158,11 +182,27 @@ const updateMenuItem = async (itemId, updates) => {
   // Only allow safe fields to be updated
   const allowed = ['itemName', 'serviceCategories', 'foodTypeCode', 'baseUnit',
     'supportsFeedback', 'supportsRate', 'sortOrder',
-    'constituentItemIds', 'constituentItemNames'];
+    'constituentItemIds', 'constituentItemNames', 'bbqMenuGroup'];
 
   const safeUpdates = {};
   for (const key of allowed) {
     if (updates[key] !== undefined) safeUpdates[key] = updates[key];
+  }
+
+  // V1.4 BBQ — validate bbqMenuGroup against the controlled vocabulary
+  // whenever it's actually being changed. Does not require it to be
+  // present (partial updates to unrelated fields shouldn't fail just
+  // because bbqMenuGroup was omitted) — only checks the value is legal
+  // when the caller is actually trying to set it.
+  if (safeUpdates.bbqMenuGroup !== undefined) {
+    const { BBQ_MENU_GROUPS } = require('../constants');
+    const validGroups = Object.values(BBQ_MENU_GROUPS);
+    if (!validGroups.includes(safeUpdates.bbqMenuGroup)) {
+      return {
+        success: false,
+        message: `Invalid bbqMenuGroup. Use one of: ${validGroups.join(', ')}`,
+      };
+    }
   }
 
   if (Object.keys(safeUpdates).length === 0) {

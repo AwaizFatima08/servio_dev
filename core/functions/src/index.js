@@ -50,7 +50,7 @@ const appSettingsRoutes           = require('./appSettings/appSettingsRoutes');
 const familyRoutes                = require('./family/familyRoutes');
 const cafeRoutes                  = require('./cafe/cafeRoutes');
 const teabarRoutes                = require('./teabar/teabarRoutes');
-
+const bbqRoutes                   = require('./bbq/bbqRoutes');
 
 // ── Middleware + scheduled module (used by manual trigger below) ──
 // verifyToken populates req.user from the Bearer token.
@@ -96,6 +96,7 @@ app.use('/app-settings',            appSettingsRoutes);
 app.use('/family',                  familyRoutes);
 app.use('/cafe',                    cafeRoutes);
 app.use('/teabar',                  teabarRoutes);
+app.use('/bbq',                     bbqRoutes);
 
 // ── Admin: Manual menu resolver trigger (Batch 1, 01 Jun 2026) ──
 // POST /admin/resolve-menus
