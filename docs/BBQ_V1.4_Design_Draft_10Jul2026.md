@@ -50,6 +50,42 @@ Document ID: `{tenantId}_{eventDate}` e.g. `ffl_2026-07-17`
 | isActive | boolean | |
 | createdAt / updatedAt | timestamp | |
 
+> **AMENDED 11-Jul-2026 — `menu` structure changed from 5 arrays to 6.**
+> Original text above (`bbqEvents.menu`) is superseded by this note; left
+> visible rather than silently edited, per this project's locked-decision
+> discipline.
+>
+> `breadsDesserts[]` is split into two separate arrays:
+> ```
+> menu: {
+>   preorderItems[], liveCookItems[], kidsItems[],
+>   beverages[], breadItems[], dessertItems[]
+> }
+> ```
+> Driven by a corresponding split at the `menuItems` catalogue level:
+> `bbqMenuGroup` (new field on `menuItems`, added 11-Jul-2026, required
+> only for items tagged `serviceCategories: ['bbq']`) now has **six**
+> controlled values instead of five — `preorder | live_cook | kids |
+> beverage | bread | dessert` — where the original design draft assumed
+> five with `bread_dessert` combined. Homi's deliberate decision,
+> confirmed in the 11-Jul-2026 backend-build session, not a correction of
+> an error in the original draft.
+>
+> Each of the six arrays uses the same denormalised entry shape as
+> before: `{itemId, itemName, foodTypeCode, foodTypeName, baseUnit,
+> sortOrder}`.
+>
+> Downstream effects of this split, for the record:
+> - `bbqEventService.js`'s `saveBbqEventDraft` resolver groups items into
+>   six arrays via a `bbqMenuGroup → menu key` map, not five.
+> - Screen #2 (Live tab) and Screen #12 (Menu Draft) — not yet built —
+>   will need to account for six groups, not five, when their frontend
+>   design is worked out.
+> - §3's screen map and §6 "Reused vs. New" summary were written against
+>   the original 5-array assumption and have not yet been re-checked
+>   against this amendment — worth a pass when frontend work starts,
+>   not urgent now since no frontend code exists yet.
+
 **Important notes:**
 1. `menu` is resolved (item names denormalised) — operational screens never query `menuItems` directly, same rule as everywhere else.
 2. `kitchenTargetSnapshot` is deliberately a one-time snapshot, not a live figure — see §2.4 for the live-tracking counterpart.
@@ -263,3 +299,4 @@ This needs propagating into `V1_Extension_CB.md`'s Build Status table (see next 
 ## 10. Suggested Next Step
 
 Everything in this document — BBQ design (§8) and version naming (§9) — is now resolved. Next: field-by-field backend build, same discipline as Tea Bar — backend built and tested first, screen by screen after, each verified live before the next opens.
+
