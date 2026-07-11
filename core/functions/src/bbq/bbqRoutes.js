@@ -34,6 +34,12 @@ const {
   resubmitTableRequest, confirmTableRequest, cancelTableRequest,
   getTableRequests, getMyTableRequests,
 } = require('./bbqTableRequestService');
+const {
+  getBbqKitchenOrders, acceptBbqOrder, markBbqOrderPrepared, cancelBbqOrder,
+  approveLateOrder, rejectLateOrder, requestCancellation,
+  approveCancellationRequest, rejectCancellationRequest,
+  approveOfficialBbqOrder, rejectOfficialBbqOrder,
+} = require('./bbqKitchenService');
 
 const adminOnly       = [verifyToken, verifyRole(ROLES.ADMIN, ROLES.SUPER_ADMIN)];
 const managerAndAbove = [verifyToken, verifyRole(ROLES.MANAGER, ROLES.ADMIN, ROLES.SUPER_ADMIN)];
@@ -319,6 +325,133 @@ router.patch('/table-requests/:requestId/cancel', anyAuthenticated, async (req, 
       requestId: req.params.requestId, tenantId: req.tenantId, uid: req.user.uid, userRole: req.userRole,
     });
     return successResponse(res, result, 'Table request cancelled');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── GET /bbq/kitchen/orders?eventDate=... — bbq_supervisor+ ──
+router.get('/kitchen/orders', bbqSupervisorAndAbove, async (req, res) => {
+  try {
+    const { eventDate } = req.query;
+    if (!eventDate) return errorResponse(res, 'eventDate is required.', 400);
+    const result = await getBbqKitchenOrders({ tenantId: req.tenantId, eventDate });
+    return successResponse(res, result, 'BBQ kitchen orders retrieved');
+  } catch (error) {
+    return errorResponse(res, 'Failed to retrieve kitchen orders', 500, error);
+  }
+});
+
+// ── PATCH /bbq/orders/:orderId/accept — bbq_supervisor+ ──
+router.patch('/orders/:orderId/accept', bbqSupervisorAndAbove, async (req, res) => {
+  try {
+    const result = await acceptBbqOrder({ orderId: req.params.orderId, tenantId: req.tenantId, acceptedByUid: req.user.uid });
+    return successResponse(res, result, 'Order accepted');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/orders/:orderId/prepared — bbq_supervisor+ ──
+router.patch('/orders/:orderId/prepared', bbqSupervisorAndAbove, async (req, res) => {
+  try {
+    const result = await markBbqOrderPrepared({ orderId: req.params.orderId, tenantId: req.tenantId, preparedByUid: req.user.uid });
+    return successResponse(res, result, 'Order marked prepared');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/orders/:orderId/cancel — owner or bbq_supervisor+, placed only ──
+router.patch('/orders/:orderId/cancel', anyAuthenticated, async (req, res) => {
+  try {
+    const result = await cancelBbqOrder({
+      orderId: req.params.orderId, tenantId: req.tenantId, uid: req.user.uid, userRole: req.userRole,
+      cancellationReason: req.body.cancellationReason,
+    });
+    return successResponse(res, result, 'Order cancelled');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/orders/:orderId/late-request/approve — managerAndAbove ──
+router.patch('/orders/:orderId/late-request/approve', managerAndAbove, async (req, res) => {
+  try {
+    const result = await approveLateOrder({ orderId: req.params.orderId, tenantId: req.tenantId, uid: req.user.uid });
+    return successResponse(res, result, 'Late order approved');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/orders/:orderId/late-request/reject — managerAndAbove ──
+router.patch('/orders/:orderId/late-request/reject', managerAndAbove, async (req, res) => {
+  try {
+    const result = await rejectLateOrder({
+      orderId: req.params.orderId, tenantId: req.tenantId, uid: req.user.uid,
+      lateRequestDecisionReason: req.body.lateRequestDecisionReason,
+    });
+    return successResponse(res, result, 'Late order rejected');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/orders/:orderId/request-cancellation — owner or bbq_supervisor+, accepted only ──
+router.patch('/orders/:orderId/request-cancellation', anyAuthenticated, async (req, res) => {
+  try {
+    const result = await requestCancellation({
+      orderId: req.params.orderId, tenantId: req.tenantId, uid: req.user.uid, userRole: req.userRole,
+      reason: req.body.reason,
+    });
+    return successResponse(res, result, 'Cancellation requested');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/orders/:orderId/cancellation-request/approve — managerAndAbove ──
+router.patch('/orders/:orderId/cancellation-request/approve', managerAndAbove, async (req, res) => {
+  try {
+    const result = await approveCancellationRequest({
+      orderId: req.params.orderId, tenantId: req.tenantId, uid: req.user.uid, decisionReason: req.body.decisionReason,
+    });
+    return successResponse(res, result, 'Cancellation approved');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/orders/:orderId/cancellation-request/reject — managerAndAbove ──
+router.patch('/orders/:orderId/cancellation-request/reject', managerAndAbove, async (req, res) => {
+  try {
+    const result = await rejectCancellationRequest({
+      orderId: req.params.orderId, tenantId: req.tenantId, uid: req.user.uid, decisionReason: req.body.decisionReason,
+    });
+    return successResponse(res, result, 'Cancellation request rejected');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/orders/:orderId/official/approve — adminOnly ──
+router.patch('/orders/:orderId/official/approve', adminOnly, async (req, res) => {
+  try {
+    const result = await approveOfficialBbqOrder({ orderId: req.params.orderId, tenantId: req.tenantId, approvedByUid: req.user.uid });
+    return successResponse(res, result, 'Official order approved');
+  } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/orders/:orderId/official/reject — adminOnly ──
+router.patch('/orders/:orderId/official/reject', adminOnly, async (req, res) => {
+  try {
+    const result = await rejectOfficialBbqOrder({
+      orderId: req.params.orderId, tenantId: req.tenantId, rejectedByUid: req.user.uid, approvalNote: req.body.approvalNote,
+    });
+    return successResponse(res, result, 'Official order rejected');
   } catch (error) {
     return errorResponse(res, error.message, 400, error);
   }
