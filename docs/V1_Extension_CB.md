@@ -1212,3 +1212,122 @@ Several ffl_2026-08-14 / ffl_2026-07-31 / ffl_2026-08-07 test bbqEvents docs, ~1
 
 ### Next Session Starting Point
 Remaining from original V1.4 BBQ scope: bbqLiveItemStatus (Cloud Function aggregator, per-item real-time kitchen counts — "prepared" counts now testable since accept/prepare exists) + bbqKitchenTargetLocker (17:30 Friday scheduled snapshot function). Neither started. Read design doc §2.5 and §5 before proposing anything.
+## Update Entry - 12-Jul-2026 13:05
+
+### bbqLiveItemStatus — built and fully field-tested
+
+New collection `bbqLiveItemStatus` (doc ID `{tenantId}_{eventDate}`) holds
+live, per-item ordered/prepared counters for the supervisor's cumulative-
+count kitchen screen. New file: `bbqLiveItemStatusService.js`
+(`applyBbqItemDeltas` helper). Wired into `bbqOrderService.js` (all 3
+create functions) and `bbqKitchenService.js` (markBbqOrderPrepared,
+cancelBbqOrder, rejectLateOrder, approveCancellationRequest).
+
+**Architecture decision:** incremental `FieldValue.increment` counters,
+NOT a full re-query/re-sum like `eventService.js`'s `aggregateAttendance()`
+(design doc's "same pattern as attendanceAggregator" phrase turned out to
+describe something that doesn't exist as a standalone Cloud Function —
+the real event pattern is a synchronous inline call that fully re-scans
+all responses every time, which doesn't scale to BBQ's higher order
+volume across a 3-hour service window). Chosen deliberately for speed;
+accepted tradeoff is that a missed transition drifts the counter with no
+self-correction, unlike the recompute pattern.
+
+Writes use `set(..., {merge:true})` with nested objects (not `update()`)
+so the document auto-creates on the first order of the night, and
+Firestore's nested-map deep-merge means each write only touches the
+specific itemId(s) involved — sibling itemIds are never touched.
+Increment calls are `await`ed, never fire-and-forget (Cloud Functions can
+freeze the process right after sending the HTTP response — a
+fire-and-forget write could silently never complete).
+
+**Trigger map (confirmed against real code, not assumed):**
+- createBbqOrder / createProxyBbqOrder / createOfficialBbqOrder → orderedCount +qty
+- acceptBbqOrder → no change
+- markBbqOrderPrepared → preparedCount +qty
+- cancelBbqOrder (plain, placed-only) → orderedCount -qty
+- rejectLateOrder → orderedCount -qty
+- approveCancellationRequest → orderedCount -qty always; preparedCount -qty
+  ONLY if order.orderStatus was already 'prepared' at approval time
+  (captured via wasAlreadyPrepared before the status overwrite) — confirmed
+  12-Jul-2026 that prepared-then-cancelled can happen on a real Friday night
+- approveLateOrder, requestCancellation, rejectCancellationRequest,
+  approveOfficialBbqOrder, rejectOfficialBbqOrder → no change (confirmed,
+  none of these touch orderStatus/items in a way that changes quantities)
+
+**Field-tested against live dev writes, all 6 paths, predicted-then-verified:**
+1. Order created (qty 2) → orderedCount 2, no preparedCount field ✓
+2. Accepted + prepared → preparedCount 2, orderedCount unchanged ✓
+3. Second order (qty 1, same item) → orderedCount 3, preparedCount
+   untouched at 2 (proves merge doesn't clobber siblings) ✓
+4. Cancel second order (still placed) → orderedCount back to 2 ✓
+5. Late order: manually set preorderCutoffAt to the past → order created
+   with isLateRequest:true, orderedCount 2→3 → rejectLateOrder →
+   orderedCount back to 2 ✓. preorderCutoffAt restored to original value
+   (17:30) immediately after.
+6. Prepared-then-cancelled race: order created → accepted → cancellation
+   requested (still accepted) → marked prepared anyway (simulating kitchen
+   not knowing) → cancellation approved → BOTH orderedCount and
+   preparedCount dropped together (3→2, 3→2), confirming the conditional
+   branch fires correctly ✓
+
+Board returned to baseline (orderedCount 2, preparedCount 2) after all
+tests — consistency check passed.
+
+### Incident: three files emptied to 0 bytes mid-session — root cause found and fixed
+
+During this session's commit, `constants.js`, `bbqOrderService.js`, and
+`bbqKitchenService.js` were found truncated to 0 bytes on disk AFTER a
+successful `git commit` (commit itself was fine — full content was
+correctly captured; only the working-tree copies were empty). Caught only
+because `git status --short` was run as a matter of course after the
+commit — otherwise this would have shipped silently on next deploy and
+broken every route that imports constants.js (i.e. almost everything).
+
+Root cause: VS Code's Remote [SSH] `files.autoSave` was set to
+`afterDelay` (1000ms) — different from, and overriding, the User-scope
+setting which was already `off`. All three wiped files were open as
+editor tabs during the commit; background autosave over the SSH
+connection likely raced against git reading the same files, producing a
+truncated write. Hooks and rclone background sync were both checked and
+ruled out (no active hooks beyond .sample files; no rclone timer/cron/
+running process).
+
+Fix applied: `files.autoSave` set to `off` in BOTH User and Remote
+scopes. Manual save (Ctrl+S) is now required — adopt the habit of
+saving explicitly, then checking `git status --short` shows the expected
+file(s) as modified, before `git add`.
+
+Files restored via `git checkout -- <path>` from the last good commit
+(a8dab2a) before the corrupted files were ever added/committed — no data
+was actually lost, but it was close.
+
+**Lesson for future sessions:** always run `git status --short` (not just
+`git log -1`) after every commit, not only before — confirms both what
+went IN and that the working tree still matches it. This was already a
+standing rule but wasn't being applied to the post-commit side
+consistently.
+
+### Committed
+`3da2da6` — BBQ live item counter: increment ordered/prepared counts on
+order create, accept, prepare, cancel, reject-late, approve-cancellation-
+request. Pushed to origin/main.
+
+### NEXT starting point
+`bbqKitchenTargetLocker` (design doc §2.5/§5) — 17:30 Friday scheduled
+snapshot of bbqLiveItemStatus.itemCounts into bbqEvents.kitchenTargetSnapshot
++ kitchenTargetLockedAt. Confirmed via direct Firestore inspection
+(12-Jul-2026): bbqEvents documents already carry kitchenTargetLockedAt:
+null and kitchenTargetSnapshot: null in their schema, unused — field names
+are already locked, no guessing needed there. Still needed before drafting:
+(1) exact §2.5/§5 design doc text re-pasted fresh into the working session
+(2) the actual tenant-loop pattern from menuResolver.js / dailyMenuResolver.js,
+since hardcoding 'ffl' would silently break on tenant #2 — not yet supplied
+this session.
+
+### Known gaps, still open (not new, carried from prior session — see
+11-Jul-2026 entry for full list)
+- Owner-vs-non-owner cancel access control — still untested against a
+  real second non-privileged account.
+- bbqSettings.closeoutTime still at test value "23:15" — fold into P2 cleanup.
+- No single-order GET endpoint for bbqOrders.
