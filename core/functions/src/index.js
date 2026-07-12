@@ -166,6 +166,16 @@ exports.teabarAutoCancel = functions
   .timeZone('Asia/Karachi')
   .onRun(require('./scheduled/teabarAutoCancel').run);
 
+// BBQ — Friday kitchen target locker — runs at 17:30 PKT, Fridays only.
+// Snapshots bbqLiveItemStatus into bbqEvents.kitchenTargetSnapshot.
+// Deliberately permanent once set — no manual re-trigger endpoint, per
+// the design doc's "never regenerated" rule (confirmed 12-Jul-2026).
+exports.bbqKitchenTargetLocker = functions
+  .region('asia-south1')
+  .pubsub.schedule('30 17 * * 5')
+  .timeZone('Asia/Karachi')
+  .onRun(require('./scheduled/bbqKitchenTargetLocker').run);  
+
 // Overdue library checker — V2, not yet active
 // exports.checkOverdue = functions
 //   .region('asia-south1')
