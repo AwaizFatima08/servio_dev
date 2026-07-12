@@ -501,6 +501,7 @@ const COLLECTIONS = {
   BBQ_EVENTS:                  'bbqEvents',
   BBQ_ORDERS:                  'bbqOrders',
   BBQ_TABLE_REQUESTS:          'bbqTableRequests',
+  BBQ_LIVE_ITEM_STATUS:        'bbqLiveItemStatus',
   // Events (6)
   EVENT_NOTE_TEMPLATES:       'eventNoteTemplates',
   EVENTS:                     'events',

@@ -21,6 +21,7 @@
 const { getFirestore } = require('firebase-admin/firestore');
 const db = getFirestore('servio-dev');
 const { COLLECTIONS, CAFE_ORDER_STATUS } = require('../constants');
+const { applyBbqItemDeltas } = require('./bbqLiveItemStatusService');
 
 // ─────────────────────────────────────────
 // getBbqKitchenOrders
@@ -103,6 +104,7 @@ async function markBbqOrderPrepared({ orderId, tenantId, preparedByUid }) {
 
   const now = new Date();
   await ref.update({ orderStatus: CAFE_ORDER_STATUS.PREPARED, preparedAt: now, preparedByUid, updatedAt: now });
+  await applyBbqItemDeltas({ tenantId, eventDate: order.eventDate, items: order.items, preparedDelta: 1 });
   return { message: 'Order marked prepared.', orderId };
 }
 
@@ -136,6 +138,7 @@ async function cancelBbqOrder({ orderId, tenantId, uid, userRole, cancellationRe
     cancelledAt: now, cancelledByUid: uid, cancellationReason: cancellationReason || null,
     updatedAt: now,
   });
+  await applyBbqItemDeltas({ tenantId, eventDate: order.eventDate, items: order.items, orderedDelta: -1 });
   return { message: 'Order cancelled.', orderId };
 }
 
@@ -187,6 +190,7 @@ async function rejectLateOrder({ orderId, tenantId, uid, lateRequestDecisionReas
     cancelledAt: now, cancelledByUid: uid, cancellationReason: `Late order rejected: ${lateRequestDecisionReason}`,
     updatedAt: now,
   });
+  await applyBbqItemDeltas({ tenantId, eventDate: order.eventDate, items: order.items, orderedDelta: -1 });
   return { message: 'Late order rejected and cancelled.', orderId };
 }
 
@@ -238,6 +242,8 @@ async function approveCancellationRequest({ orderId, tenantId, uid, decisionReas
     throw new Error(`Cannot approve — current cancellation request status is ${order.cancellationRequestStatus}.`);
   }
 
+  const wasAlreadyPrepared = order.orderStatus === CAFE_ORDER_STATUS.PREPARED; // NEW — captured before overwrite
+
   const now = new Date();
   await ref.update({
     cancellationRequestStatus: 'approved',
@@ -246,6 +252,14 @@ async function approveCancellationRequest({ orderId, tenantId, uid, decisionReas
     cancelledAt: now, cancelledByUid: uid, cancellationReason: decisionReason || 'Cancellation request approved.',
     updatedAt: now,
   });
+
+  // NEW — always undo orderedCount; only undo preparedCount if the food was already made
+  await applyBbqItemDeltas({
+    tenantId, eventDate: order.eventDate, items: order.items,
+    orderedDelta: -1,
+    preparedDelta: wasAlreadyPrepared ? -1 : 0,
+  });
+
   return { message: 'Cancellation approved — order cancelled.', orderId };
 }
 

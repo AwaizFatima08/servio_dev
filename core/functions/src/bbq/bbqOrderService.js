@@ -24,6 +24,7 @@
 // ─────────────────────────────────────────
 
 const { getFirestore } = require('firebase-admin/firestore');
+const { applyBbqItemDeltas } = require('./bbqLiveItemStatusService');
 const db = getFirestore('servio-dev');
 
 const {
@@ -239,6 +240,7 @@ async function createBbqOrder({
   const ref = db.collection(COLLECTIONS.BBQ_ORDERS).doc();
   doc.bookingGroupId = ref.id;
   await ref.set(doc);
+  await applyBbqItemDeltas({ tenantId, eventDate, items: resolvedItems, orderedDelta: 1 });
 
   return { orderId: ref.id, isLateRequest, itemCount: resolvedItems.length, orderStatus: doc.orderStatus };
 }
@@ -279,6 +281,7 @@ async function createProxyBbqOrder({
   const ref = db.collection(COLLECTIONS.BBQ_ORDERS).doc();
   doc.bookingGroupId = ref.id;
   await ref.set(doc);
+  await applyBbqItemDeltas({ tenantId, eventDate, items: resolvedItems, orderedDelta: 1 });
 
   return { orderId: ref.id, isLateRequest, itemCount: resolvedItems.length, orderStatus: doc.orderStatus };
 }
@@ -314,6 +317,7 @@ async function createOfficialBbqOrder({
   const ref = db.collection(COLLECTIONS.BBQ_ORDERS).doc();
   doc.bookingGroupId = ref.id;
   await ref.set(doc);
+  await applyBbqItemDeltas({ tenantId, eventDate, items: resolvedItems, orderedDelta: 1 });
 
   return { orderId: ref.id, isLateRequest, itemCount: resolvedItems.length, orderStatus: doc.orderStatus, approvalStatus: doc.approvalStatus };
 }
