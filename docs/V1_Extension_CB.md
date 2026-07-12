@@ -1313,21 +1313,82 @@ consistently.
 order create, accept, prepare, cancel, reject-late, approve-cancellation-
 request. Pushed to origin/main.
 
-### NEXT starting point
-`bbqKitchenTargetLocker` (design doc §2.5/§5) — 17:30 Friday scheduled
-snapshot of bbqLiveItemStatus.itemCounts into bbqEvents.kitchenTargetSnapshot
-+ kitchenTargetLockedAt. Confirmed via direct Firestore inspection
-(12-Jul-2026): bbqEvents documents already carry kitchenTargetLockedAt:
-null and kitchenTargetSnapshot: null in their schema, unused — field names
-are already locked, no guessing needed there. Still needed before drafting:
-(1) exact §2.5/§5 design doc text re-pasted fresh into the working session
-(2) the actual tenant-loop pattern from menuResolver.js / dailyMenuResolver.js,
-since hardcoding 'ffl' would silently break on tenant #2 — not yet supplied
-this session.
+## Update Entry - 12-Jul-2026 16:50
 
-### Known gaps, still open (not new, carried from prior session — see
-11-Jul-2026 entry for full list)
-- Owner-vs-non-owner cancel access control — still untested against a
-  real second non-privileged account.
-- bbqSettings.closeoutTime still at test value "23:15" — fold into P2 cleanup.
-- No single-order GET endpoint for bbqOrders.
+### bbqKitchenTargetLocker — built and field-tested
+
+New scheduled Cloud Function `bbqKitchenTargetLocker.js`, runs 17:30 PKT
+every Friday only (cron `30 17 * * 5`, Asia/Karachi). Snapshots
+`bbqLiveItemStatus`'s live `orderedCount` per item into
+`bbqEvents.kitchenTargetSnapshot` (flattened to `{itemId: number}`, NOT
+the nested `{itemId: {itemName, orderedCount, preparedCount}}` shape
+of the source doc), and stamps `kitchenTargetLockedAt`. Confirmed
+permanent once set — refuses to overwrite on a second run, matching the
+design doc's "never regenerated, same rule as dailyMenus" requirement.
+No manual re-lock endpoint — deliberate decision, confirmed 12-Jul-2026:
+if wrong, requires manual Firestore edit to null `kitchenTargetLockedAt`
+before it can re-run, same as a real production mistake would need
+correcting by hand.
+
+Assumption confirmed with Homi and used as the basis for NOT filtering
+by orderType inside the function: live ordering doesn't open until 19:30,
+two hours after this runs, so whatever's in `itemCounts` at 17:30 is
+automatically 100% preorder data.
+
+**Refactor for testability:** `lockForTenant` and `exports.run` both
+accept an optional `eventDate` override (`{ eventDate: 'YYYY-MM-DD' }`),
+defaulting to the real PKT-today when omitted. The real 17:30 cron call
+passes nothing, so production behavior is unchanged — this exists purely
+so the function can be tested on demand without waiting for an actual
+Friday. New file: `core/functions/scripts/test_bbq_locker.js` — one-off
+manual runner, credential pattern copied from `seedBbqSettings.js`
+(`admin.initializeApp()` with no args only works inside a deployed
+function; local runs need the explicit service-account cert).
+
+**Field-tested, predicted-then-verified, against ffl_2026-07-17:**
+1. First run (`eventDate` override) → console log "Locked ffl_2026-07-17
+   — 1 items." → Firestore confirmed: `kitchenTargetLockedAt` set to a
+   real timestamp, `kitchenTargetSnapshot: { hd95Hia3Ftzky1sEsci8: 2 }` —
+   correctly flattened from the source's nested `orderedCount: 2` ✓
+2. Second run, same override → console log "already locked — refusing
+   to overwrite" → confirmed no further Firestore write, guard holds ✓
+3. Cloud Scheduler job `firebase-schedule-bbqKitchenTargetLocker-
+   asia-south1` confirmed registered post-deploy: State enabled,
+   Frequency `30 17 * * 5 (Asia/Karachi)`, Google's own human-readable
+   translation confirms "At 5:30 PM" + "Equal to Friday" — correct.
+
+**Not yet proven:** an actual real-world 17:30-Friday firing via the
+live scheduler (as opposed to the manual override bypass) — will
+self-confirm the first time a real BBQ Friday occurs after this deploy.
+Not a blocker, just not yet witnessed end-to-end.
+
+### Incident: stray duplicate file during this slice's commit
+
+`test_bbq_locker.js` briefly existed in TWO locations — the correct
+`core/functions/scripts/` and an accidental duplicate at the repo root's
+`scripts/` (paths would have resolved incorrectly from there — points
+outside `core/functions/` entirely). Caught by `git status --short`
+showing an unexpected 4th untracked file before staging. Deleted before
+commit; not pushed. No repeat of the file-emptying autosave bug from
+earlier this session — confirmed clean before and after this commit.
+
+### Committed
+`c8e50a3` — BBQ kitchen target locker: 17:30 Friday scheduled snapshot
+of live counts into bbqEvents.kitchenTargetSnapshot, permanent once
+locked. Field-tested via eventDate override against ffl_2026-07-17 —
+write path and never-regenerate guard both confirmed. Pushed to
+origin/main.
+
+### V1.4 BBQ backend status
+Both new pieces from this session's starting point (bbqLiveItemStatus +
+bbqKitchenTargetLocker) are now built, deployed, and field-tested. This
+closes design doc §2.5 and §5 in full. BBQ backend is now essentially
+complete except for the known open items already logged in the
+11-Jul-2026 and 12-Jul-2026 13:05 entries (owner-vs-non-owner cancel
+untested, no single-order GET endpoint, bbqSettings.closeoutTime test
+value, etc.) — none of which block moving to BBQ frontend design next.
+
+### NEXT starting point
+BBQ backend, as scoped, is done. Next: BBQ frontend (screens per design
+doc §3 — 13 screens) OR pre-frontend cleanup pass on the known gaps
+list — decision not yet made, first task of next session.
