@@ -1495,9 +1495,93 @@ nothing in `liveCookItems`, `kidsItems`, `beverages`, `breadItems`, or
 Not enough to distinguish "Screen #2 built correctly, empty data" from
 "Screen #2 broken" once that screen's turn comes — will need more test
 `bbqMenuGroup`-tagged items added deliberately before then.
+## Update Entry - 13-Jul-2026 (BBQ Frontend — Screen #1)
+
+### BBQ Preorder screen (Screen #1) — built and fully field-tested end-to-end
+
+First BBQ frontend screen. Two new frontend service files
+(`web/src/services/bbqEventService.js`, `web/src/services/bbqOrderService.js`
+— frontend, separate from the backend files of the same name) plus
+`BbqPreorderPage.jsx` + `.module.css`, wired into `App.jsx`
+(`/bbq-preorder`) and `Sidebar.jsx` (new "BBQ" nav section, employee role).
+
+Structure follows `TeabarSelfOrderPage.jsx` closely — cart, review modal,
+success screen all reuse `TeabarSelfOrderPage.module.css` directly rather
+than duplicating; only genuinely new pieces (consumer picker, dining mode
+toggle, late-request warning banner) live in `BbqPreorderPage.module.css`.
+
+**Two real decisions locked this session, both confirmed with Homi
+before building:**
+- BBQ orders use `dine_in` and `takeaway` only — `outdoor_seating` (a
+  third value that exists in the shared `DINING_MODES` constant,
+  presumably café-specific) deliberately excluded. BBQ night is
+  inherently outdoor already, so a distinct "outdoor seating" choice
+  doesn't apply here.
+- Past-cutoff preorders are NOT blocked (Option B, over Option A which
+  would've disabled ordering after cutoff). Screen shows a visible
+  amber warning banner and still allows submission — relies entirely on
+  the backend's existing `isLateRequest`/`lateRequestApprovalStatus`
+  handling, consistent with the design doc treating late requests as a
+  first-class path (Screen #8 Exception Review Queue exists specifically
+  for this).
+
+**`getMyFamily()` shape verified before use, not assumed** — grepped the
+real doc comment in `familyService.js` confirming
+`data = { officialEmployeeNumber, count, members }`, each member
+`{ familyMemberId, fullName, relation, isActive, ... }`. Matched the
+code's assumption exactly on first check — a rare case of a flagged
+assumption needing zero correction.
+
+### Debugging note — false alarm on bundle verification, worth remembering
+
+After first `npm run build:dev`, `grep -c "BbqPreorderPage" dist/assets/index-*.js`
+returned 0 even after a full `rm -rf dist` + clean rebuild, with identical
+file hashes both times. This looked like strong evidence the new code
+wasn't being bundled at all. Root cause, found only after live browser
+testing proved the screen actually worked: **minified production builds
+mangle component names — grepping for a literal component name in a
+minified bundle is not a valid verification method.** The build was
+correct the whole time; the verification technique was wrong. Real
+confirmation came from live browser testing + a direct Firestore
+document check, not from bundle inspection. Lesson for future sessions:
+verify frontend builds by testing the actual running app, not by
+grepping minified output for source-level names.
+
+### Full field test, real account, real data
+
+Farrukh Imtiaz (FFL00257, employee) — full flow walked live: menu load
+(`ffl_2026-08-21`'s one preorder item), add to cart, review modal
+(consumer picker showed "Self" correctly, dining mode toggle
+functional), submit, success screen ("Preorder placed — For
+2026-08-21"). Cross-checked two ways:
+1. Firestore console — `bbqOrders/oDQMayrj6l75MK4Sm2nv` — every field
+   correct (`orderStatus: placed`, `orderType: preorder`,
+   `consumerType: self`, `diningMode: dine_in`, `isLateRequest: false`,
+   correct item/quantity).
+2. `GET /bbq/orders/mine` (the endpoint built earlier this session) —
+   returned the same order, same shape, `count: 1`. First time this
+   session a complete vertical slice (backend query + backend write +
+   frontend fetch + frontend UI + frontend submit) has been proven
+   working together end-to-end, not just individually.
+
+Also tested with Ahmed Khan (FFL00003, `bbq_supervisor`) — screen
+renders and functions correctly for this role too, since it currently
+falls through to the employee nav config (see gap below).
+
+### Known gap, NOT fixed this session — flagged for a decision next session
+`bbq_supervisor` has no entry in `Sidebar.jsx`'s `NAV_CONFIG` — falls
+through to the `employee` config via `getNav()`'s fallback. Ahmed Khan
+(a real `bbq_supervisor` test account) currently sees the full employee
+menu (My Bill, Feedback, Café, Tea Bar, BBQ Preorder, etc.) rather than a
+supervisor-focused nav. Not a regression from this session's work, but
+BBQ Preorder is now visibly part of what falls into that catch-all.
+Separately, `bbq_supervisor`'s Home dashboard is a `ComingSoon`
+placeholder in `App.jsx`'s `RoleDashboard` — pre-existing, unrelated to
+BBQ Preorder specifically. Both flagged, neither fixed — decision on
+whether/when to address deferred to next session.
 
 ### Next Session Starting Point
-Both backend gaps that were blocking frontend work are closed and
-field-tested. BBQ frontend, Screen #1 (Preorder tab — employee ordering
-screen, closest precedent `TeabarSelfOrderPage.jsx`) is next, against the
-now-published `ffl_2026-08-21` test event.
+Screen #1 (BBQ Preorder) is complete and field-tested. Next: either fix
+the `bbq_supervisor` nav gap, or move straight to Screen #3 (My BBQ
+Orders — history/cancel/late-request), whose backend (`getMyBbqOrders`)
+and several UI patterns are already proven from this session.
