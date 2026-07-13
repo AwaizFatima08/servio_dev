@@ -174,7 +174,17 @@ exports.bbqKitchenTargetLocker = functions
   .region('asia-south1')
   .pubsub.schedule('30 17 * * 5')
   .timeZone('Asia/Karachi')
-  .onRun(require('./scheduled/bbqKitchenTargetLocker').run);  
+  .onRun(require('./scheduled/bbqKitchenTargetLocker').run);
+
+// BBQ — Friday auto-close of published events — runs 23:50 PKT, Fridays
+// only. Prevents a stale 'published' event from looking "current" to
+// GET /bbq/events?status=published&limit=1 indefinitely. Confirmed
+// 12-Jul-2026 — see bbqAutoClose.js for full reasoning.
+exports.bbqAutoClose = functions
+  .region('asia-south1')
+  .pubsub.schedule('50 23 * * 5')
+  .timeZone('Asia/Karachi')
+  .onRun(require('./scheduled/bbqAutoClose').run);
 
 // Overdue library checker — V2, not yet active
 // exports.checkOverdue = functions

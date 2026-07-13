@@ -58,4 +58,28 @@ async function applyBbqItemDeltas({ tenantId, eventDate, items, orderedDelta = 0
   }
 }
 
-module.exports = { applyBbqItemDeltas };
+// ─────────────────────────────────────────
+// getBbqLiveItemStatus — reads the live per-item counters for the
+// supervisor's cumulative-count screen (design doc screen #7). Returns
+// notFound:true with empty counts before the first order of the night
+// has been placed, since applyBbqItemDeltas's set({merge:true}) means
+// the document simply doesn't exist yet at that point — this is a
+// normal, expected state, not an error.
+// ─────────────────────────────────────────
+async function getBbqLiveItemStatus({ tenantId, eventDate }) {
+  const docId = `${tenantId}_${eventDate}`;
+  const doc = await db.collection(COLLECTIONS.BBQ_LIVE_ITEM_STATUS).doc(docId).get();
+  if (!doc.exists) return { notFound: true, eventDate, itemCounts: {} };
+
+  const data = doc.data();
+  return {
+    notFound: false,
+    eventDate: data.eventDate,
+    itemCounts: data.itemCounts || {},
+    lastAggregatedAt: data.lastAggregatedAt && data.lastAggregatedAt.toDate
+      ? data.lastAggregatedAt.toDate().toISOString()
+      : (data.lastAggregatedAt || null),
+  };
+}
+
+module.exports = { applyBbqItemDeltas, getBbqLiveItemStatus };

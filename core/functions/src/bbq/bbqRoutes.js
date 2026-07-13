@@ -27,8 +27,9 @@ const {
   returnBbqEvent, cancelBbqEvent, getBbqEvent, getBbqEvents,
 } = require('./bbqEventService');
 const {
-  createBbqOrder, createProxyBbqOrder, createOfficialBbqOrder,
+  createBbqOrder, createProxyBbqOrder, createOfficialBbqOrder, getMyBbqOrders,
 } = require('./bbqOrderService');
+const { getBbqLiveItemStatus } = require('./bbqLiveItemStatusService');
 const {
   createTableRequest, approveTableRequest, returnTableRequest, rejectTableRequest,
   resubmitTableRequest, confirmTableRequest, cancelTableRequest,
@@ -222,6 +223,18 @@ router.post('/orders/official', bbqSupervisorAndAbove, async (req, res) => {
   }
 });
 
+// ── GET /bbq/orders/mine — employee's own order history (screen #3) ──
+router.get('/orders/mine', anyAuthenticated, async (req, res) => {
+  try {
+    const orders = await getMyBbqOrders({
+      tenantId: req.tenantId, officialEmployeeNumber: req.officialEmployeeNumber,
+    });
+    return successResponse(res, { count: orders.length, orders }, 'Your BBQ orders retrieved');
+  } catch (error) {
+    return errorResponse(res, 'Failed to retrieve your BBQ orders', 500, error);
+  }
+});
+
 // ── POST /bbq/table-requests — employee submits ──
 router.post('/table-requests', anyAuthenticated, async (req, res) => {
   try {
@@ -327,6 +340,18 @@ router.patch('/table-requests/:requestId/cancel', anyAuthenticated, async (req, 
     return successResponse(res, result, 'Table request cancelled');
   } catch (error) {
     return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── GET /bbq/live-status?eventDate=... — bbq_supervisor+ (screen #7) ──
+router.get('/live-status', bbqSupervisorAndAbove, async (req, res) => {
+  try {
+    const { eventDate } = req.query;
+    if (!eventDate) return errorResponse(res, 'eventDate is required.', 400);
+    const result = await getBbqLiveItemStatus({ tenantId: req.tenantId, eventDate });
+    return successResponse(res, result, 'BBQ live item status retrieved');
+  } catch (error) {
+    return errorResponse(res, 'Failed to retrieve BBQ live item status', 500, error);
   }
 });
 

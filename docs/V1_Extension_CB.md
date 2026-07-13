@@ -1392,3 +1392,112 @@ value, etc.) — none of which block moving to BBQ frontend design next.
 BBQ backend, as scoped, is done. Next: BBQ frontend (screens per design
 doc §3 — 13 screens) OR pre-frontend cleanup pass on the known gaps
 list — decision not yet made, first task of next session.
+## Update Entry - 13-Jul-2026
+
+### Session focus: closing two real gaps found before BBQ frontend could start
+
+Session opened with a fresh review of the BBQ design doc §3 screen map
+against the actual deployed `bbqRoutes.js` — not just the CB's "backend
+essentially complete" claim. Found two screens with no backend endpoint
+to call at all: screen #3 (My BBQ Orders) had no GET route for an
+employee's own order history, and screen #7 (Live Kitchen Dashboard —
+cumulative counts) had no GET route to read `bbqLiveItemStatus` at all,
+despite the aggregator itself being built and field-tested last session.
+Neither was in the CB's "known gaps" list — that list only flagged the
+smaller "no single-order GET" item, which is a different, narrower gap.
+
+### Built and field-tested
+
+**`getMyBbqOrders`** (`bbqOrderService.js`) + **`GET /bbq/orders/mine`**
+(`anyAuthenticated`) — employee's own order history, queried by
+`employeeNumber` (billing account holder), same pattern as
+`getMyTableRequests`. Deliberately includes proxy orders placed on the
+employee's behalf, not just self-placed ones. Added a `_toISO`/`_clean`
+helper to `bbqOrderService.js`, mirroring the identical helper already in
+`bbqEventService.js`/`bbqTableRequestService.js` — this file didn't need
+one until now since its create functions only ever returned plain values.
+New composite index required (`employeeNumber` + `tenantId` + `createdAt`
+desc) — hit the expected `FAILED_PRECONDITION` on first real call, created
+via the console link, added to `firestore.indexes.json`. Field-tested:
+confirmed `success:true, count:0, orders:[]` for an employee with no BBQ
+orders — correct result, not a bug.
+
+**`getBbqLiveItemStatus`** (`bbqLiveItemStatusService.js`) + **`GET
+/bbq/live-status?eventDate=...`** (`bbqSupervisorAndAbove`) — reads the
+live per-item counters for the cumulative-count screen. No new index
+needed (single doc-by-ID read). Field-tested against `ffl_2026-07-17`'s
+existing live-item data from the 12-Jul session — returned
+`orderedCount:2, preparedCount:2` for the one test item, exactly matching
+the "board returned to baseline" state recorded in that session's log. A
+useful cross-check that the live-item data hadn't drifted between
+sessions.
+
+**`bbqAutoClose`** (new file, `core/functions/src/scheduled/`) — new
+scheduled function, runs 23:50 PKT Fridays only, closes any BBQ event
+still `published` where `eventDate <= today`. Confirmed with Homi:
+"Friday Night 12:00" = end-of-Friday, simplified to 23:50 same-day rather
+than 00:00 Saturday to avoid day-of-week cron arithmetic across midnight,
+matching the existing `resolveDaily` (23:50 daily) precedent.
+
+Built with a deliberate design choice, flagged and left open rather than
+silently copied from `teabarAutoCancel`: bounded to `eventDate <= today`
+rather than a blind sweep of every `published` event regardless of date
+(unlike `teabarAutoCancel`, which sweeps unconditionally). Reasoning: BBQ
+menus can be published up to a week ahead (design doc: "published
+Thursday" for the coming Friday), so a blind sweep risks closing a
+genuinely future, not-yet-happened event if two events are ever
+`published` simultaneously. Whether that scenario is actually possible in
+practice was flagged to Homi but not explicitly confirmed either way —
+the bounded version is safe regardless, so left as built.
+
+Includes the same `eventDate` override pattern as
+`bbqKitchenTargetLocker` for manual testing (`test_bbq_autoclose.js`,
+same credential pattern as `test_bbq_locker.js`).
+
+**Incident, caught and fixed:** the `index.js` registration got pasted in
+twice during editing (duplicate `exports.bbqAutoClose` block, one with
+stray leading indentation). Not a functional bug — JS silently uses the
+last of two identical duplicate assignments, and the deploy log confirmed
+only one function was ever created — but cleaned up for source clarity.
+Caught via `grep -c`, not by symptom.
+
+**Field-tested, predicted-then-verified:** first manual run hit the
+expected missing-index error (`status`+`tenantId`+`eventDate` composite,
+not previously needed by any other query); index created via console
+link, added to `firestore.indexes.json`; second run closed
+`ffl_2026-07-17` correctly — confirmed via Firestore console that `status`
+flipped to `closed`, `updatedAt` changed, and nothing else on the
+document (`kitchenTargetSnapshot`, `menu`, all six item arrays) was
+touched.
+
+### New indexes added (3 total, all confirmed Enabled)
+- `bbqOrders`: employeeNumber ↑, tenantId ↑, createdAt ↓ (for `getMyBbqOrders`)
+- `bbqEvents`: status ↑, tenantId ↑, eventDate ↑ (for `bbqAutoClose`)
+- (pre-existing, reconfirmed untouched during this session's audit: `bbqEvents` tenantId+status+eventDate↓, and tenantId+eventDate↓ — both still correctly tracked, no drift)
+
+### Known consequence
+`ffl_2026-07-17` — last session's kitchen-target-locker test event — is
+now permanently `closed` as a result of field-testing `bbqAutoClose`
+against it. No route exists to move a `closed` event back to `published`
+(`publishBbqEvent` only accepts a `pending_review` starting status). Not
+a bug — expected behavior — but means that event is no longer usable for
+further "published event" testing.
+
+### New clean test event created for frontend work
+`ffl_2026-08-21` — drafted (Manager) → submitted → published (Admin),
+walking the full real lifecycle end-to-end rather than a console
+shortcut. One valid menu item: `hd95Hia3Ftzky1sEsci8` ("Test BBQ Chicken
+Tikka"), sitting in `preorderItems` only.
+
+**Known gap, flagged for before Screen #2's turn:** this event has
+nothing in `liveCookItems`, `kidsItems`, `beverages`, `breadItems`, or
+`dessertItems`. Fine for screens #1 (Preorder tab) and #3 (My Orders).
+Not enough to distinguish "Screen #2 built correctly, empty data" from
+"Screen #2 broken" once that screen's turn comes — will need more test
+`bbqMenuGroup`-tagged items added deliberately before then.
+
+### Next Session Starting Point
+Both backend gaps that were blocking frontend work are closed and
+field-tested. BBQ frontend, Screen #1 (Preorder tab — employee ordering
+screen, closest precedent `TeabarSelfOrderPage.jsx`) is next, against the
+now-published `ffl_2026-08-21` test event.

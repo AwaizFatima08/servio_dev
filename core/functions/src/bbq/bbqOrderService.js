@@ -322,8 +322,54 @@ async function createOfficialBbqOrder({
   return { orderId: ref.id, isLateRequest, itemCount: resolvedItems.length, orderStatus: doc.orderStatus, approvalStatus: doc.approvalStatus };
 }
 
+// ── Firestore Timestamp -> ISO string, tolerant of already-ISO or null.
+//    Mirrors the identical helper in bbqEventService.js / bbqTableRequestService.js
+//    — bbqOrderService.js didn't need this until now, since its create
+//    functions only ever returned plain values, never a raw document. ──
+function _toISO(t) {
+  if (!t) return null;
+  if (t._seconds) return new Date(t._seconds * 1000).toISOString();
+  if (typeof t.toDate === 'function') return t.toDate().toISOString();
+  return t;
+}
+
+function _cleanOrder(data) {
+  return {
+    ...data,
+    acceptedAt: _toISO(data.acceptedAt),
+    preparedAt: _toISO(data.preparedAt),
+    lateRequestDecisionAt: _toISO(data.lateRequestDecisionAt),
+    cancellationRequestedAt: _toISO(data.cancellationRequestedAt),
+    cancellationDecisionAt: _toISO(data.cancellationDecisionAt),
+    cancelledAt: _toISO(data.cancelledAt),
+    approvedAt: _toISO(data.approvedAt),
+    rejectedAt: _toISO(data.rejectedAt),
+    createdAt: _toISO(data.createdAt),
+    updatedAt: _toISO(data.updatedAt),
+  };
+}
+
+// ─────────────────────────────────────────
+// getMyBbqOrders — employee's own order history, all events, newest
+// first. Design doc screen #3 ("My BBQ Orders"). Queried by
+// employeeNumber (the billing account holder) exactly like
+// getMyTableRequests in bbqTableRequestService.js — this deliberately
+// includes proxy orders placed on the employee's behalf, not just
+// self-placed ones, since both are "my" consumption from a billing
+// point of view.
+// ─────────────────────────────────────────
+async function getMyBbqOrders({ tenantId, officialEmployeeNumber }) {
+  const snap = await db.collection(COLLECTIONS.BBQ_ORDERS)
+    .where('tenantId', '==', tenantId)
+    .where('employeeNumber', '==', officialEmployeeNumber)
+    .orderBy('createdAt', 'desc')
+    .get();
+  return snap.docs.map((d) => _cleanOrder({ orderId: d.id, ...d.data() }));
+}
+
 module.exports = {
   createBbqOrder,
   createProxyBbqOrder,
   createOfficialBbqOrder,
+  getMyBbqOrders,
 };
