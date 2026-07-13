@@ -1,0 +1,67 @@
+/* web/src/pages/employee/BbqPreorderPage.module.css
+   Only the pieces Tea Bar's module doesn't have: consumer picker, dining
+   mode toggle, late-request warning banner. Cart/menu/modal/success all
+   reused directly from TeabarSelfOrderPage.module.css — same brand
+   tokens, no need to duplicate. */
+
+.lateBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #92400e;
+  margin-bottom: 4px;
+}
+.lateBanner i { color: #d97706; font-size: 16px; }
+
+.formRow {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.fieldLabel {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B8F7E;
+}
+.selectInput {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  padding: 9px 12px;
+  border: 1.5px solid #C6F0E5;
+  border-radius: 8px;
+  color: #042C1E;
+  background: #fff;
+  outline: none;
+}
+.selectInput:focus { border-color: #0F6E56; }
+
+.toggleRow {
+  display: flex;
+  gap: 8px;
+}
+.toggleBtn {
+  flex: 1;
+  padding: 9px 0;
+  border: 1.5px solid #C6F0E5;
+  border-radius: 8px;
+  background: #fff;
+  color: #6B8F7E;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.toggleBtn:hover { border-color: #0F6E56; }
+.toggleBtnActive {
+  border-color: #0F6E56;
+  background: #0F6E56;
+  color: #fff;
+}

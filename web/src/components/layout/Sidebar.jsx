@@ -42,6 +42,12 @@ const NAV_CONFIG = {
       ],
     },
     {
+      section: 'BBQ',
+      items: [
+        { label: 'BBQ Preorder', icon: 'meat', to: '/bbq-preorder' },
+      ],
+    },
+    {
       section: 'Club',
       items: [
         { label: 'Events',        icon: 'calendar-event', to: '/events' },
