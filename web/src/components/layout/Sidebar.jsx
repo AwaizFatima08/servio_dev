@@ -119,6 +119,15 @@ const NAV_CONFIG = {
     },
   ],
 
+  bbq_supervisor: [
+    {
+      section: 'BBQ Operations',
+      items: [
+        { label: 'Home', icon: 'home', to: '/dashboard' },
+      ],
+    },
+  ],
+
   cafe_waiter: [
     {
       section: 'Café Operations',

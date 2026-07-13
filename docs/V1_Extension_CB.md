@@ -1580,8 +1580,41 @@ placeholder in `App.jsx`'s `RoleDashboard` — pre-existing, unrelated to
 BBQ Preorder specifically. Both flagged, neither fixed — decision on
 whether/when to address deferred to next session.
 
+## Update Entry - 13-Jul-2026 (bbq_supervisor nav gap — closed)
+
+### Fixed: bbq_supervisor sidebar fallback
+
+`bbq_supervisor` previously had no entry in `Sidebar.jsx`'s `NAV_CONFIG`,
+falling through to the `employee` config — meaning every BBQ supervisor
+saw the full employee menu (My Bill, Feedback, Café, Tea Bar, BBQ
+Preorder) instead of a role-appropriate one.
+
+**Scope confirmed with Homi:** `bbq_supervisor`'s nav should eventually
+contain Proxy Order (#4), Official Order (#5), Kitchen Dashboard (#6),
+and Cumulative Counts (#7) — none of which are built yet. Explicitly
+NOT "BBQ Preorder" (Screen #1) — that's an employee self-ordering
+screen, not part of this role's intended scope.
+
+Since #4–#7 don't exist yet, added a minimal `bbq_supervisor` block
+containing only `Home` — honest about current build state rather than
+linking to not-yet-built screens. Will grow as #4–#7 are built, same
+pattern as Tea Bar's four-item block.
+
+**Deliberate decision, recorded:** removing the sidebar link does NOT
+block backend access — `POST /bbq/orders` and `/bbq-preorder` remain
+reachable by a `bbq_supervisor` who navigates there directly (URL
+guess or old bookmark), since `anyAuthenticated` on that route
+intentionally includes this role. Confirmed acceptable with Homi:
+sidebar controls discoverability only, not a security boundary — a
+supervisor placing a personal preorder isn't harmful. If this
+changes later, it needs an explicit role-exclusion added to the route
+itself, not just a nav removal.
+
+Field-tested live: Ahmed Khan (FFL00003, bbq_supervisor) — sidebar now
+shows only "BBQ Operations → Home," confirmed via screenshot.
+
 ### Next Session Starting Point
-Screen #1 (BBQ Preorder) is complete and field-tested. Next: either fix
-the `bbq_supervisor` nav gap, or move straight to Screen #3 (My BBQ
-Orders — history/cancel/late-request), whose backend (`getMyBbqOrders`)
-and several UI patterns are already proven from this session.
+`bbq_supervisor` nav gap closed. BBQ frontend build order unchanged:
+Screen #3 (My BBQ Orders) is next — backend (`getMyBbqOrders`) already
+built and field-tested, UI pattern precedent already read in full
+(`TeabarSharedHistoryPage.jsx`).
