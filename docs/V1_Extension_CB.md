@@ -1754,15 +1754,6 @@ scenario originally flagged as a hypothetical when designing
 behavior, not yet confirmed as correct/desired UX, just confirmed as
 current behavior.
 
-### Next Session Starting Point
-Test data ready for Screen #2 (Live tab). Build order: Screen #2 next.
-Consider whether Screen #1's event-selection logic needs to change now
-that multiple published events can coexist (currently always shows
-the latest by eventDate — may not match user intent if e.g. the
-supervisor wants to still process orders for an older still-open
-event). Not yet a bug, just a design question surfaced by today's
-test setup, worth a deliberate decision before or during Screen #2's
-build.
 ### Addendum — 31-Jul-2026, two design decisions confirmed (no code changes)
 
 **1. Screen #1's single-event behavior — confirmed correct, no change
@@ -1788,3 +1779,111 @@ by default.
 
 Not actionable today — #12/#13 are not yet built. Recorded now so the
 decision doesn't need to be re-litigated when their turn comes.
+
+## Update Entry - 31-Jul-2026 (BBQ Frontend — Live Order screen, Screen #2)
+
+### Screen #2 (BBQ Live Order) — built and field-tested end-to-end
+
+New files: `BbqLiveOrderPage.jsx`, `BbqLiveOrderPage.module.css`. Route
+`/bbq-live-order` added to `App.jsx`; nav entry added to `Sidebar.jsx`
+(employee role, BBQ section, between Preorder and My BBQ Orders).
+
+**No backend changes needed.** Read `bbqOrderService.js` (backend)
+before building anything and found `createBbqOrder` already fully
+supports `orderType: 'live'` — resolves items against all 6 menu
+arrays, and `_validateOrderWindow`'s `LIVE` branch hard-rejects outside
+`orderWindowStartAt`/`orderWindowEndAt` with no late-request concept
+(unlike preorder). Confirmed this before writing any frontend code
+rather than assuming — this made Screen #2 a frontend-only build.
+
+### Field-shape assumption — verified before use, not guessed
+
+`event.orderWindowStartAt`/`orderWindowEndAt` needed to be readable via
+plain `new Date(...)`. Verified against actual backend code
+(`bbqEventService.js`'s `_cleanEvent`/`_toISO`, confirmed inside
+`getBbqEvents` — the function `GET /bbq/events` actually calls) rather
+than copying Screen #1's pattern on faith. Confirmed: both fields come
+back as ISO strings on read, `new Date(...)` is correct.
+
+### Five states built
+
+Loading / No event published / **Not Open Yet** (countdown to
+`orderWindowStartAt`) / **Live** (grouped menu, cart, order placement) /
+**Closed for Tonight** (after `orderWindowEndAt`).
+
+### Field-tested live, real account, real data
+
+- **Not Open Yet**: confirmed against real data (`ffl_2026-09-04`,
+  34 days out) — correct message, correct target date/time, countdown
+  format `Xd HH:MM:SS`, confirmed genuinely ticking second-by-second
+  (not frozen).
+- **Live**: tested via temporary Firestore edit —
+  `ffl_2026-09-04.orderWindowStartAt`/`orderWindowEndAt` manually moved
+  to 31-Jul-2026 22:00/23:55 PKT (Firestore console timestamp picker).
+  Confirmed: 4 of 5 menu groups rendered correctly (Live Cook, Kids,
+  Beverages, Bread — Dessert correctly absent, no dessert item exists
+  in the catalogue yet, known gap since 31-Jul earlier entry). Correct
+  items in correct sections, correct food-type badges.
+- **Cart → Review → Place Order**: 4 items across 4 groups added,
+  cart bar showed correct count, review modal showed all 4 lines +
+  consumer picker (defaulted Self) + dining mode toggle, order placed
+  successfully, landed on success screen with correct event date.
+- **Cross-screen confirmation**: the placed live order appears
+  correctly on **My BBQ Orders** (Screen #3) as a 4th card, `placed`
+  status, all 4 items/quantities correct, no late/cancel-request
+  badges (expected — live orders have no late concept). Confirms
+  Screen #3 handles `orderType: 'live'` orders correctly, not just
+  `preorder` ones — hadn't been explicitly tested until now.
+- **NOT tested this session**: the "Closed for Tonight" state (after
+  `orderWindowEndAt`). Code is symmetric to the "Not Open Yet" check
+  and presumed correct, but this is a presumption, not a confirmed
+  fact — flagging honestly rather than claiming full coverage.
+
+### Bug found and fixed same session: broken group-header icons
+
+`ti-baby-carriage`, `ti-bread`, `ti-ice-cream` are not in this
+project's bundled Tabler icon set — Kids and Bread section headers
+rendered a broken/fallback glyph in production (Live Cook's `flame`
+and Beverages' `cup` happened to exist and rendered fine). Found via
+screenshot review, not assumed.
+
+Fix: grepped this codebase for icon names *already confirmed working*
+(`grep -rn "ti-" web/src/pages/employee/ web/src/components/layout/Sidebar.jsx`)
+rather than guessing a second unverified name. Swapped Kids → `users`,
+Bread → `bowl`, Dessert → `box` (Dessert's fix is unverified — no
+dessert item exists yet to actually render it against, flagged
+separately, not claimed as tested).
+
+**Process note on the grep method**: it only catches icon names
+written as literal text (`ti-something`). It does NOT catch
+dynamically-built ones like Sidebar's `icon: 'meat'` pattern
+(`ti-${icon}`) — so this is proof of what page-level icons work, not
+a complete inventory of every icon in the app. Worth remembering next
+time an icon needs checking elsewhere.
+
+### Dev data residue (fold into existing P2 cleanup item)
+
+`ffl_2026-09-04`'s `orderWindowStartAt`/`orderWindowEndAt` no longer
+match what `saveBbqEventDraft` would generate from `bbqSettings` —
+manually overwritten for live-state testing. Needs revert or
+regeneration via re-saving the event draft before this event is used
+for anything else.
+
+### Git state at this entry
+
+Code (2 new files + `App.jsx`/`Sidebar.jsx` edits + icon fix) was
+built, deployed to hosting, and field-tested successfully **before**
+being committed to git — deploy is not a substitute for commit,
+confirmed via `git status --short` before staging anything. Commit
+sequence: code commit(s) first, this CB entry as a separate commit
+after.
+
+### Next Session Starting Point
+
+Screen #2 complete and field-tested (minus the untested Closed state
+and unverified Dessert icon — both minor, not blocking). Remaining
+screens: #4 (Proxy Order), #5 (Official Order), #6–7 (Kitchen
+Dashboard — cards + cumulative counts), #8 (Exception Review Queue),
+#9–11 (Table Booking request/approval/confirmation), #12–13 (Menu
+Draft / Approve & Publish). Build order not yet decided for next
+session.
