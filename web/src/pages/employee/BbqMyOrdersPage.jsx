@@ -178,7 +178,15 @@ export default function BbqMyOrdersPage({ token }) {
                   {cancelPending && (
                     <span className={`${styles.pill} ${styles.pill_cancelPending}`}>Cancellation pending</span>
                   )}
+                  {o.cancellationRequestStatus === 'rejected' && (
+                    <span className={`${styles.pill} ${styles.status_cancelled}`}>Cancellation request rejected</span>
+                  )}
                 </div>
+                {o.cancellationRequestStatus === 'rejected' && o.cancellationDecisionReason && (
+                  <div className={styles.rowError}>
+                    <i className="ti ti-message-circle" /> Manager's reason: {o.cancellationDecisionReason}
+                  </div>
+                )}
 
                 {rowError[o.orderId] && (
                   <div className={styles.rowError}><i className="ti ti-alert-circle" /> {rowError[o.orderId]}</div>

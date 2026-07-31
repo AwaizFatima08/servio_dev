@@ -177,6 +177,12 @@ const NAV_CONFIG = {
       ],
     },
     {
+      section: 'BBQ',
+      items: [
+        { label: 'Exception Queue', icon: 'alert-triangle', to: '/bbq-exceptions' },
+      ],
+    },
+    {
       section: 'Reports & Admin',
       items: [
         { label: 'Reports',         icon: 'chart-bar',    to: '/reports' },

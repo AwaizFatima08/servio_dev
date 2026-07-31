@@ -313,8 +313,49 @@ async function rejectOfficialBbqOrder({ orderId, tenantId, rejectedByUid, approv
   return { message: 'Official BBQ order rejected.', orderId };
 }
 
+// ─────────────────────────────────────────
+// getBbqExceptionQueue — Manager's Exception Review Queue (Screen #8).
+// Two independent exception types, returned as two SEPARATE lists, not
+// merged — they use different approve/reject endpoints and mean
+// different things (should this late order be honored at all vs. should
+// an already-accepted order be cancelled). eventDate-scoped, same
+// convention as getBbqKitchenOrders — confirmed with Homi 01-Aug-2026.
+// NEW — no equivalent existed anywhere before this (confirmed by reading
+// bbqOrderService.js and bbqKitchenService.js in full first).
+// ─────────────────────────────────────────
+async function getBbqExceptionQueue({ tenantId, eventDate }) {
+  const snap = await db
+    .collection(COLLECTIONS.BBQ_ORDERS)
+    .where('tenantId', '==', tenantId)
+    .where('eventDate', '==', eventDate)
+    .get();
+
+  const allOrders = snap.docs.map((d) => ({ orderId: d.id, ...d.data() }));
+
+  const lateRequests = allOrders.filter(
+    (o) => o.isLateRequest === true && o.lateRequestApprovalStatus === 'pending'
+  );
+  const cancellationRequests = allOrders.filter(
+    (o) => o.cancellationRequestStatus === 'pending'
+  );
+
+  const createdMs = (o) =>
+    o.createdAt && o.createdAt.toMillis ? o.createdAt.toMillis() : (o.createdAt ? new Date(o.createdAt).getTime() : 0);
+  lateRequests.sort((a, b) => createdMs(a) - createdMs(b));
+  cancellationRequests.sort((a, b) => createdMs(a) - createdMs(b));
+
+  return {
+    eventDate,
+    lateRequests,
+    cancellationRequests,
+    totalCount: lateRequests.length + cancellationRequests.length,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 module.exports = {
   getBbqKitchenOrders,
+  getBbqExceptionQueue,
   acceptBbqOrder,
   markBbqOrderPrepared,
   cancelBbqOrder,

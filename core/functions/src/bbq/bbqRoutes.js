@@ -36,7 +36,7 @@ const {
   getTableRequests, getMyTableRequests,
 } = require('./bbqTableRequestService');
 const {
-  getBbqKitchenOrders, acceptBbqOrder, markBbqOrderPrepared, cancelBbqOrder,
+  getBbqKitchenOrders, getBbqExceptionQueue, acceptBbqOrder, markBbqOrderPrepared, cancelBbqOrder,
   approveLateOrder, rejectLateOrder, requestCancellation,
   approveCancellationRequest, rejectCancellationRequest,
   approveOfficialBbqOrder, rejectOfficialBbqOrder,
@@ -364,6 +364,18 @@ router.get('/kitchen/orders', bbqSupervisorAndAbove, async (req, res) => {
     return successResponse(res, result, 'BBQ kitchen orders retrieved');
   } catch (error) {
     return errorResponse(res, 'Failed to retrieve kitchen orders', 500, error);
+  }
+});
+
+// ── GET /bbq/exceptions?eventDate=... — Manager's Exception Review Queue (Screen #8) ──
+router.get('/exceptions', managerAndAbove, async (req, res) => {
+  try {
+    const { eventDate } = req.query;
+    if (!eventDate) return errorResponse(res, 'eventDate is required.', 400);
+    const result = await getBbqExceptionQueue({ tenantId: req.tenantId, eventDate });
+    return successResponse(res, result, 'BBQ exception queue retrieved');
+  } catch (error) {
+    return errorResponse(res, 'Failed to retrieve exception queue', 500, error);
   }
 });
 

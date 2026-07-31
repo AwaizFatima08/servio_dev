@@ -43,3 +43,65 @@ export const markBbqOrderPrepared = async (token, orderId) => {
   if (!res.ok) throw new Error(data.message || 'Failed to mark order prepared');
   return data.data;
 };
+
+// ─────────────────────────────────────────
+// Screen #8 — Exception Review Queue (Manager)
+// ─────────────────────────────────────────
+
+// ── GET /bbq/exceptions?eventDate=... ──
+export const getBbqExceptionQueue = async (token, eventDate) => {
+  const res = await fetch(`${BASE_URL}/bbq/exceptions?eventDate=${encodeURIComponent(eventDate)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to load exception queue');
+  return data.data;
+};
+
+// ── PATCH /bbq/orders/:orderId/late-request/approve ──
+export const approveLateRequest = async (token, orderId) => {
+  const res = await fetch(`${BASE_URL}/bbq/orders/${orderId}/late-request/approve`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to approve late request');
+  return data.data;
+};
+
+// ── PATCH /bbq/orders/:orderId/late-request/reject — reason required ──
+export const rejectLateRequest = async (token, orderId, lateRequestDecisionReason) => {
+  const res = await fetch(`${BASE_URL}/bbq/orders/${orderId}/late-request/reject`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lateRequestDecisionReason }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to reject late request');
+  return data.data;
+};
+
+// ── PATCH /bbq/orders/:orderId/cancellation-request/approve ──
+export const approveCancellationRequestAction = async (token, orderId) => {
+  const res = await fetch(`${BASE_URL}/bbq/orders/${orderId}/cancellation-request/approve`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to approve cancellation');
+  return data.data;
+};
+
+// ── PATCH /bbq/orders/:orderId/cancellation-request/reject — reason
+//    required by THIS app's UI choice, though the backend itself allows
+//    it blank (confirmed decision, 01-Aug-2026) ──
+export const rejectCancellationRequestAction = async (token, orderId, decisionReason) => {
+  const res = await fetch(`${BASE_URL}/bbq/orders/${orderId}/cancellation-request/reject`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ decisionReason }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to reject cancellation');
+  return data.data;
+};
