@@ -1878,12 +1878,66 @@ confirmed via `git status --short` before staging anything. Commit
 sequence: code commit(s) first, this CB entry as a separate commit
 after.
 
-### Next Session Starting Point
+### Addendum — 31-Jul-2026 (late night), post-backup
 
-Screen #2 complete and field-tested (minus the untested Closed state
-and unverified Dessert icon — both minor, not blocking). Remaining
-screens: #4 (Proxy Order), #5 (Official Order), #6–7 (Kitchen
-Dashboard — cards + cumulative counts), #8 (Exception Review Queue),
-#9–11 (Table Booking request/approval/confirmation), #12–13 (Menu
-Draft / Approve & Publish). Build order not yet decided for next
-session.
+**"Closed for Tonight" state — now confirmed, was flagged untested
+earlier tonight.** The 22:00–23:55 test window closed naturally on its
+own; screenshot confirms correct message ("Live ordering for
+2026-09-04 has ended"), correct icon rendering, no crash. This closes
+the one gap this entry originally flagged as unverified.
+
+**Cancellation-approval role question — re-confirmed correct as
+locked, no change made.** Homi recalled a different rule (supervisor +
+manager) after the 18-day gap; checked against the design doc in three
+separate places (§2.3 field annotation, §4 Roles Touched, §3 Screen
+Map for Screen #8) — all three agree: Manager only. Backend
+(`managerAndAbove` on both `/cancellation-request/approve` and
+`/reject`) matches the doc correctly. No bug, no drift — just a
+memory gap after time away, caught before it became an accidental
+change. Design stands as-is.
+
+**Whole-order cancellation, not item-level — re-confirmed correct,
+no change made.** Checked `bbqOrders` schema (§2.3): all
+cancellation-related fields (`cancellationRequestStatus`,
+`cancellationRequestedAt`, `cancellationDecisionAt`, etc.) live on the
+order document itself, not per-item. Matches what's built (Screen #3's
+Cancel/Request Cancellation buttons act on the whole card). Homi's
+recollection this time matched the doc exactly.
+
+**Screen #2 cancel-button question — resolved by clarifying screen
+boundaries, not by building anything new.** Discussed whether Screen
+#2 (Live Order) needs its own cancel button on placed-order cards.
+Per design doc §3, order management (cancel/edit/request-cancellation)
+is Screen #3's job (My BBQ Orders), not Screen #2's (which is
+order-placement only). Confirmed Screen #3 already handles this
+correctly, field-tested tonight. No new work needed — would have
+duplicated existing, correctly-scoped functionality.
+
+**Genuinely still open, not resolved tonight — carry forward:** the
+post-acceptance "Request Cancellation" flow (as distinct from plain
+pre-acceptance "Cancel") has never been exercised on a real accepted
+order. Structurally can't be tested yet — requires a `bbq_supervisor`
+account to accept an order first, and the only path to accept an
+order is Screen #6 (Kitchen Dashboard — order cards), which doesn't
+exist yet. Not a bug, just an untested path with a real, known
+dependency. Revisit once Screen #6 exists.
+
+### Build approach going forward — explicit commitment, not just a plan
+
+Remaining screens (#4 Proxy Order, #5 Official Order, #6–7 Kitchen
+Dashboard, #8 Exception Review Queue, #9–11 Table Booking, #12–13 Menu
+Draft/Publish) will be built and briefly reviewed screen-by-screen, as
+before — but **full interdependency audit deliberately deferred to
+after all 13 screens exist**, rather than repeated per-screen, since
+several of these genuinely can't be exercised in isolation (e.g.
+tonight's cancellation-request gap). Explicit commitment: this
+deferral must end in an actual full audit before BBQ is declared
+complete — not quietly become "we never got back to it." Recorded here
+so it's checkable later, not just remembered.
+
+### Next Session Starting Point
+Build order for #4–#13 not yet decided. Suggest starting with Screen
+#6 (Kitchen Dashboard — order cards) next, since it unblocks the
+open post-acceptance cancellation test as a side effect, in addition
+to being needed in its own right.
+
