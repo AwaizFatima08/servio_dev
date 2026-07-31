@@ -1,0 +1,100 @@
+/* web/src/pages/employee/BbqLiveOrderPage.module.css
+   Cart/menu/modal/empty-state/success all reused directly from
+   TeabarSelfOrderPage.module.css — same brand tokens as
+   BbqPreorderPage.module.css, no duplication of those needed.
+
+   formRow / fieldLabel / selectInput / toggleRow / toggleBtn /
+   toggleBtnActive are copied verbatim from BbqPreorderPage.module.css —
+   this page's own ReviewModal needs the same consumer-picker + dining-mode
+   controls, and CSS Modules don't share classes across files, so this is
+   duplication by necessity, not an oversight. Only groupBlock/groupHeader/
+   groupHeaderIcon and the countdown classes are genuinely new to this file. */
+
+.formRow {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.fieldLabel {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B8F7E;
+}
+.selectInput {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  padding: 9px 12px;
+  border: 1.5px solid #C6F0E5;
+  border-radius: 8px;
+  color: #042C1E;
+  background: #fff;
+  outline: none;
+}
+.selectInput:focus { border-color: #0F6E56; }
+
+.toggleRow {
+  display: flex;
+  gap: 8px;
+}
+.toggleBtn {
+  flex: 1;
+  padding: 9px 0;
+  border: 1.5px solid #C6F0E5;
+  border-radius: 8px;
+  background: #fff;
+  color: #6B8F7E;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.toggleBtn:hover { border-color: #0F6E56; }
+.toggleBtnActive {
+  border-color: #0F6E56;
+  background: #0F6E56;
+  color: #fff;
+}
+
+/* ── Group section headers (new to this screen) ── */
+.groupBlock {
+  margin-bottom: 20px;
+}
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  color: #042C1E;
+  margin: 0 0 10px 0;
+}
+.groupHeaderIcon {
+  color: #0F6E56;
+  font-size: 18px;
+}
+
+/* ── Not-Open-Yet countdown (new to this screen) ── */
+.countdownWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+}
+.countdownLabel {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6B8F7E;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.countdownValue {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #0F6E56;
+  font-variant-numeric: tabular-nums;
+}
