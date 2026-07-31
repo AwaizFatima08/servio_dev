@@ -27,6 +27,7 @@ import CafePage           from './pages/employee/CafePage';
 import MyCafeOrdersPage   from './pages/employee/MyCafeOrdersPage';
 import TeabarSelfOrderPage from './pages/employee/TeabarSelfOrderPage';
 import BbqPreorderPage     from './pages/employee/BbqPreorderPage';
+import BbqMyOrdersPage from './pages/employee/BbqMyOrdersPage';
 import MyTeabarOrdersPage  from './pages/employee/MyTeabarOrdersPage';
 
 // ── Supervisor pages ──
@@ -192,6 +193,7 @@ export default function App() {
             <Route path="/my-cafe-orders" element={<WithToken Page={MyCafeOrdersPage} />} />
             <Route path="/teabar-order"     element={<WithToken Page={TeabarSelfOrderPage} />} />
             <Route path="/bbq-preorder"     element={<WithToken Page={BbqPreorderPage} />} />
+            <Route path="/my-bbq-orders"    element={<WithToken Page={BbqMyOrdersPage} />} />
             <Route path="/my-teabar-orders" element={<WithToken Page={MyTeabarOrdersPage} />} />
 
 

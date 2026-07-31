@@ -1,0 +1,98 @@
+/* web/src/pages/employee/BbqMyOrdersPage.module.css
+   Card grid borrows TeabarSharedHistoryPage's language; per-card action
+   buttons borrow TeabarDashboardPage's cancel-confirm pattern, since this
+   screen — unlike Tea Bar's read-only history — needs real actions. */
+
+.page { padding: 24px; max-width: 1100px; margin: 0 auto; }
+
+.header { margin-bottom: 20px; }
+.title { font-family: 'Playfair Display', serif; font-size: 24px; color: #042C1E; margin: 0; }
+.subtitle { font-family: 'DM Sans', sans-serif; font-size: 13px; color: #6b7280; margin: 4px 0 0; }
+
+.errorBanner {
+  display: flex; align-items: center; gap: 8px;
+  background: #fef2f2; border: 1px solid #fecaca; color: #dc2626;
+  border-radius: 10px; padding: 12px 16px; font-size: 13px;
+  margin-bottom: 20px; font-family: 'DM Sans', sans-serif;
+}
+.loading { font-family: 'DM Sans', sans-serif; color: #6b7280; padding: 40px; text-align: center; }
+.emptyState {
+  background: white; border-radius: 14px; border: 1px solid #e5e7eb;
+  padding: 48px 24px; text-align: center; color: #9ca3af; font-family: 'DM Sans', sans-serif;
+}
+.emptyState i { font-size: 36px; display: block; margin-bottom: 12px; }
+
+.cardGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px; font-family: 'DM Sans', sans-serif;
+}
+.card {
+  background: white; border: 1.5px solid #d1fae5; border-radius: 14px;
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
+}
+.cardTop { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.eventDate { font-size: 14px; font-weight: 700; color: #042C1E; }
+
+.lines { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #EBF9F4; border-bottom: 1px solid #EBF9F4; padding: 8px 0; }
+.line { display: flex; align-items: center; justify-content: space-between; }
+.lineName { font-size: 14px; color: #042C1E; }
+.lineQty { font-size: 13px; font-weight: 600; color: #0F6E56; }
+
+.pillRow { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: 20px; border: 1px solid transparent; white-space: nowrap;
+}
+.status_placed { color: #0F6E56; background: #EBF9F4; border-color: #3DBFA0; }
+.status_accepted { color: #1d4ed8; background: #eff6ff; border-color: #93c5fd; }
+.status_prepared { color: #042C1E; background: #d1fae5; border-color: #6ee7b7; }
+.status_cancelled { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
+.pill_late { color: #d97706; background: #fffbeb; border-color: #fcd34d; }
+.pill_cancelPending { color: #9A6800; background: #FEF3CD; border-color: #f5d98a; }
+
+.actions { display: flex; gap: 8px; }
+.editBtn, .cancelBtn, .requestCancelBtn {
+  flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 8px 0; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; transition: background 0.15s;
+}
+.editBtn { border: 1.5px solid #C6F0E5; background: #fff; color: #0F6E56; }
+.editBtn:hover:not(:disabled) { background: #EBF9F4; }
+.cancelBtn, .requestCancelBtn { border: 1.5px solid #f5c6cb; background: #fff; color: #c0392b; }
+.cancelBtn:hover:not(:disabled), .requestCancelBtn:hover:not(:disabled) { background: #FDECEA; }
+.editBtn:disabled, .cancelBtn:disabled, .requestCancelBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.rowError {
+  display: flex; align-items: center; gap: 6px;
+  color: #c0392b; font-family: 'DM Sans', sans-serif; font-size: 12px;
+}
+
+/* ── Edit modal — quantity stepper only, no item add/remove (backend
+   scope: quantity edits on existing items only) ── */
+.overlay {
+  position: fixed; inset: 0; background: rgba(4, 44, 30, 0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+}
+.modal {
+  background: #fff; border-radius: 16px; padding: 24px; width: 100%; max-width: 420px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.modalTitle { font-family: 'Playfair Display', serif; font-size: 19px; color: #042C1E; }
+.editLine { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
+.editLineName { font-size: 14px; color: #042C1E; }
+.qtyStepper { display: inline-flex; align-items: center; gap: 8px; }
+.qtyBtn {
+  width: 28px; height: 28px; border-radius: 6px; border: 1.5px solid #C6F0E5;
+  background: #fff; color: #0F6E56; cursor: pointer;
+}
+.qtyValue { min-width: 20px; text-align: center; font-size: 14px; font-weight: 600; color: #042C1E; }
+.modalActions { display: flex; gap: 10px; }
+.cancelModalBtn {
+  flex: 1; padding: 10px; background: #fff; color: #6b7280;
+  border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer;
+}
+.confirmModalBtn {
+  flex: 1; padding: 10px; background: #0F6E56; color: #fff;
+  border: none; border-radius: 8px; font-weight: 600; cursor: pointer;
+}
+.confirmModalBtn:disabled { opacity: 0.5; cursor: not-allowed; }

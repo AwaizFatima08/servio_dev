@@ -367,9 +367,97 @@ async function getMyBbqOrders({ tenantId, officialEmployeeNumber }) {
   return snap.docs.map((d) => _cleanOrder({ orderId: d.id, ...d.data() }));
 }
 
+// ─────────────────────────────────────────
+// editBbqOrder — items/quantity only, 'placed' orders only. Owner or
+// bbq_supervisor/manager/admin. Confirmed 13-Jul-2026:
+//   - diningMode and consumerType/consumerFamilyMemberId are NOT
+//     editable here — a change to either is a cancel+reorder, not an
+//     edit. This function only ever touches `items`.
+//   - If the order wasn't already late and the edit happens after
+//     preorderCutoffAt, the edit itself flags isLateRequest:true
+//     (same rule as a fresh late order).
+//   - If the order WAS already an approved late request
+//     (lateRequestApprovalStatus:'approved'), editing resets it back
+//     to 'pending' — the Manager approved the lateness, not the
+//     specific contents; a changed order should be re-reviewed.
+//   - Live-item counters: the OLD items' quantities were already
+//     added to bbqLiveItemStatus at creation. This function must
+//     subtract the old resolved items and add the new ones as two
+//     separate applyBbqItemDeltas calls — they don't necessarily
+//     share itemIds, so they can't be merged into one delta object.
+// ─────────────────────────────────────────
+async function editBbqOrder({ orderId, tenantId, uid, userRole, items: newRequestedItems }) {
+  if (!Array.isArray(newRequestedItems) || newRequestedItems.length === 0) {
+    throw new Error('items must be a non-empty array.');
+  }
+
+  const ref = db.collection(COLLECTIONS.BBQ_ORDERS).doc(orderId);
+  const doc = await ref.get();
+  if (!doc.exists) throw new Error('Order not found.');
+  const order = doc.data();
+  if (order.tenantId !== tenantId) throw new Error('Order not found.');
+
+  const isOwner = order.createdByUid === uid;
+  const isSupervisorPlus = ['bbq_supervisor', 'manager', 'admin', 'super_admin'].includes(userRole);
+  if (!isOwner && !isSupervisorPlus) {
+    throw new Error('Only the order creator or a supervisor/manager/admin can edit this order.');
+  }
+
+  if (order.orderStatus !== CAFE_ORDER_STATUS.PLACED) {
+    throw new Error(`Cannot edit an order with status: ${order.orderStatus}. Only 'placed' orders can be edited — once accepted, this is Manager discretion via cancellation, not a direct edit.`);
+  }
+
+  // Re-resolve the new items against the event's published menu — same
+  // all-or-nothing validation as order creation. Server stamps
+  // menuGroup itself; never trusts a client-sent value.
+  const event = await _resolveBbqEvent({ tenantId, eventDate: order.eventDate });
+  const newResolvedItems = _resolveBbqOrderItems({ menu: event.menu, requestedItems: newRequestedItems });
+
+  // Re-check lateness against the current server clock, same rule as
+  // creation. Only relevant for preorder-type orders (mirrors
+  // _validateOrderWindow's own preorder-only lateness concept).
+  let isLateRequest = order.isLateRequest;
+  let lateRequestApprovalStatus = order.lateRequestApprovalStatus;
+  if (order.orderType === BBQ_ORDER_TYPES.PREORDER) {
+    const now = new Date();
+    const preorderCutoff = event.preorderCutoffAt.toDate ? event.preorderCutoffAt.toDate() : new Date(event.preorderCutoffAt);
+    const nowIsLate = now > preorderCutoff;
+
+    if (nowIsLate && !order.isLateRequest) {
+      // Wasn't late before, is now — flag it fresh, same as a new order.
+      isLateRequest = true;
+      lateRequestApprovalStatus = 'pending';
+    } else if (order.isLateRequest && order.lateRequestApprovalStatus === 'approved') {
+      // Was already late AND already approved — contents changed,
+      // reset to pending for re-review (confirmed decision 13-Jul-2026).
+      lateRequestApprovalStatus = 'pending';
+    }
+    // Else: either not late at all, or late-and-still-pending — no change needed.
+  }
+
+  const now = new Date();
+  await ref.update({
+    items: newResolvedItems,
+    isLateRequest,
+    lateRequestApprovalStatus,
+    updatedAt: now,
+  });
+
+  // Live-counter adjustment — subtract old, add new, as two separate calls.
+  await applyBbqItemDeltas({ tenantId, eventDate: order.eventDate, items: order.items, orderedDelta: -1 });
+  await applyBbqItemDeltas({ tenantId, eventDate: order.eventDate, items: newResolvedItems, orderedDelta: 1 });
+
+  return {
+    message: 'Order updated.', orderId,
+    isLateRequest, lateRequestApprovalStatus,
+    itemCount: newResolvedItems.length,
+  };
+}
+
 module.exports = {
   createBbqOrder,
   createProxyBbqOrder,
   createOfficialBbqOrder,
   getMyBbqOrders,
+  editBbqOrder,
 };

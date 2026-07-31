@@ -27,7 +27,7 @@ const {
   returnBbqEvent, cancelBbqEvent, getBbqEvent, getBbqEvents,
 } = require('./bbqEventService');
 const {
-  createBbqOrder, createProxyBbqOrder, createOfficialBbqOrder, getMyBbqOrders,
+    createBbqOrder, createProxyBbqOrder, createOfficialBbqOrder, getMyBbqOrders, editBbqOrder,
 } = require('./bbqOrderService');
 const { getBbqLiveItemStatus } = require('./bbqLiveItemStatusService');
 const {
@@ -383,6 +383,22 @@ router.patch('/orders/:orderId/prepared', bbqSupervisorAndAbove, async (req, res
     const result = await markBbqOrderPrepared({ orderId: req.params.orderId, tenantId: req.tenantId, preparedByUid: req.user.uid });
     return successResponse(res, result, 'Order marked prepared');
   } catch (error) {
+    return errorResponse(res, error.message, 400, error);
+  }
+});
+
+// ── PATCH /bbq/orders/:orderId/edit — owner or bbq_supervisor+, placed only ──
+router.patch('/orders/:orderId/edit', anyAuthenticated, async (req, res) => {
+  try {
+    const result = await editBbqOrder({
+      orderId: req.params.orderId, tenantId: req.tenantId, uid: req.user.uid, userRole: req.userRole,
+      items: req.body.items,
+    });
+    return successResponse(res, result, 'Order updated');
+  } catch (error) {
+    if (error.itemErrors) {
+      return res.status(400).json({ success: false, message: error.message, itemErrors: error.itemErrors });
+    }
     return errorResponse(res, error.message, 400, error);
   }
 });

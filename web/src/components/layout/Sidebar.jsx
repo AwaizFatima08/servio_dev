@@ -44,7 +44,8 @@ const NAV_CONFIG = {
     {
       section: 'BBQ',
       items: [
-        { label: 'BBQ Preorder', icon: 'meat', to: '/bbq-preorder' },
+        { label: 'BBQ Preorder',   icon: 'meat',    to: '/bbq-preorder' },
+        { label: 'My BBQ Orders',  icon: 'receipt', to: '/my-bbq-orders' },
       ],
     },
     {
