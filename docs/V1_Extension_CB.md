@@ -1763,3 +1763,28 @@ supervisor wants to still process orders for an older still-open
 event). Not yet a bug, just a design question surfaced by today's
 test setup, worth a deliberate decision before or during Screen #2's
 build.
+### Addendum — 31-Jul-2026, two design decisions confirmed (no code changes)
+
+**1. Screen #1's single-event behavior — confirmed correct, no change
+needed.** Discussed whether having two events simultaneously
+`published` (`08-21` and `09-04`) is a problem for Screen #1. Confirmed
+with Homi: Screen #1 showing only the single latest published event
+(current `GET /bbq/events?status=published&limit=1` behavior, sorted
+`eventDate desc`) is the intended design, not a bug to fix. No action
+needed — this was flagged as an open question in the previous entry,
+now resolved as "working as intended."
+
+**2. Future Screens #12/#13 (Manager/Admin event list — Menu Draft,
+Menu Approve & Publish) — design decision recorded ahead of build.**
+Confirmed with Homi: when these screens are eventually built, the
+event list should default to hiding `closed` and `cancelled` events
+(showing only `draft`, `pending_review`, `returned`, `published` by
+default), with an explicit toggle/filter to reveal historical
+closed/cancelled events on demand. Reasoning: without this, the list
+grows unbounded with every past Friday and becomes unusable over a
+season. Mirrors the existing soft-delete-via-`isVisible` pattern used
+elsewhere in the schema — nothing is hidden permanently, just filtered
+by default.
+
+Not actionable today — #12/#13 are not yet built. Recorded now so the
+decision doesn't need to be re-litigated when their turn comes.
