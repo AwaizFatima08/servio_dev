@@ -1,0 +1,270 @@
+/* web/src/pages/admin/BbqKitchenPage.module.css */
+/* Visual language reused from CafeKitchenPage.module.css, trimmed:
+   no overrun styles (BBQ has no elapsed-time concept), no cancel-confirm
+   styles (this screen has no cancel action). */
+
+.page {
+  padding: 28px 32px;
+  min-height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #042C1E;
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.unackInline {
+  color: #d97706;
+  font-weight: 600;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.autoLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.autoLabel input {
+  accent-color: #0F6E56;
+}
+
+.refreshBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  background: #0F6E56;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.refreshBtn:hover:not(:disabled) { background: #042C1E; }
+.refreshBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.detailLoading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  color: #6b7280;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #0F6E56;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.emptyState {
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 48px 24px;
+  text-align: center;
+  color: #9ca3af;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.emptyState i { font-size: 36px; display: block; margin-bottom: 12px; }
+.emptyState p { font-size: 14px; margin: 0; }
+
+.orderGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.orderCard {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.orderCardPlaced {
+  border-color: #fcd34d;
+  box-shadow: 0 2px 12px rgba(217, 119, 6, 0.08);
+}
+
+.orderCardAccepted {
+  border-color: #d1fae5;
+  background: #fbfffe;
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.typeBadge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid;
+}
+
+.typeBadgePreorder {
+  color: #0F6E56;
+  background: #EBF9F4;
+  border-color: #3DBFA0;
+}
+
+.typeBadgeLive {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+
+.cardTopRight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diningBadge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #0F6E56;
+  background: #EBF9F4;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid #3DBFA0;
+}
+
+.lateBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #b45309;
+  background: #fffbeb;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid #fde68a;
+}
+
+.orderedAt {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.itemLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.itemName { font-size: 16px; font-weight: 600; color: #042C1E; }
+.qty { font-size: 15px; font-weight: 700; color: #0F6E56; }
+
+.consumerLine {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.consumerLine i { font-size: 14px; color: #9ca3af; }
+.viaEmp { color: #9ca3af; font-size: 12px; }
+
+.cardActions { margin-top: 2px; }
+
+.acceptBtn, .prepareBtn {
+  width: 100%;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 0;
+  background: #0F6E56;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.acceptBtn:hover:not(:disabled), .prepareBtn:hover:not(:disabled) { background: #042C1E; }
+.acceptBtn:disabled, .prepareBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.refreshNote {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: right;
+  margin-top: 16px;
+}
+
+@media (max-width: 640px) {
+  .page { padding: 20px 16px; }
+  .orderGrid { grid-template-columns: 1fr; }
+}

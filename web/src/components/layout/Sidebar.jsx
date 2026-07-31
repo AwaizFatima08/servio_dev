@@ -125,7 +125,8 @@ const NAV_CONFIG = {
     {
       section: 'BBQ Operations',
       items: [
-        { label: 'Home', icon: 'home', to: '/dashboard' },
+        { label: 'Home',              icon: 'home',     to: '/dashboard' },
+        { label: 'Kitchen Dashboard', icon: 'chef-hat', to: '/bbq-kitchen' },
       ],
     },
   ],
