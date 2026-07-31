@@ -1663,8 +1663,61 @@ not a repeat of the backend counter logic.
   (`sOqUvCkmk8EGINEkIYST`, `oDQMayrj6l75MK4Sm2nv`) and the
   `bbqLiveItemStatus` counter — re-read fresh, not assumed.
 
+## Update Entry - 31-Jul-2026 (Screen #3 Edit bug — re-tested, did not reproduce)
+
+### DevTools diagnosis performed as planned
+
+Opened Network tab, cleared log, repeated the exact failing action from
+13-Jul: Edit → change quantity → Save on order `sOqUvCkmk8EGINEkIYST`
+(the order that got stuck at ×1 in the earlier session).
+
+**Result: the edit succeeded.** Network tab showed the expected clean
+sequence — `mine` (200) → `edit` (200) → `mine` (200) — and both the UI
+and a direct API check confirmed the change landed correctly:
+- Order document: `quantity: 1 → 4`, `updatedAt` moved from
+  `createdAt` (2026-07-13T19:46:18) to a fresh timestamp
+  (2026-07-31T15:15:49) — genuine write confirmed, not a stale UI
+  showing old data.
+- `bbqLiveItemStatus`: `orderedCount` moved from 5 → 8, exactly
+  matching the expected math (5 − 1 old + 4 new = 8).
+
+### Honest conclusion — not "fixed," reclassified
+
+No code changed between the 13-Jul failure and today's successful
+retest. The bug did not reproduce under the same steps. Recording this
+precisely rather than either overclaiming ("fixed") or leaving it open
+without qualification ("still broken"):
+
+**Status: observed once (13-Jul), not reproduced since, root cause
+unknown.** Leading theory, unconfirmed: a one-off frontend timing/
+render glitch specific to that session, rather than a deterministic
+logic bug — three independent test sequences (two before the gap on a
+different order, one today on the previously-stuck order) all show
+`editBbqOrder`'s core logic — validation, re-resolution against the
+published menu, and the two-delta live-counter adjustment — working
+correctly every time it's been exercised.
+
+**Not closing this as resolved.** If it recurs, worth checking:
+double-click/double-submit protection on the Save button (no explicit
+guard against a fast double-click currently exists beyond the
+`submitting` state), and whether it correlates with any particular
+browser/network condition. No action taken today per session scope
+(testing only, no code changes) — flagged for awareness, not
+scheduled as a fix, since there's nothing concrete yet to fix.
+
+### Confirmed still valid, all re-verified fresh (not from memory)
+- `ffl_2026-08-21` — still `status: published`, untouched during the
+  18-day gap (expected — `bbqAutoClose` only touches past-dated events,
+  and this Friday is still 3 weeks out).
+- Both test orders and the live-status counter — all consistent with
+  their last known 13-Jul state before this session's edit.
+
 ### Next Session Starting Point
-Commit the Screen #3 backend+frontend work (functionally mostly
-complete — only the UI-refresh-after-edit issue is open). Then
-re-verify Firestore test-data state before resuming the Edit-button
-diagnosis via DevTools.
+Screen #3 (My BBQ Orders) is functionally complete and field-tested —
+history, edit, cancel, and request-cancellation all working. No open
+blockers. Next: continue BBQ frontend build — Screen #2 (Live tab) is
+next per the original build-order plan, though it still needs more
+test menu items (`liveCookItems`/`kidsItems`/`beverages`/`breadItems`/
+`dessertItems` are all empty on the current test event) before it can
+be meaningfully tested — a known gap flagged back on 13-Jul, still
+unaddressed.
