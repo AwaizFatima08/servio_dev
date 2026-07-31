@@ -1935,9 +1935,161 @@ deferral must end in an actual full audit before BBQ is declared
 complete — not quietly become "we never got back to it." Recorded here
 so it's checkable later, not just remembered.
 
+## Update Entry - 01-Aug-2026 (session: Screens 6 & 8)
+
+### Status
+V1.4 BBQ frontend continues. Screen #6 (Kitchen Dashboard) and Screen #8
+(Exception Review Queue) both built, deployed, and field-tested live on
+real data. 4/13 screens now complete (#1, #2, #3, #6, #8 — note #8 was
+built out of numeric order, ahead of #4/#5/#7, since it unblocked a
+genuine untested path and had a real pending record waiting for it).
+
+### Screen #6 — BBQ Kitchen Dashboard (order cards)
+Role: bbq_supervisor+. Path: /bbq-kitchen. **Zero new backend needed** —
+GET /bbq/kitchen/orders, PATCH .../accept, PATCH .../prepared all
+already existed from the 11-Jul backend session. Pure frontend build:
+new bbqKitchenService.js (web), new BbqKitchenPage.jsx + .module.css,
+route + bbq_supervisor sidebar nav entry added.
+
+Key design decision, confirmed before build: unlike café's kitchen
+board, BBQ orders are one-document-per-order (items[] array already
+inside), so no bookingGroupId grouping step was needed — simpler than
+café's pattern, not just a reuse of it. Also deliberately scoped
+narrower than café's board: accept/prepared actions ONLY, no
+supervisor-cancel button — matches design doc §3's exact wording for
+this screen and the same screen-boundary logic already applied to
+Screen #2 on 31-Jul (order management belongs to Screen #3, not to
+placement/kitchen-adjacent screens).
+
+Event selection: auto-detects current published event via
+getCurrentBbqEvent (same as Screens #1/#2) — same known caveat carries
+forward (multiple simultaneous published events means it follows
+whichever getCurrentBbqEvent picks, not necessarily the one with real
+order history).
+
+**Side-fix, same commit:** UserManagementPage.jsx's role dropdown
+(web) had its own hardcoded ROLES/ROLE_LABELS list, separate from
+backend constants.js — bbq_supervisor existed in the backend since
+11-Jul but was never added to this web list, meaning NO account could
+ever be assigned that role through the UI. Fixed — added in the
+supervisor cluster after teabar_attendant in both lists. Pattern to
+remember: adding a role to backend constants.js does not automatically
+propagate to frontend hardcoded mirrors of that list; check
+UserManagementPage.jsx (and possibly others) whenever a new role is
+added going forward.
+
+**Field-tested live end-to-end:** Gul Nokhaiz (real bbq_supervisor
+account, CLB00050) accepted a placed order, card correctly flipped to
+Mark Prepared. Confirmed via real screenshots, not assumed.
+
+**Closed as a side effect:** the post-acceptance "Request Cancellation"
+flow on Screen #3, untested since 31-Jul specifically because nothing
+existed to accept an order into 'accepted' status until tonight.
+Employee (Farrukh Imtiaz) requested cancellation on the now-accepted
+order; badge correctly showed "accepted" + "Cancellation pending";
+kitchen card correctly still offered Mark Prepared during the pending
+review (confirmed matches design doc's deliberate decoupling of
+cancellationRequestStatus from orderStatus).
+
+Also deployment-process note: an `npm run build -dev` typo (should be
+`build:dev`) caused npm to swallow the flag and silently fall back to
+the bare `build` script, which loaded .env.production per the existing
+documented bug pattern, and got deployed to the dev hosting site before
+being caught and corrected. Login was not confirmed broken/unbroken in
+the gap, but the corrected build was verified to say
+`--mode development` before redeploying. Worth remembering: this bug
+resurfaces via typos, not just bare invocation — watch for `-dev`
+vs `:dev`.
+
+### Screen #8 — Exception Review Queue (NEW backend + frontend)
+Role: manager+. Path: /bbq-exceptions. **Genuine backend gap found by
+reading code, not assumed:** no existing query anywhere returned orders
+with pending late-requests or pending cancellation-requests — checked
+both bbqOrderService.js and bbqKitchenService.js in full before
+concluding this. Added:
+- `getBbqExceptionQueue({tenantId, eventDate})` in bbqKitchenService.js
+  — returns TWO separate arrays (lateRequests[], cancellationRequests[]),
+  deliberately not merged, since the two exception types use different
+  approve/reject endpoints and mean different things.
+- `GET /bbq/exceptions?eventDate=...` route, managerAndAbove gated.
+- Backend verified live via curl with a real Manager token before any
+  frontend was written — confirmed correct shape and correctly
+  returned the one real pending cancellation request created earlier
+  in the session.
+
+Frontend: extended web's bbqKitchenService.js with 5 new functions;
+new BbqExceptionQueuePage.jsx + .module.css; route added; manager
+NAV_CONFIG in Sidebar.jsx got its first-ever BBQ section (previously
+had none at all — genuine pre-existing gap, unrelated to tonight's
+build, closed as a byproduct).
+
+**Locked UI decisions (confirmed with Homi before build):**
+- Scoped to current eventDate (consistent with Screen #6), not
+  cross-event.
+- Approve = single click, no confirm step.
+- Reject = requires a typed reason in BOTH cases. Backend only
+  mandates a reason for late-request rejection; cancellation-request
+  rejection is backend-optional but enforced as required in this app's
+  UI for a consistent audit trail — deliberate choice, not a backend
+  mismatch to "fix" later.
+
+**Field-tested live:** approve and reject-with-reason both exercised
+on the one real pending cancellation request (Farrukh Imtiaz's live
+order). Rejected with reason "Items already prepared."
+
+### Screen #3 display gap — found via Screen #8 testing, not before
+After rejecting the cancellation request on Screen #8, Screen #3 (My
+BBQ Orders) showed no trace of the rejection — card reverted to a
+plain "accepted" look with "Request cancellation" available again, as
+if nothing had happened. Root cause: BbqMyOrdersPage.jsx only ever
+checked for cancellationRequestStatus === 'pending'; no branch existed
+for 'rejected' at all (not a regression — this state literally could
+not occur before tonight, since nothing could produce a rejection
+before Screen #8 existed).
+
+Fixed: added a rejected-state badge (reusing existing status_cancelled
+styling — deliberately kept, not changed to a new color; confirmed
+with Homi this stays visually consistent with the existing "Late
+request rejected" pattern already on the same page, despite the
+surface-level risk of looking like the whole order was cancelled) plus
+an inline display of cancellationDecisionReason, reusing the existing
+rowError style. No CSS changes needed — both classes already existed.
+Field-tested live: badge, reason text, and "Request cancellation"
+button all confirmed correct on Farrukh Imtiaz's account.
+
+**Noteworthy pattern for the record:** this gap could not have been
+found by testing Screen #3 in isolation, however thoroughly — the
+state it needed to display had never existed in the system until
+Screen #8 made it possible. Worth remembering when scoping "done" for
+any screen that depends on a downstream reviewer screen not yet built.
+
+### Known open items, not blocking, carried forward
+- Screen #6: createdAt timestamp rendering used a guessed Firestore
+  `{_seconds}` shape (no live payload seen before building) —
+  confirmed CORRECT by the later Screen #8 curl test, no fix needed,
+  noting for the record only.
+- Multiple-published-events UX question (getCurrentBbqEvent picking
+  "most recent by date," not "most relevant for testing") — still
+  open, still not urgent, now touched by three screens (#1, #2, #6, #8)
+  instead of two.
+- Screens #4, #5, #7, #9–13 not yet started.
+- Full BBQ-screens interdependency audit still deliberately deferred
+  to after all 13 screens exist — commitment still standing, not
+  forgotten.
+- Dev data residue unchanged from 31-Jul note (ffl_2026-09-04's
+  orderWindowStartAt/orderWindowEndAt still manually overwritten,
+  bbqSettings.closeoutTime still at test value "23:15").
+
+### Git state at session close
+Two commits this session:
+1. `09c40cb` — Screen #6 + UserManagementPage role-list fix (6 files)
+2. [commit hash for Screen #8 + Screen #3 fix — to be filled in after
+   Homi commits]
+
 ### Next Session Starting Point
-Build order for #4–#13 not yet decided. Suggest starting with Screen
-#6 (Kitchen Dashboard — order cards) next, since it unblocks the
-open post-acceptance cancellation test as a side effect, in addition
-to being needed in its own right.
+Build order for remaining screens (#4, #5, #7, #9–13) still not
+decided. Screen #7 (cumulative item-count dashboard, reads
+bbqLiveItemStatus) may be a natural next step given proximity to
+Screen #6's kitchen-floor context, but no commitment made — decide
+fresh next session per standing discipline.
 
