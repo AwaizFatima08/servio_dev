@@ -1618,3 +1618,53 @@ shows only "BBQ Operations → Home," confirmed via screenshot.
 Screen #3 (My BBQ Orders) is next — backend (`getMyBbqOrders`) already
 built and field-tested, UI pattern precedent already read in full
 (`TeabarSharedHistoryPage.jsx`).
+
+## Update Entry - 31-Jul-2026 (Resume after ~18-day gap)
+
+### Status on resume
+
+Away since 13-Jul-2026 (NAS powered off for the duration); resumed
+work today, 31-Jul-2026. No work happened elsewhere during the gap —
+this session's starting point is exactly where the last chat left
+off, verified from disk and git rather than assumed from memory.
+
+**Confirmed via `git status --short` / `git log --oneline -10`:**
+- Last committed work: `955480c` (bbq_supervisor nav fix) — matches
+  the CB's previous entry exactly, no drift.
+- **Uncommitted Screen #3 work is still sitting on disk, untouched:**
+  - `core/functions/src/bbq/bbqOrderService.js` (modified) —
+    `editBbqOrder`, built and partially field-tested
+  - `core/functions/src/bbq/bbqRoutes.js` (modified) — the
+    `PATCH /bbq/orders/:orderId/edit` route
+  - `web/src/services/bbqOrderService.js` (frontend, modified) —
+    `editBbqOrder`, `cancelBbqOrder`, `requestBbqCancellation`
+  - `web/src/App.jsx`, `web/src/components/layout/Sidebar.jsx`
+    (modified) — Screen #3 route + nav wiring
+  - `web/src/pages/employee/BbqMyOrdersPage.jsx` + `.module.css`
+    (untracked, never committed)
+
+### Known unresolved issue carried over
+
+Screen #3's Edit action did not visibly update the UI in at least one
+test: editing order `sOqUvCkmk8EGINEkIYST` (quantity 1 → intended 6)
+left the card showing `×1` after Save. Root cause never found —
+session ended before the planned DevTools Network-tab check happened.
+Backend `editBbqOrder` itself has independent, confirmed-correct
+evidence from a separate order (`oDQMayrj6l75MK4Sm2nv`) tested earlier
+in the same prior session, so the leading suspicion is a frontend
+issue (stepper not registering, or a misclick between order cards),
+not a repeat of the backend counter logic.
+
+### Still to re-check before resuming build
+- `ffl_2026-08-21`'s current `status` in Firestore — `bbqAutoClose`
+  runs every Friday 23:50 PKT and will have fired multiple times
+  during the 18-day gap; may no longer be `published`.
+- Current quantities on the two test orders
+  (`sOqUvCkmk8EGINEkIYST`, `oDQMayrj6l75MK4Sm2nv`) and the
+  `bbqLiveItemStatus` counter — re-read fresh, not assumed.
+
+### Next Session Starting Point
+Commit the Screen #3 backend+frontend work (functionally mostly
+complete — only the UI-refresh-after-edit issue is open). Then
+re-verify Firestore test-data state before resuming the Edit-button
+diagnosis via DevTools.
