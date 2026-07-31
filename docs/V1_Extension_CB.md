@@ -1712,12 +1712,54 @@ scheduled as a fix, since there's nothing concrete yet to fix.
 - Both test orders and the live-status counter — all consistent with
   their last known 13-Jul state before this session's edit.
 
+## Update Entry - 31-Jul-2026 (Test data — second BBQ event for Screen #2)
+
+### New published test event created: `ffl_2026-09-04`
+
+Closes the gap flagged since 13-Jul: `ffl_2026-08-21` only had one
+menu item (`preorderItems` only), making Screen #2 (Live tab)
+untestable — no data in `liveCookItems`, `kidsItems`, `beverages`,
+`breadItems`, `dessertItems`.
+
+Checked the catalogue first rather than creating new items blind —
+found 5 pre-existing `bbq`-tagged test items already covering 4 of the
+5 missing groups (created 11-Jul, apparently seeded ahead of need but
+never used):
+- `hd95Hia3Ftzky1sEsci8` — Test BBQ Chicken Tikka — `preorder`
+- `uSo0QzVkr1Xonb1a20f6` — Test BBQ Beef Boti — `live_cook`
+- `maifdBdKWtINI3egbnY6` — Test BBQ Kids Nuggets — `kids`
+- `Y4uHYJRDUnRhcpjrPhPu` — Test BBQ Soft Drink — `beverage`
+- `UDESHeeoy1ZyQw4sJDzy` — Test BBQ Naan — `bread`
+
+**Still no `dessert`-tagged item anywhere in the catalogue** — minor
+residual gap, not blocking (4/5 groups is enough to test Screen #2
+meaningfully), flagged for whenever it's convenient to seed one.
+
+Walked the full real lifecycle, Manager→Admin, same as `08-21`: draft
+(5 items) → submit → publish. All three steps predicted and confirmed
+matching exactly. Verified via `GET /bbq/events/ffl_2026-09-04` that
+all 5 items resolved into the correct arrays.
+
+**Decision: keeping both `08-21` and `09-04` published simultaneously**
+rather than replacing — `08-21` has real order history (from Screen
+#1/#3 testing) worth preserving; `09-04` is dedicated to Screen #2
+testing. Deliberate side effect, flagged in advance: with two events
+now `published` at once, `GET /bbq/events?status=published&limit=1`
+(used by `getCurrentBbqEvent` on Screen #1) will return `09-04` (later
+`eventDate`, sorted desc) — Screen #1 will show `09-04`'s single-item
+menu going forward, not `08-21`'s. This is also incidentally the
+first real-world test of the "two events published simultaneously"
+scenario originally flagged as a hypothetical when designing
+`bbqAutoClose` — confirms the existing sort-by-`eventDate`-desc
+behavior, not yet confirmed as correct/desired UX, just confirmed as
+current behavior.
+
 ### Next Session Starting Point
-Screen #3 (My BBQ Orders) is functionally complete and field-tested —
-history, edit, cancel, and request-cancellation all working. No open
-blockers. Next: continue BBQ frontend build — Screen #2 (Live tab) is
-next per the original build-order plan, though it still needs more
-test menu items (`liveCookItems`/`kidsItems`/`beverages`/`breadItems`/
-`dessertItems` are all empty on the current test event) before it can
-be meaningfully tested — a known gap flagged back on 13-Jul, still
-unaddressed.
+Test data ready for Screen #2 (Live tab). Build order: Screen #2 next.
+Consider whether Screen #1's event-selection logic needs to change now
+that multiple published events can coexist (currently always shows
+the latest by eventDate — may not match user intent if e.g. the
+supervisor wants to still process orders for an older still-open
+event). Not yet a bug, just a design question surfaced by today's
+test setup, worth a deliberate decision before or during Screen #2's
+build.
