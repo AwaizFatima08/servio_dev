@@ -36,6 +36,7 @@ import IssuanceDashboardPage  from './pages/admin/IssuanceDashboardPage';
 import KitchenDashboardPage   from './pages/admin/KitchenDashboardPage';
 import CafeKitchenPage        from './pages/admin/CafeKitchenPage';
 import BbqKitchenPage         from './pages/admin/BbqKitchenPage';
+import BbqLiveCountsPage      from './pages/admin/BbqLiveCountsPage';
 import BbqExceptionQueuePage  from './pages/admin/BbqExceptionQueuePage';
 import CafeProxyOrderPage     from './pages/admin/CafeProxyOrderPage';
 import CafeOfficialPage       from './pages/admin/CafeOfficialPage';
@@ -206,6 +207,7 @@ export default function App() {
             <Route path="/kitchen"        element={<WithToken Page={KitchenDashboardPage} />} />
             <Route path="/cafe-kitchen"   element={<WithToken Page={CafeKitchenPage} />} />
             <Route path="/bbq-kitchen"    element={<WithToken Page={BbqKitchenPage} />} />
+            <Route path="/bbq-live-counts" element={<WithToken Page={BbqLiveCountsPage} />} />
             <Route path="/bbq-exceptions" element={<WithToken Page={BbqExceptionQueuePage} />} />
             <Route path="/cafe-proxy-order" element={<WithToken Page={CafeProxyOrderPage} />} />
             <Route path="/cafe-official"     element={<WithToken Page={CafeOfficialPage} />} />

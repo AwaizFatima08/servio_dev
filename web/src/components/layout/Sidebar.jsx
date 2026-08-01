@@ -127,6 +127,7 @@ const NAV_CONFIG = {
       items: [
         { label: 'Home',              icon: 'home',     to: '/dashboard' },
         { label: 'Kitchen Dashboard', icon: 'chef-hat', to: '/bbq-kitchen' },
+        { label: 'Live Item Counts',  icon: 'chart-bar', to: '/bbq-live-counts' },
       ],
     },
   ],

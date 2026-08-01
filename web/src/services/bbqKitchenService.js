@@ -44,6 +44,16 @@ export const markBbqOrderPrepared = async (token, orderId) => {
   return data.data;
 };
 
+// ── GET /bbq/live-status?eventDate=... — Screen #7 (cumulative item counts) ──
+export const getBbqLiveItemStatus = async (token, eventDate) => {
+  const res = await fetch(`${BASE_URL}/bbq/live-status?eventDate=${encodeURIComponent(eventDate)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to load live item status');
+  return data.data;
+};
+
 // ─────────────────────────────────────────
 // Screen #8 — Exception Review Queue (Manager)
 // ─────────────────────────────────────────
