@@ -29,6 +29,7 @@ import TeabarSelfOrderPage from './pages/employee/TeabarSelfOrderPage';
 import BbqPreorderPage     from './pages/employee/BbqPreorderPage';
 import BbqLiveOrderPage    from './pages/employee/BbqLiveOrderPage';
 import BbqMyOrdersPage from './pages/employee/BbqMyOrdersPage';
+import BbqTableRequestPage from './pages/employee/BbqTableRequestPage';
 import MyTeabarOrdersPage  from './pages/employee/MyTeabarOrdersPage';
 
 // ── Supervisor pages ──
@@ -38,6 +39,8 @@ import CafeKitchenPage        from './pages/admin/CafeKitchenPage';
 import BbqKitchenPage         from './pages/admin/BbqKitchenPage';
 import BbqLiveCountsPage      from './pages/admin/BbqLiveCountsPage';
 import BbqExceptionQueuePage  from './pages/admin/BbqExceptionQueuePage';
+import BbqTableApprovalPage   from './pages/admin/BbqTableApprovalPage';
+import BbqTableConfirmationPage from './pages/admin/BbqTableConfirmationPage';
 import CafeProxyOrderPage     from './pages/admin/CafeProxyOrderPage';
 import CafeOfficialPage       from './pages/admin/CafeOfficialPage';
 import CafeOfficialPendingPage from './pages/admin/CafeOfficialPendingPage';
@@ -199,6 +202,7 @@ export default function App() {
             <Route path="/bbq-preorder"     element={<WithToken Page={BbqPreorderPage} />} />
             <Route path="/bbq-live-order"   element={<WithToken Page={BbqLiveOrderPage} />} />
             <Route path="/my-bbq-orders"    element={<WithToken Page={BbqMyOrdersPage} />} />
+            <Route path="/bbq-table-request" element={<WithToken Page={BbqTableRequestPage} />} />
             <Route path="/my-teabar-orders" element={<WithToken Page={MyTeabarOrdersPage} />} />
 
 
@@ -209,6 +213,8 @@ export default function App() {
             <Route path="/bbq-kitchen"    element={<WithToken Page={BbqKitchenPage} />} />
             <Route path="/bbq-live-counts" element={<WithToken Page={BbqLiveCountsPage} />} />
             <Route path="/bbq-exceptions" element={<WithToken Page={BbqExceptionQueuePage} />} />
+            <Route path="/bbq-table-approval" element={<WithToken Page={BbqTableApprovalPage} />} />
+            <Route path="/bbq-table-confirmation" element={<WithToken Page={BbqTableConfirmationPage} />} />
             <Route path="/cafe-proxy-order" element={<WithToken Page={CafeProxyOrderPage} />} />
             <Route path="/cafe-official"     element={<WithToken Page={CafeOfficialPage} />} />
             <Route path="/cafe-history"   element={<WithToken Page={CafeHistoryPage} />} />

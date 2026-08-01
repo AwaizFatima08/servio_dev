@@ -1,0 +1,198 @@
+/* web/src/pages/admin/BbqTableConfirmationPage.module.css */
+/* Visual language reused from BbqTableApprovalPage.module.css — same
+   header/eventSelect/error/spinner/empty-state/card conventions. Simpler
+   than #10: no tabs, no status badges, no inline reason forms — just a
+   single list with Confirm + Cancel per card. */
+
+.page {
+  padding: 28px 32px;
+  min-height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #042C1E;
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.eventSelect {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #042C1E;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  min-width: 160px;
+}
+
+.eventSelect:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.detailLoading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  color: #6b7280;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #0F6E56;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.emptyState {
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 48px 24px;
+  text-align: center;
+  color: #9ca3af;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.emptyState i { font-size: 36px; display: block; margin-bottom: 12px; }
+.emptyState p { font-size: 14px; margin: 0; }
+
+.requestGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.requestCard {
+  background: white;
+  border: 2px solid #d1fae5;
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.employeeName {
+  font-size: 15px;
+  font-weight: 600;
+  color: #042C1E;
+}
+
+.empNum {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.guestCountLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #042C1E;
+  font-weight: 600;
+}
+
+.guestCountLine i { color: #9ca3af; font-size: 15px; }
+
+.noteLine {
+  font-size: 13px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.cardActionsRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.confirmBtn {
+  flex: 1;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 0;
+  background: #0F6E56;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.confirmBtn:hover:not(:disabled) { background: #042C1E; }
+.confirmBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.cancelBtn {
+  flex: 1;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 0;
+  background: white;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.cancelBtn:hover:not(:disabled) { background: #fef2f2; }
+.cancelBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .page { padding: 20px 16px; }
+  .requestGrid { grid-template-columns: 1fr; }
+}

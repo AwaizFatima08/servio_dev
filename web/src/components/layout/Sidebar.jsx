@@ -44,9 +44,10 @@ const NAV_CONFIG = {
     {
       section: 'BBQ',
       items: [
-        { label: 'BBQ Preorder',   icon: 'meat',    to: '/bbq-preorder' },
-        { label: 'BBQ Live Order', icon: 'flame',   to: '/bbq-live-order' },
-        { label: 'My BBQ Orders',  icon: 'receipt', to: '/my-bbq-orders' },
+        { label: 'BBQ Preorder',   icon: 'meat',      to: '/bbq-preorder' },
+        { label: 'BBQ Live Order', icon: 'flame',     to: '/bbq-live-order' },
+        { label: 'My BBQ Orders',  icon: 'receipt',   to: '/my-bbq-orders' },
+        { label: 'Table Request',  icon: 'armchair',  to: '/bbq-table-request' },
       ],
     },
     {
@@ -180,7 +181,8 @@ const NAV_CONFIG = {
     {
       section: 'BBQ',
       items: [
-        { label: 'Exception Queue', icon: 'alert-triangle', to: '/bbq-exceptions' },
+        { label: 'Table Confirmation', icon: 'clipboard-check', to: '/bbq-table-confirmation' },
+        { label: 'Exception Queue',    icon: 'alert-triangle',  to: '/bbq-exceptions' },
       ],
     },
     {
@@ -210,6 +212,12 @@ const NAV_CONFIG = {
         { label: 'Locations', icon: 'map-pin', to: '/teabar-locations' },
         { label: 'Approvals', icon: 'receipt-2', to: '/teabar-official-approvals' },
         { label: 'History',   icon: 'history', to: '/teabar-history' },
+      ],
+    },
+    {
+      section: 'BBQ',
+      items: [
+        { label: 'Table Approval', icon: 'clipboard-check', to: '/bbq-table-approval' },
       ],
     },
     {

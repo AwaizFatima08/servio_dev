@@ -1,0 +1,346 @@
+/* web/src/pages/admin/BbqTableApprovalPage.module.css */
+/* Visual language reused from BbqKitchenPage.module.css / BbqTableRequestPage.module.css
+   — same header/error/spinner/empty-state/card conventions. New: eventSelect
+   dropdown, tabs, approve/return/reject action set, inline return/reject forms,
+   rowInfo (returned — informational) distinct from rowError (rejected — denied). */
+
+.page {
+  padding: 28px 32px;
+  min-height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: #042C1E;
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.eventSelect {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #042C1E;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  min-width: 160px;
+}
+
+.eventSelect:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ── Tabs ── */
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e5e7eb;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.tabBtn {
+  font-size: 14px;
+  font-weight: 600;
+  color: #9ca3af;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tabBtn:hover { color: #042C1E; }
+
+.tabActive {
+  color: #0F6E56;
+  border-bottom-color: #0F6E56;
+}
+
+.detailLoading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  color: #6b7280;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #0F6E56;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.emptyState {
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  padding: 48px 24px;
+  text-align: center;
+  color: #9ca3af;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.emptyState i { font-size: 36px; display: block; margin-bottom: 12px; }
+.emptyState p { font-size: 14px; margin: 0; }
+
+/* ── Request cards ── */
+
+.requestGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.requestCard {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.employeeName {
+  font-size: 15px;
+  font-weight: 600;
+  color: #042C1E;
+}
+
+.statusBadge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.status_approved { color: #0F6E56; background: #EBF9F4; border-color: #3DBFA0; }
+.status_returned { color: #c2410c; background: #fff7ed; border-color: #fdba74; }
+.status_rejected { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
+
+.empNum {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.guestCountLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #042C1E;
+  font-weight: 600;
+}
+
+.guestCountLine i { color: #9ca3af; font-size: 15px; }
+
+.noteLine {
+  font-size: 13px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.rowInfo {
+  font-size: 12px;
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.rowError {
+  font-size: 12px;
+  color: #dc2626;
+  background: #fef2f2;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+/* ── Actions ── */
+
+.cardActionsRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+
+.approveBtn {
+  flex: 1;
+  min-width: 80px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 0;
+  background: #0F6E56;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.approveBtn:hover:not(:disabled) { background: #042C1E; }
+.approveBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.returnBtn {
+  flex: 1;
+  min-width: 80px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 0;
+  background: white;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.returnBtn:hover { background: #fffbeb; }
+
+.rejectBtn {
+  flex: 1;
+  min-width: 80px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 0;
+  background: white;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.rejectBtn:hover { background: #fef2f2; }
+
+/* ── Inline return/reject forms ── */
+
+.inlineForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.textarea {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  padding: 9px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #042C1E;
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.15s;
+}
+
+.textarea:focus { border-color: #0F6E56; }
+.textarea:disabled { background: #f9fafb; cursor: not-allowed; }
+
+.returnConfirmBtn {
+  flex: 1;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 0;
+  background: #b45309;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.returnConfirmBtn:hover:not(:disabled) { background: #92400e; }
+.returnConfirmBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.rejectConfirmBtn {
+  flex: 1;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 0;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.rejectConfirmBtn:hover:not(:disabled) { background: #b91c1c; }
+.rejectConfirmBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.cancelLinkBtn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: #6b7280;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 10px;
+}
+
+.cancelLinkBtn:hover:not(:disabled) { color: #042C1E; }
+.cancelLinkBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@media (max-width: 640px) {
+  .page { padding: 20px 16px; }
+  .requestGrid { grid-template-columns: 1fr; }
+}
