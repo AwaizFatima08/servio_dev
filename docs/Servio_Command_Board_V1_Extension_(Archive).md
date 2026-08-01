@@ -13,12 +13,15 @@
 | GitHub | `AwaizFatima08/servio_dev` |
 | NAS Path | `/mnt/storage/projects/servio_dev/` |
 | Consolidated on | 20 June 2026 |
-| Last dated entry in this log | 02 July 2026 (addDaysToDateStr cleanup decision) |
 | Refined (duplicates/glitches removed) | 03 July 2026 |
+| Further consolidated | 01 August 2026 — merged in every pre-BBQ V1 Extension session (03-Jul through 09-Jul-2026: Tea Bar V1.3's full build, from Locations+Menu through all 8 frontend screens, plus the 09-Jul IPv6 CLI fix) from the working board. **V1.4 BBQ sessions deliberately excluded from this merge** — BBQ is still active development as of this date; its session log stays in the working board until that phase closes too, per Homi's explicit instruction. |
+| Last dated entry in this log | 09 July 2026 (late night) — IPv6 CLI issue resolved, V1.3 confirmed complete |
 
-> **Reading note.** This is the archive — the full dated session-by-session history. The compact, current-state working board is `docs/Servio_Command_Board_V1_Extension.md`; paste *that* one to restore context at the start of a session, and come to this file only to look up the reasoning or exact test steps behind a specific dated decision. V1-era history (before V1 Extension) lives separately in `Servio_CB_V1.md`.
+> **Reading note.** This is the archive — the full dated session-by-session history. The compact, current-state working board is `docs/V1_Extension_BBQ.md`; paste *that* one to restore context at the start of a session, and come to this file only to look up the reasoning or exact test steps behind a specific dated decision. V1-era history (before V1 Extension) lives separately in `Servio_CB_V1.md`.
 >
 > **03-Jul-2026 refinement note:** two stale mid-progress drafts were removed as pure duplication — each had already been fully rewritten and superseded, later in this same file, by a more complete entry covering the identical work (the 22-Jun "Anytime Advance-Date Ordering Slice" backend-only draft, superseded by its own "Backend AND Web slices closed" rewrite; and the 27-Jun "evening + late" session draft, superseded by the fuller "27–28 June" session log that added the Café History fix and the kitchen whole-order decision the draft was still missing). No unique information was lost — both removed blocks were checked against their replacements first. Nothing else in this file was rewritten or reworded.
+>
+> **01-Aug-2026 consolidation note:** the 803 lines below (03-Jul through 09-Jul) were moved here verbatim from the working board, in full — no summarizing, no dropping of detail, no reordering. This was a pure cut-and-paste move plus this header update; nothing in the body text was rewritten. If anything reads oddly it was already odd in the working board, not introduced by this move.
 
 ---
 
@@ -1802,3 +1805,813 @@ The cleanup list carried "move addDaysToDateStr → utils.js". Examined the code
 DECISION: do NOT move it. utils.js exists for SHARED helpers (pktDateStr, nowISO, successResponse — imported by many files). Moving a single-file helper there adds an import dependency for zero sharing benefit, and a move carries break-risk (rewire the import) that a delete does not. The disciplined answer is to move it WHEN a second file (e.g. a V1.3 service) actually needs it — a trivial job at that point — not speculatively now.
 
 This closes the cleanup-list item: examined and consciously declined, not forgotten.
+---
+
+# ═══════════════════════════════════════════════════
+# Entries below merged in from the working board on 01-Aug-2026.
+# Covers 03-Jul through 09-Jul-2026 — Tea Bar V1.3's complete build
+# (Locations+Menu, Orders, Screens 1-8) through the IPv6 CLI fix.
+# Moved verbatim, no rewriting. See header note above.
+# ═══════════════════════════════════════════════════
+
+## Update Entry - 03-Jul-2026 23:15
+
+### V1.3 Tea Bar — Locations + Menu CLOSED (tested), Orders slice built (tested)
+
+**Locations slice:** All 7 functions (create, list, edit, assign, unassign, self-lookup)
+live-tested on dev, success AND failure paths. Genuinely proven, not just deployed.
+
+**Menu slice:** teabarMenuResolver.js + teabarMenuService.js built. Rebuild + read
+proven end-to-end with 5 real tagged test items. One flat items[] list (no beverages[]
+split, unlike café) — Tea Bar's entire menu IS beverages/snacks, split adds no value.
+
+**Orders slice:** teabarOrderService.js built (self-order + proxy-order only — official
+orders, cancel, dashboard, history NOT yet built). Deployed clean after fixing a
+duplicate-constant SyntaxError (caught at deploy time, not silently). Tested tonight
+(Tea Bar closed, 11PM PKT): empty-items ✓, missing-location ✓, hours-closed ✓ (both
+/orders and /orders/proxy). NOT yet tested: successful order creation, multi-item
+bookingGroupId grouping, bad-location rejection, bad-item rejection — all need Tea Bar
+genuinely open (07:30–13:00 or 14:00–17:15 PKT).
+
+## Update Entry — 04-Jul-2026 (evening session)
+
+### Status
+V1.3 Tea Bar — Official Orders sub-slice: backend build substantially complete, most pieces field-tested on dev.
+
+### Completed & Field-Tested Today
+- `_buildOrderDoc` updated to accept official-order fields (billingDestination, costCentreCode, sponsoringEmployeeNumber/Name, officialGuestName) as optional inputs with safe defaults — self/proxy orders unaffected.
+- `approvalStatus` bug fixed: self/proxy orders now correctly write `not_applicable`; official orders write `pending_approval` (previously all order types incorrectly wrote `null`).
+- `createOfficialTeabarOrderBatch` — built, deployed, field-tested twice (simple order + order with optional costCentreCode/officialGuestName). Verified in Firestore: correct billing destination, sponsor identity kept separate from creator identity, correct approvalStatus.
+- `approveOfficialTeabarOrderGroup` — built, deployed, field-tested. Verified approvedByUid/approvedAt/updatedAt written correctly; confirmed orderStatus/issueStatus remain untouched (approval doesn't block service, by design).
+- `rejectOfficialTeabarOrderGroup` — built, deployed, field-tested including optional approvalNote (special characters confirmed intact).
+- `listOfficialPendingGroups` — built, deployed, field-tested (correctly returns empty list when nothing is pending).
+- Double-approval safety check confirmed firing correctly (attempted to re-approve an already-approved order — correctly refused).
+- Composite index added for teabarOrders (tenantId, bookingSource, approvalStatus, createdAt asc) — created in Firebase console AND added to firestore.indexes.json, file validity confirmed via `python3 -m json.tool`.
+- Location for official orders resolved automatically from the placing user's own current teabarLocations assignment — same rule as proxy orders, never picked from a list. Written into TeaBar_Official_Orders_Design_Lock_04Jul2026.md §6.
+- Five new audit fields (approvedByUid, approvedAt, rejectedByUid, rejectedAt, approvalNote) added to teabarOrders — correction to an oversight in the original TeaBar_Design_Lock_03Jul2026.md §10 field list. Documented in TeaBar_Official_Orders_Design_Lock_04Jul2026.md §7.
+
+### Decisions Locked Today
+- `bookingGroupId` is the unit of action everywhere: dashboard display, issuance, approval, AND cancellation — not just creation.
+- Official-order approval/rejection is group-based, deliberately improving on café's current live behaviour, which was confirmed by direct code review to approve only one document at a time despite design docs implying otherwise.
+- Partial-fulfilment/dispute risk at item level is accepted, not tracked at item level — justified by Tea Bar's small, close-knit user base and physical proximity enabling easy informal correction. Recorded as a revisitable assumption, not a permanent fact.
+- Cancellation will also be group-based (decided; not yet built).
+- The 3 old pre-fix test documents (n4xRehTFnZzhfA73Ahud, ir7iExBFrpQL84gKWzwz, PP27LXo8a2TeYrFCu8e7) deliberately left uncorrected — disposable test data, already scheduled for pre-prod deletion.
+
+### Pending / Not Yet Tested (real gaps — flagged, not forgotten)
+- Multi-item official order group approve/reject/list — both test orders used today had exactly 1 item each. Grouping is proven for order *creation* only so far.
+- Double-*rejection* safety check (only double-*approval* was actually tested).
+- `listOfficialPendingGroups` has only been tested against an empty result — never against real grouped data.
+
+### Not Started (separate, larger pieces — next after Official Orders closes)
+- Cancel (group-based, per locked decision above)
+- Attendant dashboard (live view, grouped cards, "Handed over" button)
+- Order history (employee's own view + attendant/location view)
+
+## Update Entry — 05-Jul-2026 00:23 PKT
+
+### Session scope
+V1.3 Tea Bar backend — closed out Official Orders remaining tests, then designed and built Cancel, Attendant Dashboard, Issue ("Handed over"), the end-of-day auto-cancel scheduled job, and Order History (three views). All work paper-designed before code, per project rule #11.
+
+### Completed and deployed to dev tonight
+- **Cancel** (`cancelTeabarOrderGroup`) — employee cancels own order only (self/proxy, never official); teabar_attendant cancels any order at own location only (self/proxy/official); admin/super_admin unrestricted; Manager and all other roles excluded. Hard wall: locked once `issueStatus: issued`. No cancellation-reason field.
+- **Attendant Dashboard** (`getTeabarDashboard`) — attendant-only, auto-resolves own location, shows only orders matching today's `orderDate` with `issueStatus: pending`, grouped by `bookingGroupId`.
+- **Issue / "Handed over"** (`issueTeabarOrderGroup`) — attendant-only, own location only, deliberately **no admin override** (issuance is a physical-witness claim admin cannot honestly make; admin's existing Cancel power remains the escape hatch for stuck orders).
+- **End-of-day auto-cancel** — new file `scheduled/teabarAutoCancel.js`, wired into `index.js` as `exports.teabarAutoCancel`, runs daily at **17:15 PKT** (Tea Bar's close), mirroring the existing `.pubsub.schedule().timeZone('Asia/Karachi')` pattern used by `resolveDaily`/`generateSnapshots`. Sweeps **any** stuck `pending` order regardless of date (safety net for a missed run), not just today's. Uses sentinel `cancelledByUid: 'system_auto_cancel'` to distinguish system action from human action. Deployed separately via `firebase deploy --only functions:teabarAutoCancel`.
+- **Order History** — two functions: `getTeabarHistory` (shared by attendant-own-location and admin-any-or-all-locations via optional `locationId` param) and `getEmployeeTeabarHistory` (excludes official/sponsored orders, matching Cancel's ownership rule). Both default to a rolling **last-30-days** window. Admin's history view is **read-only** for now — a Cancel button there is intentionally deferred to a later follow-up, not built this session.
+
+### New shared utility
+`addDaysToDateStr` copied verbatim from `cafe/cafeOrderService.js` into `utils.js` (café's own copy untouched). Verified character-for-character against the original, and computationally tested — 6/6 cases including month and year boundaries — both standalone and combined with the real `pktDateStr`, including the midnight PKT/UTC boundary case.
+
+### New Firestore composite indexes (all confirmed Enabled)
+`teabarOrders` now has 5 total:
+1. `bookingSource, approvalStatus, createdAt` (+ `tenantId`) — official pending queue
+2. `locationId, orderDate, issueStatus, createdAt` (+ `tenantId`) — Dashboard
+3. `locationId, orderDate DESC, createdAt DESC` (+ `tenantId`) — location History
+4. `orderDate DESC, createdAt DESC` (+ `tenantId`) — admin all-locations History
+5. `employeeNumber, orderDate DESC, createdAt DESC` (+ `tenantId`) — employee History
+
+### Key technical lesson locked this session
+A Firestore range/inequality filter (e.g. `orderDate >= X`) **requires** the query's first `orderBy` to be that same field — cannot filter by range on one field while sorting primarily by a different one. History queries use `.orderBy('orderDate','desc').orderBy('createdAt','desc')` to satisfy this while still achieving newest-first ordering.
+
+### Parked risks carried forward (unchanged — do not lose these)
+1. **Tea Bar self-order route's role list is broader than it should be** (Manager, Café Waiter, and other contractual-staff roles can currently self-order when they shouldn't, per Homi's confirmation that contractual club staff are served through a separate arrangement). Left as-is deliberately — relies on audit trail + staff discipline. **Must be tightened before prod.**
+2. **`approvalStatus` and `orderStatus` are independent tracks by design** — an official order can end up simultaneously "approved for billing" and "cancelled" (now reachable via manual cancel **or** the new auto-cancel job). Future V1.5 billing logic must check `orderStatus != cancelled`, not just `approvalStatus`, before charging.
+
+### Not yet field-tested (blocked on Tea Bar operating hours, 07:30–13:00 + 14:00–17:15 PKT)
+Cancel, Dashboard, Issue, and the auto-cancel job (which additionally needs the clock to actually reach 17:15 with a real stale order present). **History is the one exception** — read-only, no operating-hours gate, testable any time.
+
+### Next session — starting point
+1. Re-upload fresh: `teabarOrderService.js`, `teabarRoutes.js`, `scheduled/teabarAutoCancel.js`, `utils.js`, `constants.js`, `firestore.indexes.json` — do not edit from memory of tonight's session.
+2. `firebase use` to confirm dev.
+3. During the 07:30–13:00 / 14:00–17:15 PKT window: field-test Cancel, Dashboard, and Issue with real orders (multi-item grouping, wrong-location rejection, already-issued/already-cancelled safety checks).
+4. Test History endpoints (can be done anytime, including before the window opens).
+5. Auto-cancel needs a genuinely stale pending order sitting untouched until 17:15 to prove itself — may need to deliberately leave one order un-issued during the window to test this.
+6. After Tea Bar backend is fully field-tested: move to Tea Bar **web frontend** (per Homi's stated plan).
+
+## Update Entry — 05-Jul-2026 (full-day field-testing session)
+
+### Status
+V1.3 Tea Bar backend — FULLY FIELD-TESTED. Every slice built in prior sessions
+has now been proven working against real orders, not just deployed. One real
+bug found and fixed mid-session.
+
+### Fully Tested and Confirmed Working Today
+- Self-order creation + Dashboard visibility
+- Cancel — including the hard wall (cannot cancel an already-issued order)
+- Issue ("Handed over") — including duplicate-tap protection
+- Multi-item bookingGroupId grouping — proven across order creation, Dashboard,
+  Issue, Approve, and Reject (not just creation, as previously assumed)
+- Official order create/approve/reject — including multi-item groups and the
+  double-rejection safety check (previously only double-approval was proven)
+- Location-based cancel permission — both halves: attendant correctly
+  restricted to their own assigned location; admin correctly unrestricted
+- All three History views — employee's own (official/sponsored orders
+  correctly excluded), attendant's location (official orders correctly
+  included, other locations correctly excluded), admin all-locations
+  (everything correctly included) — each verified by matching every
+  individual bookingGroupId against a hand-built prediction, not just
+  comparing counts
+- End-of-day auto-cancel (17:15 PKT scheduled job) — proven live with a
+  genuinely stale order left untouched all day. Confirmed: orderStatus →
+  cancelled, issueStatus correctly left untouched at pending, cancelledByUid
+  correctly shows sentinel "system_auto_cancel"
+
+### Bug Found and Fixed This Session
+`getTeabarDashboard` was filtering only on `issueStatus`, so a **cancelled**
+order still incorrectly appeared as "waiting" on the attendant Dashboard.
+Fixed by adding `.where('orderStatus', '==', TEABAR_ORDER_STATUS.PLACED)`.
+New Firestore composite index created and confirmed Enabled **before**
+deploying the code (correct order, per project rule). Fix verified in both
+directions: cancelled orders now correctly hidden; normal pending orders
+still correctly show — confirming no overcorrection.
+
+### Live Confirmation of an Already-Known, Already-Accepted Risk
+Two official orders (one approved, one rejected) were never issued today and
+were both swept up by the 17:15 auto-cancel job — producing real, live
+examples of `approvalStatus` and `orderStatus` disagreeing (e.g.
+`approvalStatus: approved` + `orderStatus: cancelled` simultaneously on the
+same document). This is **not a new bug** — it was already flagged as an
+accepted risk in `TeaBar_Backend_Design_Addendum_03Jul2026.md` §4. Decision
+reconfirmed today: leave as-is. The existing code comment in
+`teabarAutoCancel.js` is sufficient documentation. The real fix belongs in
+V1.5 billing logic, which must check `orderStatus != cancelled`, not just
+`approvalStatus`.
+
+### Parked Risk — Unchanged
+Self-order route's role list is still broader than it should be (Manager and
+contractual staff can currently self-order Tea Bar when they shouldn't).
+Left as-is deliberately. Must be cleaned before prod.
+
+### Next Step
+Tea Bar backend is now genuinely closed out. Web frontend design discussion
+has started (separate chat) — a screen map is being built first, per project
+rule (list every screen and its responsibility before designing any one
+screen in detail). Draft list: 9 screens across employee/attendant/admin
+roles. Three open gaps flagged before frontend design proceeds further:
+whether a Tea Bar location-management screen already exists, whether the
+self-order menu should display as one flat list or grouped by foodTypeName,
+and what happens immediately after an employee submits a self-order.
+
+## Update Entry — 06-Jul-2026 (Tea Bar Screen 8 — design lock + backend session)
+
+### Status
+Two separate pieces of work today: (1) Screen 8 (Location Management)
+frontend design fully locked on paper — see separate document
+`TeaBar_Screen8_LocationManagement_DesignLock_06Jul2026.md`. (2) A
+backend-focused session to clear two known risks flagged in that design
+doc before Screen 8 can be built. One of two backend items is genuinely
+done; the third planned item (a new lookup function) was designed but
+NOT yet built — carries to next session, see "Not Done" below.
+
+### Completed and Verified Today (dev only, via direct curl testing)
+
+**1. `createLocation` duplicate-name bug — FIXED, tested, committed, pushed.**
+The comment claimed the duplicate-name check was case-insensitive; the
+actual comparison was exact-match only. Fixed by fetching the tenant's
+locations (small, fixed-size collection — cheap to do) and comparing
+names in code via `.toLowerCase()`, rather than adding a second
+lowercase field to Firestore (would have broken the collection's locked
+field list). Verified with three live tests against the dev server:
+new name succeeds → same name in different case is rejected → a
+different new name still succeeds (rules out over-blocking). Commit
+`766b1f2`.
+
+**2. `listLocations` composite index — CHECKED, already existed.**
+The code comment warned this query (two `where()` + one `orderBy()`)
+needed a composite index "not yet created." Tested directly against the
+live server — succeeded cleanly. Cross-checked `firestore.indexes.json`
+directly: an index covering exactly `isActive` + `tenantId` +
+`locationName` already exists. Conclusion: the index was built at some
+earlier point and the code comment was simply never updated — stale
+documentation, not a real gap. **No code change made.** This also
+clears the earlier worry that this might be silently blocking Screen
+1's employee-facing location dropdown — it isn't, since the index was
+never actually missing.
+
+### Housekeeping found and resolved mid-session
+A separate, already-tested fix from the 05-Jul field-testing session
+(the `getTeabarDashboard` cancelled-orders bug — adding the
+`orderStatus` filter + its matching index) was found sitting staged in
+git, never committed. Verified its actual content matched the 05-Jul
+session notes exactly before committing it as its own separate,
+clearly-labeled checkpoint (commit `bec9c5b`) — kept deliberately apart
+from today's unrelated fix, per the "commit each fix before opening the
+next" rule. Both commits pushed to `main`.
+
+### Test data hygiene
+Two test locations created during live testing (`CCR I`, `Fix
+Verification Test`) were soft-deactivated (`isActive: false`) afterward
+via `updateLocation` — not hard-deleted, matching the project's
+no-hard-delete convention. Verified via a live `GET /teabar/locations`
+call that only the two real locations (`CCR I - Main Building`,
+`Workshop`) remain active.
+
+### Not Done — carries to next session (real blocker for Screen 8 build)
+**`getUserByEmployeeNumber` — designed on paper, NOT built.** This was
+Task 3 of the planned backend session and did not happen today. Spec is
+fully written in the Screen 8 design-lock doc §2: lives in the `auth`
+module (`authService.js` + `authRoutes.js`), takes an employee number,
+returns `fullName` / `officialEmployeeNumber` / `uid` / `role` only,
+allowed roles `manager` / `admin` / `super_admin`. Matching frontend
+call proposed for `userManagementService.js`. **Screen 8's frontend
+cannot be built until this exists** — the attendant-assignment search
+box has nothing to call without it.
+
+### Decisions locked today (Screen 8 design)
+- Reassignment confirmation message stays generic (does not name the
+  attendant's previous location) — v1 simplification, revisit only if
+  it causes real confusion in practice.
+- Location list shows a "Covered / Unassigned" tag only, not the
+  attendant's name — no existing function translates a `uid` back to a
+  name anywhere in the app today, and building one wasn't worth doing
+  before the simpler version is even field-tested. Revisit later as its
+  own small, separate addition if needed.
+- Confirmed (not assumed): `assignAttendant` already validates the
+  target account's role, tenant, and active status before saving —
+  Screen 8 does not need to duplicate this safety check, only display
+  whatever message the backend returns.
+
+### Backlog (low priority, not blocking)
+- `listLocations`'s code comment still incorrectly claims the index
+  "has not yet been created" — cosmetic, same category as café's
+  already-parked stale-comment cleanup. Fix whenever this file is next
+  touched for another reason.
+
+### Process note
+Mid-session, staged an old fix and today's new fix together without
+separating them at first, and ran `git push` before finishing the
+planned commit sequence. No damage resulted, but worth a reminder for
+next time: run one git command, read its actual output, before running
+the next — especially before `push`.
+
+## Update Entry — 07-Jul-2026 (Tea Bar Screen 8 — build session: backend lookup + Slice 1 + Slice 2 partial)
+
+### Status
+Two connected pieces of work: (1) built the one remaining backend blocker
+from the previous session — `getUserByEmployeeNumber` — and (2) used it to
+build Screen 8 (Location Management)'s actual frontend, in two slices:
+Slice 1 (read-only list) and Slice 2 partial (Create, Edit, Unassign).
+Assign/Reassign — the most complex remaining piece — deliberately deferred
+to next session, per the "save the hardest piece for a fresh mind" decision
+made before starting tonight.
+
+### Completed and Verified Today
+
+**1. Backend: `getUserByEmployeeNumber` — built, deployed, tested in all
+three directions.** Lives in `authService.js` + `authRoutes.js`, new route
+`GET /auth/user-by-employee-number/:officialEmployeeNumber`. Allowed roles:
+manager, admin, super_admin. Returns `fullName`, `officialEmployeeNumber`,
+`uid`, `role` only, for an ACTIVE account only — a suspended/inactive
+account gets a deliberately generic rejection message (not "not found"),
+matching a locked decision made this session (reject with a message, not
+silently). Tested live via curl against dev: fake employee number → 404;
+real suspended account → 404 generic message; same account reactivated →
+200 with correct 4 fields. Also incidentally confirmed: missing "Bearer"
+token correctly rejected (401); non-admin/suspended caller correctly
+blocked before reaching the function at all. No Firestore index needed —
+confirmed by two clean live queries, not assumed.
+
+**2. Frontend: `teabarLocationService.js` (new file) — 5 functions,
+Style B token pattern (token passed as parameter, matching café's
+admin-facing pages).** Talks to the 5 existing location routes in
+`teabarRoutes.js`. Important technical note recorded in the file's own
+comment: these routes wrap their response in `{ success, message, data }`
+— different from `getUserByEmployeeNumber` (no wrapper) and `getUsers`
+(one plain box) — three different response shapes now exist in this app,
+confirmed by reading `utils.js` and `teabarRoutes.js` directly, not
+assumed. `listTeabarLocations` tested live from the browser console
+(not just curl) — this also proved no CORS issue exists on this route.
+
+**3. Frontend: `TeabarLocationsPage.jsx` + `.module.css` (new files) —
+built in slices, each slice verified before the next began:**
+- Slice 1: read-only table (Location / Status / Coverage), matching
+  design-lock's Covered/Unassigned tag requirement. Verified live against
+  real dev data (2 real locations at start of session).
+- Slice 2 (partial): Create (popup, empty-name validation, live-tested
+  both directions), Edit (popup pre-fills current name/active state,
+  live-tested both directions, including a real rename that visibly
+  auto-refreshed), Unassign (plain browser `window.confirm`, deliberately
+  chosen over a custom modal for speed/lower risk this session; button
+  only shows on Covered rows; OK path fully live-tested including
+  auto-refresh, confirmed by real screenshot showing the browser's own
+  "site says" wording — proof it's genuinely `window.confirm`, not a
+  custom popup).
+
+**4. Wiring: `App.jsx` (route) and `Sidebar.jsx` (new standalone "Tea Bar"
+section, manager/admin/super_admin) — both edited, both verified.**
+
+**5. Backend + frontend build/deploy discipline followed correctly:**
+`firebase use` checked before backend deploy (confirmed dev); `npm run
+build:dev` used for the web build (confirmed correct by the simple fact
+that dev login worked afterward — the dangerous bare `build` would have
+broken every test account's login, per the project's own standing
+warning).
+
+### Real Mistakes Made and Caught This Session — recorded honestly, not
+smoothed over, since this is exactly what the CB is for
+
+1. **`App.jsx`:** a manual edit accidentally duplicated an existing,
+   unrelated `CafeHistoryPage` import and route. Would have broken the
+   entire app's build if shipped (JavaScript does not allow declaring
+   the same import name twice). Caught by direct `grep` count (found 4
+   occurrences, expected 2) before any deploy. Fixed, then re-verified
+   by count (confirmed back to 2).
+2. **`Sidebar.jsx`, first mistake:** while adding the new "Tea Bar"
+   section to three roles (manager/admin/super_admin), the anchor text
+   used to locate the insertion point got duplicated alongside the new
+   block, in all three roles — not just added after, but copied a second
+   time. Caught by reading the file closely, confirmed the exact pattern
+   in all three role blocks.
+3. **`Sidebar.jsx`, second mistake (while fixing the first):** removing
+   the duplicated anchor lines in Admin and Super Admin also
+   accidentally removed the opening `{` that belonged to the new Tea Bar
+   block in those two roles (Manager's fix was done correctly; the same
+   mistake did not repeat there). This was NOT caught by eye — it was
+   caught by an actual bracket-count script (95 closing braces vs 93
+   opening — a real, provable mismatch), followed by a stricter
+   stack-based nesting-order check once fixed, confirming the fix was
+   structurally sound, not just count-matched.
+4. **Git commit message, tonight's Slice 2 commit:** the message included
+   the literal text `!confirmed` (from a code snippet being quoted). Bash
+   interpreted the `!` as a history-reuse command, failed to find a match,
+   and silently dropped that entire line of the message — producing a
+   grammatically broken sentence in the saved commit, even though the
+   actual code commit succeeded correctly. Caught by reading `git log -1`
+   in full afterward, not just trusting the "success" output. Fixed via
+   `git commit --amend` (safe here specifically because the broken
+   commit had not yet been pushed to GitHub) with the sentence reworded
+   to avoid `!` entirely, rather than just retyping the same risky text.
+   **Lesson for future sessions: avoid `!` in commit messages typed
+   directly into bash — rephrase instead of relying on careful retyping.**
+
+### Decisions Locked Tonight
+- Unassign's confirmation uses the browser's plain built-in `window.confirm`,
+  not a custom-styled modal — chosen deliberately for lower risk and less
+  new code late in a session, not by default. Revisit only if a real
+  Manager finds the plain browser styling confusing in practice.
+- `getUserByEmployeeNumber` rejects a non-active account with a generic
+  message ("This account cannot be assigned right now"), not the specific
+  status — deliberately not distinguishable from a true "not found," at
+  both the message AND the HTTP status code level (both cases return 404),
+  so no information leaks even at a technical/network-inspection level.
+
+### Not Done — carries to next session (real, named blocker for Screen 8's
+completion)
+**Assign/Reassign attendant flow — not started.** This is the last piece
+of Screen 8. Needs: a search box calling `getUserByEmployeeNumber`
+(already built and tested tonight), a "Confirm assignment" button that is
+greyed out unless the found person's role is exactly `teabar_attendant`,
+and a call to the already-existing `assignAttendant` backend function
+(unused by any frontend code so far — the 5th of 5 location-service
+functions still to be exercised). Deliberately saved for a fresh session
+— it is the most complex remaining piece (most moving parts, most
+decision points), and tonight's session ran late (post-midnight,
+alongside a live match).
+
+### Open Items — flagged honestly, not silently marked done
+1. **Unassign's Cancel path** — correct by reading the code (a single
+   `if (!confirmed) return;` guard clause, low complexity/low risk), but
+   NOT re-tested live tonight. Could not be cleanly retested without
+   re-covering a location first, which needs the not-yet-built Assign
+   feature. First thing to confirm once Assign exists.
+2. **Two test locations soft-deactivated** (`Test Location - Delete Me`,
+   `CCR II -Main Building`, the latter has a real spacing typo in its
+   name — harmless, cosmetic, never corrected) — both dropped out of the
+   visible list after being marked inactive (expected behaviour, since
+   `listTeabarLocations` defaults to active-only — confirmed this is
+   consistent with existing soft-delete conventions elsewhere in the
+   app, not a bug). However, the Edit-and-Save action itself was not
+   independently re-confirmed as error-free — it was inferred successful
+   from the location disappearing from the list, not directly observed.
+   Quick confirm next session: re-open Edit on either one, confirm no
+   stale error state, confirm Active checkbox correctly shows unchecked.
+
+### Backlog (unchanged, low priority, not blocking)
+- `listLocations`'s stale code comment (claims index "not yet created" —
+  it exists) — cosmetic, same category as café's already-parked
+  stale-comment cleanup.
+- Self-order route's role list too broad — parked, not urgent, must clean
+  before prod.
+
+## Update Entry — 08-Jul-2026 (Tea Bar Screen 8 — Assign/Reassign, final piece + two follow-on fixes)
+
+### Session Scope
+Screen 8 — Assign/Reassign attendant flow (final piece), plus two follow-on fixes
+
+### Completed Tonight
+
+**1. Assign/Reassign attendant flow — built, tested, both directions confirmed live:**
+- Search box calling `getUserByEmployeeNumber` (already built/tested last session, now finally exercised from a real screen).
+- Found-person card showing name, employee number, role.
+- Role gate: "Confirm assignment" disabled unless role is exactly `teabar_attendant`, with a plain-language explanation shown otherwise — confirmed both directions (Nadir Shah, `cafe_waiter`, correctly blocked; Shahid Hussain, `teabar_attendant`, correctly enabled).
+- Wired to `assignTeabarAttendant` — first real frontend call to this function, the 5th and last of the five location-service functions to be exercised.
+- **Verified live:** assigning an attendant already covering one location to a second location correctly auto-clears the first (per the backend's documented one-attendant-one-location guarantee) — confirmed via UI observation AND a full browser refresh afterward, ruling out "looked right in memory only."
+
+### 2. Open Item 1 (Unassign's Cancel path)
+Closed, verified live, not just re-confirmed by reading code. Clicking Cancel on the native `window.confirm` leaves the location's covered state unchanged; no network call fires.
+
+### 3. Open Item 2 (Edit-and-Save correctness on deactivated locations)
+Closed, verified two ways:
+- Direct Firestore read confirmed both known deactivated test locations (`Test Location - Delete Me`, `CCR II - Main Building`) have correct `isActive: false` and intact `locationName`.
+- Once the "show inactive" toggle (below) existed, the actual UI-level check was finally done: opening Edit on a deactivated location shows the Active checkbox correctly unchecked, no stale error state.
+
+### 4. New: "Show inactive" toggle built
+Was a real gap — no way to view/edit/reactivate a deactivated location existed anywhere in the app before tonight.
+- Checkbox added next to Refresh, off by default (matches existing soft-delete convention).
+- Per locked decision: **inactive rows get zero actions except Edit** — no Assign/Reassign/Unassign on an inactive location, full stop, not case-by-case.
+- **Caught a real, previously-undetected bug in the process:** `listLocations`'s "include inactive" query path had no Firestore composite index — exactly the risk flagged (but not yet checked) in the 05-Jul-2026 screen-map document, §6 Issue 2. Error was `FAILED_PRECONDITION`, Firestore auto-generated the correct index-creation link from the failed query, index built and confirmed Enabled in the Firebase console before trusting the toggle. Confirmed afterward against the real `firestore.indexes.json` — two separate index entries for `teabarLocations` now exist (active-only 3-field query; show-all 2-field query), both legitimate, not a duplicate.
+
+### 5. New: User Management's role dropdown was missing `teabar_attendant` entirely
+A real gap, not cosmetic. Discovered when trying to find a second test account to hold this role and finding no way to grant it through the app at all (the only existing `teabar_attendant` account, Shahid Hussain, had been set by hand directly in Firestore, bypassing the app). Root cause: backend's `constants.js` `ROLES` object already had it; `UserManagementPage.jsx`'s own separately-maintained `ROLES` array simply never got updated. Fixed (added to both the array and `ROLE_LABELS`, positioned to match backend ordering) and verified end-to-end: granted `teabar_attendant` to Rashid Khan (CLB00020) through the app, confirmed his role is correctly recognized by the Assign flow, completed a real assignment.
+
+### Real Findings — Recorded Honestly
+
+- **Four inactive `teabarLocations` documents exist, not two.** Command Board previously only tracked `Test Location - Delete Me` and `CCR II - Main Building`. Tonight's toggle also surfaced two untracked leftover test documents: **`CCR I`** (name collides confusingly with the real, active `CCR I - Main Building` — worth deleting first, given the confusion risk) and **`Fix Verification Test`**. Folded into existing backlog item P2 (Dev test-data wipe).
+- **CCR II - Main Building's name** — last session's note described it as `"CCR II -Main Building"` (missing space); tonight's direct Firestore read shows `"CCR II - Main Building"` (space present). Discrepancy noted, not chased down — either it was already fixed at some point or the earlier note was imprecise. Now tracked as backlog item L13.
+- **CCR II - Main Building was deliberately, temporarily reactivated** mid-session to test the Edit flow live, then deliberately deactivated again before session close. Confirmed back to `isActive: false` before backup.
+
+### New Backlog Items
+
+- **No prod-side Firestore index exists yet for `teabarLocations`'** show-inactive query — only built on dev (`servio-dev-55d2d`) tonight. Not urgent (Tea Bar isn't going to prod before V1.5/billing per existing locked decision), but worth a note now so it isn't forgotten months from now. Tracked as P3.
+
+### Decisions Locked Tonight
+
+- Inactive locations get **zero actions except Edit** — absolute rule, not selectively enforced per action.
+- "Show inactive" toggle defaults to **off**.
+
+### Not Done — carries to next session
+None — Screen 8 is now genuinely, fully complete. All prior open items closed, both new findings during tonight's work were fixed and verified (not just logged for later), not deferred.
+
+----------------------------------------------------------
+## Update Entry - 08-Jul-2026 18:32
+
+### Status
+V1.3 Tea Bar frontend — Screens 1 (Self-order) and 2 (My order history)
+built, wired, committed, pushed, backed up. One backend bug found and fixed
+mid-session (pre-existing, not introduced today) before Screen 1 build
+began.
+
+### Backend fix — teabarMenuResolver.js
+Pre-build technical check (flagged in screen map §7) surfaced a real gap:
+the resolver sorted items by `sortOrder` (item-level) only — no food-type
+grouping, despite the locked design decision at screen map §1a ("items
+silently sorted by food type"). Root cause: resolver never implemented the
+grouping; only the per-item order was ever coded.
+
+Fix: `_loadFoodTypeMap()` now also loads each `foodTypes` doc's own
+`sortOrder`; the items array sorts by food-type `sortOrder` first, then
+item `sortOrder` within each group. Temp sort key stripped before write —
+no new fields persisted to Firestore, additive-only respected.
+
+Verified: mock-data logic test (including unmatched-foodTypeCode fallback
+to 999), then real dev-data test using `CAFE_TEST_TEA` deliberately edited
+to `foodTypeCode: "BEV"` (no matching `foodTypes` doc) — confirmed landed
+last in the resolved array as expected, both via direct Firestore read and
+later via the live Screen 1 UI.
+
+Caught one process gap during this fix: first rebuild-menu call was made
+before `firebase deploy --only functions` had run, so it silently re-ran
+the OLD logic and looked like the fix had failed. Re-deployed, re-ran,
+confirmed correct. No repeat of this mistake for the frontend work.
+
+### Frontend — new files (all committed, pushed)
+- `web/src/services/teabarMenuService.js` — `getTeabarMenu(token)`
+- `web/src/services/teabarOrderService.js` — `createSelfOrder`,
+  `getMyTeabarHistory`, `cancelTeabarOrder`
+- `web/src/pages/employee/TeabarSelfOrderPage.jsx` + `.module.css`
+- `web/src/pages/employee/MyTeabarOrdersPage.jsx` + `.module.css`
+- `App.jsx` — routes `/teabar-order`, `/my-teabar-orders`
+- `Sidebar.jsx` — new "Tea Bar" section under `employee` role nav
+
+### Screen 1 (Self-order) — design decisions locked this session
+- Two-step flow: location chosen FIRST (Step A, tap-to-select cards), menu
+  + cart shown only after (Step B) — explicit decision, location is NOT a
+  modal field like café's "Order for".
+- Changing location mid-browsing clears the cart and restarts fully — same
+  behaviour as post-order "Order again". No partial-reset path exists.
+- Hours (07:30–13:00, 14:00–17:15) shown as plain info text, NOT actively
+  blocked client-side — matches café's actual precedent (checked directly
+  in `CafePage.jsx` before assuming otherwise). Backend's real rejection
+  message surfaces in the modal if someone orders outside hours.
+- Success screen structurally copies café's `SuccessScreen` exactly, plus
+  one added line showing pickup location (own judgement call, not locked).
+
+### Screen 2 (History) — simplifications vs café, confirmed correct by
+reading backend directly (not assumed):
+- Whole-group cancel only — `cancelTeabarOrderGroup` cancels every line in
+  a `bookingGroupId` atomically; no per-line cancel exists.
+- No cancel-reason picker — backend route takes no reason/note field at
+  all; plain `window.confirm()` used, matching `TeabarLocationsPage.jsx`'s
+  existing unassign pattern.
+- No amount/"Rate pending" per line — `getEmployeeTeabarHistory`'s item
+  objects don't return `unitRate`/`amount` at all. Flagged as a real data
+  gap, not built around with a guess.
+- No date-range picker — backend always returns fixed last-30-days window.
+- Active/History tab split is MY OWN default (orderStatus 'placed' AND
+  issueStatus not 'issued' = Active) — not explicitly locked on paper,
+  confirm or revise next session if it doesn't feel right in practice.
+
+### Verified live in browser (08-Jul, ~18:29 PKT)
+- Screen 1 renders, location picker → menu flow works.
+- Food-type grouping confirmed end-to-end: Hot Beverages → Snacks → broken-
+  foodType item last, exactly as the resolver fix intended.
+- Hours enforcement confirmed: order attempted at 18:29 PKT (past 17:15
+  close) correctly rejected with the backend's real error message in the
+  modal — no client-side pre-check needed, works as designed.
+
+### NOT yet tested — needs Tea Bar open (07:30–13:00 or 14:00–17:15 PKT)
+- A successful order placement end-to-end (success screen content, order
+  actually landing in `teabarOrders`).
+- "Order again" full reset behaviour.
+- Screen 2 rendering against real order data, and the cancel flow.
+
+### Commits (all pushed to origin/main, all backed up)
+- `31e06e6` — teabarMenuResolver.js food-type sort fix
+- `6df7a72` — Tea Bar routes + Sidebar nav wiring
+- `af06efd` — Tea Bar frontend: services + Screen 1 + Screen 2 page files
+
+### Backup runs
+- 17:35:11 — covers resolver fix only (ran before frontend files existed)
+- 18:32:25 — covers everything above; local rsync + git clean + GDrive
+  sync all confirmed complete
+
+### Known open item (parked, not a bug to fix urgently)
+`CAFE_TEST_TEA`'s `foodTypeCode` is still deliberately set to `"BEV"` (no
+matching `foodTypes` doc) from this session's sort-order test. Needs
+restoring to a real value before it confuses future testing — low priority,
+does not block anything.
+
+## Update Entry — 09-Jul-2026 (Tea Bar Screen 3 — Live Dashboard)
+
+### Session Scope
+Screen 3 (Live Dashboard) — built, wired, deployed, verified live for two of
+three states.
+
+### Completed Tonight
+- `teabarOrderService.js` (web) — added `getTeabarDashboard` and
+  `issueTeabarOrderGroup`, both hitting existing backend routes.
+- `TeabarDashboardPage.jsx` + `.module.css` — new page, one card per
+  bookingGroupId, single "Handed over" action (no accept/prepare stage —
+  confirmed Tea Bar has no kitchen concept), attendant-level Cancel with
+  inline confirm, 30s auto-refresh, dedicated "no location assigned" state
+  (distinct from the generic error banner).
+- `App.jsx` — route `/teabar-dashboard` wired.
+- `Sidebar.jsx` — **real pre-existing gap found and fixed:** `NAV_CONFIG`
+  had no `teabar_attendant` entry at all; role fell through to the generic
+  `employee` menu, so the attendant had no way to reach any Tea Bar
+  operational screen. Added a `teabar_attendant` section (Home, Dashboard).
+
+### Bug caught and fixed mid-session
+Stray `fv` characters landed after the import statement in `App.jsx`
+(paste artifact), producing `Uncaught ReferenceError: fv is not defined` —
+a whole-app blank-page crash on `servio-dev-55d2d.web.app`, not scoped to
+Tea Bar. Build and deploy both succeeded despite the error (invalid token
+sat after a complete statement, so it wasn't caught until runtime). Fixed,
+rebuilt, redeployed, confirmed clean.
+
+### Verified live tonight
+- Shahid Hussain (FFL00105, assigned to CCR I – Main Building): dashboard
+  loads, header correctly shows "CCR I – Main Building" from the backend
+  response, empty state ("No orders waiting right now") renders correctly,
+  auto-refresh and manual refresh both working.
+- Ahmed Khan (FFL00003, unassigned): "No location assigned yet" state
+  renders correctly, no error banner shown alongside it (confirms the
+  `NOT_ASSIGNED_MSG` guard is working as designed).
+
+### New finding — not a regression, parked
+`RoleDashboard` in `App.jsx` only special-cases `employee` and
+`accounts_supervisor` in its role switch; every other role (including
+`teabar_attendant`, `mess_supervisor`, `cafe_supervisor`, `manager`,
+`admin`) falls through to a generic "coming in the next phase" placeholder
+on `/dashboard`. Pre-existing, not caused tonight — became visible tonight
+because `teabar_attendant` now has a working sidebar Home link pointing at
+it. Not blocking, not addressed tonight.
+
+
+### Screen 1 fix — unassigned-location warning (same session, follow-up)
+Real gap found during Screen 3 dashboard testing: `createSelfOrder`'s backend
+validation checks location exists/active/right-tenant, but never checks
+`assignedAttendantUid` — an order can be placed at a location with nobody
+covering it, and it stays invisible to every dashboard until someone gets
+assigned there. Decided: Option 2 — warn, don't block, let the employee pick
+a different location themselves.
+
+Fix: `TeabarSelfOrderPage.jsx` — Step A location cards show an amber
+"No attendant on duty" badge when `assignedAttendantUid` is null (no new
+fetch needed — `listTeabarLocations` already returns this field). Step B's
+ordering strip repeats the warning if the chosen location is unstaffed.
+Order placement itself is never blocked.
+
+Verified live: Test User 2, Workshop deliberately unassigned (Ahmed Khan's
+role removed first to re-create the condition) — warning badge appeared
+correctly on the Workshop card only, CCR I (Shahid assigned) showed clean,
+order to Workshop placed successfully despite the warning, success screen
+correct ("From Workshop"). Confirms informational-only behavior works as
+designed.
+
+## Update Entry — 09-Jul-2026 (evening) — Screens 3, 4, 5, 7, 6 — full pass
+
+### Session Scope
+Continuation of the 09-Jul-2026 (afternoon) session. Built and live-tested
+Screens 3 (Live Dashboard), 4 (Proxy Order), 5 (Official Order), and 7
+(Official Approvals) end-to-end during live Tea Bar hours. Then closed the
+Screen 6 (Shared History) backend gap identified 08-Jul, built its
+frontend, and verified it live too. All 8 Tea Bar screens are now built
+and tested.
+
+### Screen 3 — Live Dashboard
+Built, deployed, verified live: empty state, not-assigned state, and — this
+session — the populated path (order appearing, Handed over, Cancel), all
+confirmed with real orders across two attendants (Shahid Hussain @ CCR I,
+Ahmed Khan @ Workshop). Dashboard correctly shows Proxy and Official orders
+alongside Self orders with distinct source badges.
+
+### Real gap found + fixed: Screen 1 order placement into an unstaffed
+location
+`createSelfOrder`'s backend validation never checked `assignedAttendantUid`
+— an order could be placed at a location with no attendant covering it,
+and it stayed invisible to every dashboard until someone got assigned
+there. Decision: Option 2 (warn, don't block). Fixed in
+`TeabarSelfOrderPage.jsx` — amber "No attendant on duty" warning at both
+the location-picker step and the ordering strip, order placement never
+blocked. Verified live: Workshop deliberately unassigned, warning appeared
+correctly, order placed successfully despite it.
+
+### Screen 4 — Proxy Order
+Built, deployed, verified live end-to-end (search → resolve → order →
+dashboard pickup → Handed over → history). New backend endpoint added:
+`GET /teabar/orders/employee-lookup/:employeeNumber` — deliberately NOT
+reusing Screen 8's `getUserByEmployeeNumber` (checks `users` collection,
+login accounts only) since a proxy target doesn't need a Servio account;
+new `lookupEmployeeForOrder` checks `employees` (HR master) instead,
+matching what the actual order-placement route validates against. No
+index needed (single-doc lookup by ID).
+
+Admin/Super Admin nav link removed after live discussion — Admin retains
+backend permission (matches this project's "Admin inherits all rights"
+convention) but no longer has a sidebar entry, since Admin does not place
+proxy orders in practice. Full permission revocation parked for the 1.5
+role cleanup, not done tonight.
+
+### Screen 5 — Official Order
+Built, deployed, verified live including a full Reject-path test (order
+served regardless of admin's later rejection — confirmed via dashboard
+Handed-over action succeeding independent of billing outcome, and the
+rejected order correctly absent from the sponsor's own "My Tea Bar Orders"
+per the locked officials-excluded-from-own-history rule). Success screen
+wording deliberately does not borrow café's "pending approval" phrasing —
+states plainly the item is served now, billing approval is the only thing
+pending.
+
+### Screen 7 — Official Approvals
+Built, deployed. Approve and Reject both verified live end-to-end (Approve
+in the first session pass, Reject in the second, using two different real
+orders). Admin/Super Admin only, matching the backend's role gate — no
+Manager, no Attendant.
+
+### Screen 6 — Shared History (backend gap closed, frontend built)
+Two gaps from 08-Jul closed:
+1. `getTeabarHistory` extended with `day` and `employeeNumber` filters,
+   mutually exclusive with `locationId` and each other — Day wins outright
+   over Employee Number, which wins over Location, matching café's own
+   "day wins" precedence convention.
+2. `GET /teabar/orders/history/admin` role gate extended to include
+   `ROLES.MANAGER` — closes the gap between the screen map's own access
+   matrix (Manager: read-only, all locations) and what the route actually
+   allowed.
+
+New composite index required for the Day-filter query shape
+(`tenantId ==, orderDate ==, orderBy(createdAt desc)`) — the other three
+shapes already existed. `firebase deploy --only firestore:indexes` failed
+repeatedly with a generic FetchError specifically on `firestore.googleapis.com`
+(other Google APIs in the same run succeeded) — traced to a likely IPv6
+routing issue (`curl` succeeded, `nslookup` resolved both an IPv4 and an
+IPv6 address) but never conclusively confirmed, since the index was built
+manually via the Firebase Console instead as a working path forward.
+**Open item: the underlying `firebase deploy --only firestore:indexes`
+IPv6 issue is unresolved** — future index deploys via CLI will likely hit
+the same failure until this is properly diagnosed (try
+`NODE_OPTIONS="--dns-result-order=ipv4first"` first, or investigate the
+OPNsense firewall's IPv6 egress rules).
+
+All four query shapes (no filter, Location, Employee Number, Day) verified
+directly via curl against live data before any frontend code was written,
+per project discipline — counts cross-checked against each other (15 total
+= 12 CCR I + 3 Workshop; 15 total = 8 today + 7 earlier).
+
+Frontend built and verified live across two roles: Admin (all four filter
+combinations tested) and Manager (no-filter view, confirmed byte-for-byte
+identical to Admin's — same 15 orders, same card order, same conditional
+official-order fields). Manager's pre-existing café Proxy/Official Order
+links (under "Club Operations") are unrelated to tonight's work — Manager
+was deliberately never given Tea Bar proxy/official placement access,
+since Manager is not physically stationed at a Tea Bar counter.
+
+### Status: All 8 Tea Bar V1.3 frontend screens now built and live-tested.
+
+### Carried-forward open items (unchanged)
+- `CAFE_TEST_TEA`'s `foodTypeCode` still deliberately `"BEV"` from 08-Jul
+  sort-order test — low priority, not yet restored.
+- `RoleDashboard`'s generic placeholder for all non-employee/accounts_supervisor
+  roles — pre-existing, not addressed.
+- 1.5 role cleanup: Admin's proxy/official Tea Bar backend permission
+  (nav-only removal done tonight, not full revocation).
+- ~~Firebase CLI IPv6 index-deploy issue~~ — **RESOLVED same night, see
+  entry below.**
+
+### Next session
+V1.3 Tea Bar frontend is complete. Next: move to V1.4
+BBQ per the original roadmap
+
+---
+
+## Update Entry — 09-Jul-2026 (late night) — IPv6 CLI issue: resolved and confirmed persistent
+
+### Session Scope
+Closeout of the 09-Jul-2026 sessions. Confirmed the `firebase deploy
+--only firestore:indexes` IPv6 failure (open item from the evening
+session above) is fully fixed, not just worked around for one run.
+
+### Fix
+IPv6 permanently disabled system-wide on Homi-NAS via
+`/etc/sysctl.d/99-disable-ipv6.conf`, after a multi-hour diagnosis. Root
+cause: this network has IPv6 addresses in DNS for
+`firestore.googleapis.com`, but no actual IPv6 route out — so the CLI's
+request silently failed with a generic `FetchError` while other Google
+APIs in the same run succeeded (they must have resolved/routed
+differently).
+
+### Verified persistent
+A second full `firebase deploy --only firestore:indexes` — run fresh,
+without re-running `sysctl -w` — succeeded cleanly from this config
+alone. This confirms the fix survives without needing to be manually
+reapplied each session (i.e. it's a boot-time config file, not a one-off
+runtime command).
+
+### Side finding — orphaned Firestore index (left in place, not deleted)
+Every index deploy now surfaces one live index on `teabarOrders` that
+isn't in `firestore.indexes.json`:
+`(tenantId, locationId, orderDate, issueStatus, createdAt)` — five
+fields, missing `orderStatus`.
+
+Grepped `core/functions/src/teabar/` for every `issueStatus` query — only
+`getTeabarDashboard` (Screen 3's backend function) queries on
+`issueStatus`, and its actual shape is six fields (`tenantId,
+locationId, orderDate, orderStatus, issueStatus, createdAt`), matching
+`firestore.indexes.json` exactly. The five-field index has no matching
+query anywhere in current Tea Bar code — confirmed orphaned, very likely
+a leftover from an earlier draft of that same query, before
+`orderStatus` was added as a filter.
+
+Left in place deliberately — answered "No" to the CLI's delete prompt
+both times it appeared tonight. Low priority, low cost to leave
+(Firestore doesn't meaningfully charge for one unused index at this
+collection size), but it will keep prompting a "delete this index?"
+question on every future index deploy until cleaned up. Parked for a
+future deliberate cleanup pass (tracked as L14 in Open Items).
+
+### Status
+**Fully resolved, not worked around.** `firebase deploy --only
+firestore:indexes` is confirmed working from a clean, persistent system
+state — no special flags (e.g. `NODE_OPTIONS="--dns-result-order=ipv4first"`)
+and no manual Firebase Console steps needed going forward. Does not need
+re-diagnosing unless the *exact same* generic "Failed to make request to
+firestore.googleapis.com" error reappears — if it does, check whether
+`/etc/sysctl.d/99-disable-ipv6.conf` has been reverted or overwritten
+before re-running the full diagnostic trail.
+
+### Backup
+`20260709_225546` — 31.677 MiB synced to Google Drive. File list
+confirms all of Screens 4–7, Screen 6's backend fixes,
+`firestore.indexes.json`, and the Screen 1 no-attendant-warning fix
+(`App.jsx`, `Sidebar.jsx`, `teabarOrderService.js` ×2,
+`teabarLocationService.js`, `TeabarSelfOrderPage.jsx`/`.css`, and the
+four new Screen 4/5/6/7 page files). Screen 3's files are correctly
+absent from this backup — already committed and backed up in the
+earlier same-day afternoon session.
+
+### Next session
+Confirmed unchanged: V1.3 Tea Bar frontend is complete. Next: move to
+V1.4 BBQ per the original roadmap.
+
+---
