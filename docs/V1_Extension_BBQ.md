@@ -11,7 +11,7 @@
 | GitHub | `AwaizFatima08/servio_dev` |
 | NAS Path | `/mnt/storage/projects/servio_dev/` |
 | Consolidated on | 01 August 2026 — pre-BBQ V1 Extension history (03-Jul–09-Jul: all of V1.3 Tea Bar's build) moved to `docs/Servio_CB_V1Extension_Archive.md`. **BBQ (V1.4) session log deliberately kept in THIS file, not archived** — BBQ is still active development; its log moves to the archive only once that phase closes too. |
-| Last Updated | 01 August 2026 — Screen #7 (BBQ Live Item Counts) built and field-tested. V1.4 BBQ frontend: 6 of 13 screens complete (#1, #2, #3, #6, #7, #8). |
+| Last Updated | 02 August 2026 — Table Booking cluster (Screens #9, #10, #11) built and field-tested, full lifecycle proven live. V1.4 BBQ frontend: 9 of 13 screens complete (#1, #2, #3, #6, #7, #8, #9, #10, #11). |
 
 > **Reading note.** This is the compact working board — paste it to restore context at the start of a session. Pre-BBQ dated history (V1.1 Family CRUD, V1.2 Café, V1.3 Tea Bar — every session, 03-Jul through 09-Jul-2026) lives in `docs/Servio_CB_V1Extension_Archive.md`. **BBQ's dated session log (10-Jul-2026 onward) is NOT in the archive — it's below, in this file, §12 onward**, since BBQ is still being actively built. Older V1-era history (before V1 Extension started) is in `Servio_CB_V1.md`.
 
@@ -22,7 +22,7 @@
 V1 is live on prod (frozen for the 15-day tester trial — do not develop on prod). All dev work is on V1 Extension.
 
 - **V1.1 Family CRUD, V1.2 Café, V1.3 Tea Bar** — all **COMPLETE** on backend + web (mobile deferred to end of V1 Extension for all three). Full build history archived — see `docs/Servio_CB_V1Extension_Archive.md`.
-- **V1.4 (BBQ)** — design locked 10-Jul (`docs/BBQ_V1.4_Design_Draft_10Jul2026.md`). **Backend fully complete and field-tested** across all collections (`bbqSettings`, `bbqEvents`, `bbqOrders`, `bbqTableRequests`, `bbqLiveItemStatus`) and both scheduled functions (`bbqKitchenTargetLocker`, `bbqAutoClose`). **Frontend: 6 of 13 screens complete** — #1 Preorder, #2 Live Order, #3 My BBQ Orders, #6 Kitchen Dashboard, #7 Live Item Counts, #8 Exception Review Queue — all built, deployed, and field-tested live on real data. **Screens #4 (Proxy Order), #5 (Official Order), #9–13 (Table Booking ×3, Menu Draft, Menu Approve & Publish) not yet started.**
+- **V1.4 (BBQ)** — design locked 10-Jul (`docs/BBQ_V1.4_Design_Draft_10Jul2026.md`). **Backend fully complete and field-tested** across all collections (`bbqSettings`, `bbqEvents`, `bbqOrders`, `bbqTableRequests`, `bbqLiveItemStatus`) and both scheduled functions (`bbqKitchenTargetLocker`, `bbqAutoClose`). **Frontend: 9 of 13 screens complete** — #1 Preorder, #2 Live Order, #3 My BBQ Orders, #6 Kitchen Dashboard, #7 Live Item Counts, #8 Exception Review Queue, #9 Table Request (Employee), #10 Table Booking Approval (Admin), #11 Table Booking Confirmation (Manager) — all built, deployed, and field-tested live on real data, including the full cross-screen lifecycle (submit → approve/return/reject → resubmit → confirm/cancel). **Screens #4 (Proxy Order), #5 (Official Order), #12–13 (Menu Draft, Menu Approve & Publish) not yet started.**
 - **V1.4b (Tuck Shop) / V1.4c (Bakery)** — not started.
 - Mobile build for V1.1–V1.4c is bundled at the end of V1 Extension.
 
@@ -48,7 +48,7 @@ git log --oneline -5    # confirm last session's work is here
 
 | Priority | Task | Platform | Notes |
 |----------|------|----------|-------|
-| 1 | **V1.4 BBQ — continue frontend** | Dev | Screens #4, #5, #9–13 remain. Build order not pre-decided — choose fresh each session per standing discipline (this is the same discipline that correctly identified #6 → #7 → #8 as a natural cluster, not a fixed plan). |
+| 1 | **V1.4 BBQ — continue frontend** | Dev | Screens #4, #5, #12–13 remain. Build order not pre-decided — choose fresh each session per standing discipline (this is the same discipline that correctly identified #6 → #7 → #8, and then #9 → #10 → #11, as natural clusters, not a fixed plan). |
 | 2 | **PROD blocker: password-reset email** | Prod | `firebaseapp.com` sender is silently dropped by Gmail/corporate filters. Need custom SMTP / SendGrid sender before the real prod launch. |
 | 3 | **PROD blocker: secrets in GDrive backup** | Dev/Prod | `service-account.json` private key + web API key sit in plaintext in the backup folder. Rotate the dev key; exclude secrets from backups. |
 | 4 | Finish café cleanup (stale comments only) | Dev | Low priority. Two stale comments left: `constants.js` (~lines 427–429, café cancel) and `cafeService.js` `cancelOrder` header. Cosmetic. |
@@ -66,7 +66,7 @@ Reference: `Servio_V1_Extension_Scope_09Jun2026.md` in `docs/`.
 | V1.1 | Family Member CRUD | 🔒 LOCKED | **COMPLETE** — Backend ✅ · Web ✅ · Mobile deferred. Full history: archive. |
 | V1.2 | Café + Outdoor Mini Café + kitchen dashboard | 🔒 LOCKED | **COMPLETE** — Backend ✅ · Web ✅ (all slices) · Mobile deferred. Full history: archive. |
 | V1.3 | Tea Bar (Tuck Shop/Bakery renumbered out to V1.4b/V1.4c, no longer bundled here) | 🔒 LOCKED | **COMPLETE** — Backend ✅ · Web: all 8 screens ✅, live-tested. Full history: archive. |
-| V1.4 | BBQ | 🔒 LOCKED — `BBQ_V1.4_Design_Draft_10Jul2026.md` | Backend ✅ complete + field-tested. Web: 6/13 screens ✅ (#1, #2, #3, #6, #7, #8). #4, #5, #9–13 not started. Full session-by-session detail: §12 below (this file, not archived yet). |
+| V1.4 | BBQ | 🔒 LOCKED — `BBQ_V1.4_Design_Draft_10Jul2026.md` | Backend ✅ complete + field-tested. Web: 9/13 screens ✅ (#1, #2, #3, #6, #7, #8, #9, #10, #11). #4, #5, #12–13 not started. Full session-by-session detail: §12 below (this file, not archived yet). |
 | V1.4b | Tuck Shop | Split from old V1.3, 10-Jul | Not started |
 | V1.4c | Bakery | Split from old V1.3, 10-Jul | Not started |
 | V1.5 | Dashboards + analytics + reporting + billing + rate entry + notification + feedback — collective flow, for **all** flows (mess, café, Tea Bar, BBQ, Tuck Shop, Bakery). Old V1.6 fully absorbed here. | Design after V1.4/V1.4b/V1.4c | — |
@@ -90,7 +90,7 @@ Sorted by priority. **HIGH / prod-blockers first** — do not let these reach re
 | # | Item | Notes |
 |---|------|-------|
 | P1 | Seed prod appSettings | Prod project needs `maxFamilyMembersPerEmployee: 12` + `familyMemberFeatureActive: true` seeded. |
-| P2 | Dev test-data wipe | Café: `CAFE_TEST_*` menuItems, `serviceMenuConfigs/cafe` resolver output, 2 misspelled legacy items, accumulated `cafeOrders` test fixtures. Tea Bar: 4 leftover `teabarLocations` test docs. **BBQ, new:** several test `bbqEvents`/`bbqOrders`/`bbqTableRequests` docs (incl. all `Test BBQ *` items on `ffl_2026-09-04`); `bbqSettings.closeoutTime` left at test value `"23:15"` not reverted to `"23:00"`; `ffl_2026-09-04`'s `orderWindowStartAt`/`orderWindowEndAt` manually overwritten for testing. |
+| P2 | Dev test-data wipe | Café: `CAFE_TEST_*` menuItems, `serviceMenuConfigs/cafe` resolver output, 2 misspelled legacy items, accumulated `cafeOrders` test fixtures. Tea Bar: 4 leftover `teabarLocations` test docs. **BBQ, growing:** several test `bbqEvents`/`bbqOrders`/`bbqTableRequests` docs (incl. all `Test BBQ *` items on `ffl_2026-09-04`, and now a full set of `bbqTableRequests` test docs across `2026-08-14` and `2026-09-04` from the 02-Aug Table Booking cluster testing — submitted/approved/returned/rejected/confirmed/cancelled examples of each); `bbqSettings.closeoutTime` left at test value `"23:15"` not reverted to `"23:00"`; `ffl_2026-09-04`'s `orderWindowStartAt`/`orderWindowEndAt` manually overwritten for testing. |
 | P3 | Prod-side Firestore index for `teabarLocations` show-inactive query | Only built on dev so far — needed on prod before any Tea Bar prod deploy. Not urgent (Tea Bar isn't going to prod before V1.5/billing). |
 
 ### Medium
@@ -105,6 +105,8 @@ Sorted by priority. **HIGH / prod-blockers first** — do not let these reach re
 | M6 | `bbqLiveItemStatus` cross-order isolation — never actually tested | Screen #7 field-testing confirmed the increment/display mechanic works, but only one real BBQ order exists in current test data (all 4 test items on one doc). Never verified that preparing/cancelling one order's items leaves a *different* order's counts untouched. Needs a second real order with different items to test properly — reasoning from code alone isn't enough (see 01-Aug entry, §12). |
 | M7 | Screen #7 "Uncategorized" bucket — code path exists, never fired | All test items correctly matched their category in every test so far. The fallback bucket for an itemId in `bbqLiveItemStatus` not found in the current event's menu has never actually been exercised. Worth deliberately provoking once. |
 | M8 | Frontend hardcoded role lists don't auto-follow backend `constants.js` | Confirmed pattern, not a one-off: `UserManagementPage.jsx` had its own separate ROLES/ROLE_LABELS list that didn't include `bbq_supervisor` until fixed 01-Aug, despite the role existing in the backend since 11-Jul. Check any file with a hardcoded role list whenever a new role is added anywhere in the system. |
+| M9 (RESOLVED same session) | `Sidebar.jsx` NAV_CONFIG can have two blocks with an identical `section:` name under different roles | Real bug, 02-Aug: an edit meant for `employee`'s `section: 'BBQ'` block landed in `manager`'s block instead (same section name, similar surrounding code), simultaneously wiping manager's existing Exception Queue link. Both `React key={section}` collision risk AND find/replace ambiguity risk. Caught via a deliberate elimination chain (grep source → grep built bundle → Incognito test → grep for duplicate `section: 'BBQ'` occurrences), not by inspection. Fixed same session. **Lesson, not just a one-off fix:** when editing `Sidebar.jsx`, always check for duplicate section names across roles before pasting an edit — don't trust the section label alone as a unique anchor. |
+| M10 (RESOLVED same session) | JSX outer wrapper `<div>` can go missing silently during a multi-line find/replace edit, with no automated check catching it until `npm run build:dev` | Happened 02-Aug on `BbqTableApprovalPage.jsx`'s History-widening edit — the outer `<div key={req.requestId} className={styles.requestCard}>` opening tag was dropped while its closing `</div>` stayed, orphaning a stray closing tag and leaving `.map()` return multiple sibling elements with no single root. Caught by Homi's own review before even attempting a build, not by any tooling. **Lesson:** JSX has no `node --check`-equivalent for structural edits — the only real checks are a careful re-read of the diff, or the build itself. |
 
 ### Low — not blocking
 
@@ -235,6 +237,10 @@ Each line is the rule you must not break. Pre-BBQ reasoning lives in `docs/Servi
 - **Official BBQ orders:** initiated by `bbq_supervisor` OR `manager` (both floor-present), approved by Admin. Service is never blocked by approval outcome — only the cost-centre charge is gated.
 - **`walk_in` not needed for BBQ** — BBQ's "no phone, forgot to order" scenario is still an identified supervisor booking for an identified employee, i.e. `proxy`. `bookingSource` stays `self | proxy | official`.
 - **Screen #7 (Live Item Counts) groups items by category client-side** — `bbqLiveItemStatus` itself carries no category field, so the screen cross-references the current event's 6-array menu to build the grouping. Only items with actual counts are shown (no zero-padding the full menu); an unmatched itemId falls into "Uncategorized" rather than being dropped.
+- **Screen #9 (Table Request) combines submission + own history/resubmit/cancel in one screen** — confirmed 02-Aug. Unlike orders (split #1/#2 creation vs. #3 history), the design doc lists only one employee-facing table-request screen, so both jobs live here. Multiple concurrent active requests per employee are allowed, no UI restriction — the backend never enforced one-active-request-per-employee either.
+- **Screens #10/#11 use an explicit event-dropdown, not the single-"current"-event auto-pick every other BBQ screen uses** — confirmed 02-Aug, deliberately inconsistent with #1/#2/#3/#6/#7/#8/#9. Reasoning: table requests may be reviewed on any day for an upcoming Friday, unlike same-day kitchen-floor urgency. Defaults to the soonest published event.
+- **Screen #10's History tab covers `approved` + `returned` + `rejected`**, not just returned/rejected as first built — widened same session, 02-Aug, after an approved request proved invisible on Admin's screen the moment it left Pending (it moves on to Screen #11, but Admin had no record of having approved it).
+- **Screen #11 (Confirm) also carries Cancel** for approved requests — confirmed 02-Aug. The backend allows manager+ to cancel from `approved` same as the owner can, and no other screen would naturally hold that action. No separate confirmed-history view on this screen (default taken, not explicitly requested).
 
 ---
 
@@ -1387,11 +1393,156 @@ discipline applied to V1.3 today, to be applied to BBQ once its 13
 screens are complete.
 
 ### Git state at session close
-[commit hash for Screen #7 — to be filled in after Homi commits]
-[commit hash for this CB consolidation — separate commit, per standing
-rule that code and CB updates are never mixed in one commit]
+`a22fd3a` — Screen #7 code (BBQ Live Item Counts).
+`d60b6a7` — CB consolidation (pre-BBQ history archived, board renamed
+to `V1_Extension_BBQ.md`). Both pushed to `origin/main` same night.
+[Filled in retroactively 02-Aug, once known — left as a placeholder
+too long; a small process gap worth naming rather than quietly fixing.]
 
 ### Next Session Starting Point
 Screens #4, #5, #9–13 remain. Build order not pre-decided — choose
+fresh next session per standing discipline, same as every prior
+screen decision.
+---
+
+## Update Entry — 02-Aug-2026 — Screens #9, #10, #11: Table Booking cluster complete
+
+### Session Scope
+Continuation of the same overnight session that closed with Screen #7
+(pre-flight from that session still stands — dev confirmed, HEAD
+`81f87c5` at start). Built the full Table Booking cluster: #9 (Employee
+request), #10 (Admin approval), #11 (Manager confirmation) — the
+natural three-screen group identified fresh this session, same
+discipline as #6→#7→#8, not a pre-set plan.
+
+**Sequencing note, recorded honestly:** unlike #6/#7/#8 (each committed
+separately as it closed), Homi chose to build all three of #9/#10/#11
+before committing anything. A deliberate departure from the
+one-commit-per-screen precedent, not an accident — flagged in the
+moment, not silently gone along with.
+
+### Backend: zero new work needed, confirmed by reading before building
+Read `bbqTableRequestService.js` and the table-request routes in
+`bbqRoutes.js` in full before writing any frontend. Full lifecycle
+already existed and matched the design doc's 11-Jul audit-field
+amendment exactly: submit (pending) → Admin approve/return/reject →
+(if returned) employee resubmit → pending again → Manager confirm
+(only from approved) → cancel (owner or manager+, from
+pending/approved/returned). No backend changes this session.
+
+### Design decisions confirmed with Homi before build (not assumed)
+- Screen #9 combines the submission form and the employee's own
+  request history/resubmit/cancel in one screen (not split like
+  orders #1/#2 vs #3).
+- Multiple concurrent active table requests per employee allowed — no
+  UI restriction.
+- Screens #10/#11 scope to one event via a dropdown (default: soonest
+  published), unlike every other BBQ screen's single-"current"-event
+  auto-pick — first screen(s) to need `getPublishedBbqEvents`, a new
+  function (only `getCurrentBbqEvent` existed before tonight).
+- Screen #11 carries both Confirm and Cancel.
+- Screen #10 shows a Pending action queue AND a History tab — later
+  widened mid-session (see below).
+- Approve/Confirm = single click, no confirm dialog. Return/Reject =
+  typed reason required, button disabled until non-empty — same
+  pattern as Screen #8's Exception Queue, reused deliberately.
+
+### Two real bugs found and fixed this session
+**1. Sidebar wrong-block paste (Screen #9's edit).** The Table
+Request sidebar link was meant to land in `employee`'s `section:
+'BBQ'` block, but landed in `manager`'s block instead — two blocks
+sharing the identical section name, easy to mismatch when eyeballing
+a large file. Side effect: manager's existing Exception Queue link
+was silently overwritten and gone. Diagnosed properly, not guessed at
+— ruled out caching (hard refresh, then a full Incognito session with
+a different user), confirmed the deployed bundle genuinely contained
+the right strings via `grep` on the built JS, and only then grepped
+for `section: 'BBQ'` occurrences and found two. Both blocks fixed:
+employee gained Table Request, manager's Exception Queue restored.
+Logged as Open Item M9 (resolved same session) — the process lesson
+matters beyond this one fix.
+
+**2. JSX syntax error (Screen #10's History-widening edit).** Homi
+caught this himself before attempting a build: a find/replace meant
+to touch only the inner `cardTop` div accidentally dropped the outer
+wrapping `<div key={req.requestId} className={styles.requestCard}>`
+opening tag, leaving its closing tag orphaned and `.map()` returning
+multiple sibling elements with no single root. One-line fix (restore
+the wrapper + its `key` prop). Logged as Open Item M10 — there's no
+`node --check`-equivalent for JSX structure; the only real checks are
+a careful diff re-read or the build itself.
+
+### Field-tested live — full chain, real evidence, not code-reading confidence
+Traced through real screenshots across the session, not assumed from
+passing builds:
+- **Submit → Pending → Reject (with reason)**, twice independently
+  (10-guest "gents only" request, rejected "no slot available" both
+  times it was tested) — Admin's typed-reason requirement confirmed
+  working both times.
+- **Submit → Pending → Approve → Confirm**, twice independently
+  (Farrukh's 40-guest request, Humayun's 4-guest request) — full
+  cross-screen chain proven, including the approved request correctly
+  showing `Confirmed` back on Screen #9 afterward.
+- **Submit → Pending → Return (with reason) → Resubmit → Pending
+  again → reappears cleanly in Admin's queue.** This closes the one
+  path flagged as untestable at the end of last night's session
+  (Screen #9's resubmit branch existed in code but nothing could
+  produce a `returned` request before Screen #10 existed). Confirmed
+  correct: old return data (`returnedByUid/At/Comments`) properly
+  cleared on resubmit, edited note text carried through, History (0)
+  on re-check confirming no stale return record left behind.
+- **Cancel from both directions, confirmed distinctly, not inferred
+  from an identical-looking badge.** Owner-cancel (Screen #9) and
+  manager-cancel (Screen #11, from `approved` status) are genuinely
+  different code paths/UI triggers producing the same `Cancelled`
+  status — both explicitly confirmed via direct question to Homi
+  after an initial screenshot left it ambiguous which had actually
+  been clicked. Worth naming: a passing-looking result isn't proof of
+  *which* path produced it, and this session treated that distinction
+  as worth stopping and asking about rather than assuming.
+- **Event-dropdown scoping exercised in practice**, not just built —
+  Admin and Manager both switched between `2026-08-14` and
+  `2026-09-04` mid-session and correctly saw different, correct
+  request sets per event.
+
+### Mid-session design change: Screen #10's History widened
+Originally built to show only `returned`/`rejected` (per the original
+locked decision). Homi flagged that an approved request became
+invisible on Admin's screen the instant it left Pending — a real
+usability gap, not a bug. Widened to include `approved` too, with a
+small colored status-badge system (green/orange/red) added to
+history cards. Confirmed visually correct after the fix — the
+previously-invisible 4-guest approved request became visible.
+
+### CB consolidation, same session
+Filled in Screen #7's session-close entry's two placeholder commit
+hashes (`a22fd3a` code, `d60b6a7` CB consolidation), which had been
+left as `[to be filled in]` since last night and never actually
+updated — a small process gap, fixed here rather than left stale
+indefinitely.
+
+### Known open items, not blocking, carried forward
+- M9, M10 (new, this session, both resolved same session) — see §4.
+  Kept as process lessons, not just closed tickets.
+- M6, M7, M8 (from Screen #7's session) — unchanged, still open.
+- **Multiple-published-events handling is now deliberately
+  inconsistent across BBQ screens, not just an open question:**
+  #1/#2/#3/#6/#7/#8/#9 all auto-pick a single "current" event;
+  #10/#11 explicitly show a dropdown across all published events.
+  Both are reasoned choices for their own screen's context (same-day
+  urgency vs. any-day review), not an oversight — but worth a
+  conscious decision later if it ever causes confusion in practice,
+  rather than letting the inconsistency grow silently as more screens
+  are built.
+- Screens #4, #5, #12, #13 remain — 9 of 13 BBQ screens now complete.
+- Full BBQ-screens interdependency audit still deliberately deferred
+  to after all 13 screens exist — commitment still standing, now
+  closer.
+- Dev data residue growing, not shrinking — see updated P2 above.
+
+### Next Session Starting Point
+Screens #4, #5 (Proxy/Official Order — café has a close template) and
+#12, #13 (Menu Draft + Approve/Publish — currently zero real UI for
+BBQ menu creation at all) remain. Build order not pre-decided — choose
 fresh next session per standing discipline, same as every prior
 screen decision.
