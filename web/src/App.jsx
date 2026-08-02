@@ -48,6 +48,8 @@ import BbqProxyOrderPage      from './pages/admin/BbqProxyOrderPage';
 import BbqOfficialOrderPage   from './pages/admin/BbqOfficialOrderPage';
 import BbqOfficialPendingPage from './pages/admin/BbqOfficialPendingPage';
 import BbqHistoryPage         from './pages/admin/BbqHistoryPage';
+import BbqMenuDraftPage       from './pages/admin/BbqMenuDraftPage';
+import BbqMenuApprovePage     from './pages/admin/BbqMenuApprovePage';
 import TeabarLocationsPage    from './pages/admin/TeabarLocationsPage';
 import TeabarDashboardPage    from './pages/admin/TeabarDashboardPage';
 import TeabarProxyOrderPage   from './pages/admin/TeabarProxyOrderPage';
@@ -248,6 +250,8 @@ export default function App() {
             <Route path="/cafe-official-pending" element={<WithToken Page={CafeOfficialPendingPage} />} />
             <Route path="/bbq-official-pending"  element={<WithToken Page={BbqOfficialPendingPage} />} />
             <Route path="/bbq-history"           element={<WithToken Page={BbqHistoryPage} />} />
+            <Route path="/bbq-menu-draft"        element={<WithToken Page={BbqMenuDraftPage} />} />
+            <Route path="/bbq-menu-approve"      element={<WithToken Page={BbqMenuApprovePage} />} />
             <Route path="/teabar-locations" element={<WithToken Page={TeabarLocationsPage} />} />
             <Route path="/teabar-dashboard" element={<WithToken Page={TeabarDashboardPage} />} />
             <Route path="/teabar-proxy-order" element={<WithToken Page={TeabarProxyOrderPage} />} />

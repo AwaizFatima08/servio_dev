@@ -303,7 +303,7 @@ async function getBbqEvent({ tenantId, eventId }) {
   if (!doc.exists) return { notFound: true };
   const data = doc.data();
   if (data.tenantId !== tenantId) return { notFound: true };
-  return { notFound: false, ..._cleanEvent(data) };
+  return { notFound: false, eventId: doc.id, ..._cleanEvent(data) };
 }
 
 async function getBbqEvents({ tenantId, status, limit }) {
@@ -312,7 +312,7 @@ async function getBbqEvents({ tenantId, status, limit }) {
   query = query.orderBy('eventDate', 'desc').limit(limit || 20);
 
   const snap = await query.get();
-  return snap.docs.map((d) => _cleanEvent(d.data()));
+  return snap.docs.map((d) => ({ eventId: d.id, ..._cleanEvent(d.data()) }));
 }
 
 module.exports = {

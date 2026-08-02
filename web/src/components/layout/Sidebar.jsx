@@ -189,6 +189,7 @@ const NAV_CONFIG = {
         { label: 'Proxy Order',        icon: 'shopping-bag',    to: '/bbq-proxy-order' },
         { label: 'Official Order',     icon: 'receipt',         to: '/bbq-official-order' },
         { label: 'History',            icon: 'history',         to: '/bbq-history' },
+        { label: 'Menu Draft',         icon: 'meat',            to: '/bbq-menu-draft' },
       ],
     },
     {
@@ -226,6 +227,7 @@ const NAV_CONFIG = {
         { label: 'Table Approval',     icon: 'clipboard-check', to: '/bbq-table-approval' },
         { label: 'Official Approvals', icon: 'receipt-2',       to: '/bbq-official-pending' },
         { label: 'History',            icon: 'history',         to: '/bbq-history' },
+        { label: 'Menu Approvals',     icon: 'meat',            to: '/bbq-menu-approve' },
       ],
     },
     {

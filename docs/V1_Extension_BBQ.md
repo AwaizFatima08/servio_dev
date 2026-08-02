@@ -1679,3 +1679,115 @@ than deferred, because both blocked the two screens actually being usable.
 - Full BBQ interdependency audit — still pending, now genuinely overdue
   given how much cross-screen surface area exists (still explicitly
   tracked from prior sessions, not newly added here).
+  ## Session: 02-Aug-2026 (evening) — Screens #12/#13 (Menu Draft, Menu Approve & Publish)
+
+### Scope
+Screens #12 and #13 — the last two of the original 13, both untouched
+since session start (bbqEvents test docs were seed-script-only before
+tonight). No new backend routes needed — saveBbqEventDraft/submitBbqEvent/
+publishBbqEvent/returnBbqEvent/cancelBbqEvent all already existed and
+were already correct; confirmed by reading the actual route file before
+building, not assumed.
+
+### Completed
+- **Screen #12 — BBQ Menu Draft** (`BbqMenuDraftPage.jsx`, new).
+  Manager picks bbq-tagged items via a grouped checklist, saves as
+  draft or save+submits in one action. Two prefill paths: auto-reload
+  an in-progress draft/returned event on the same date (safety net,
+  not a reopening of anything locked), and an explicit "Copy from last
+  published" button for starting a new week from a prior one's
+  selection. Friday-only date validation, client-side pre-check.
+- **Screen #13 — BBQ Menu Approve & Publish** (`BbqMenuApprovePage.jsx`,
+  new). Admin's pending_review queue, list+detail pane copied from
+  EventManagementPage.jsx's shape. Publish is a single confirm (no
+  venue field, unlike official club events). Return requires comments,
+  same modal shape as Events.
+- 6 new frontend service functions added to `bbqEventService.js`
+  (frontend): `getBbqEventsList`, `getBbqEvent`, `saveBbqEventDraft`,
+  `submitBbqEvent`, `publishBbqEvent`, `returnBbqEvent`.
+- Routes + Sidebar links added — Menu Draft to `manager` only (matches
+  backend's `managerAndAbove` gate; `bbq_supervisor` deliberately
+  excluded, same reasoning as the official-order-approvals link earlier
+  this week), Menu Approve to `admin` only.
+
+### Bugs Found & Fixed (all real, all caught live during testing)
+- **Catalogue-group vocabulary mismatch** — `menuItems.bbqMenuGroup`
+  stores raw tags (`preorder`/`live_cook`/`kids`/`beverage`/`bread`/
+  `dessert`); Screen #12's picker checked those raw values directly
+  against the *resolved menu's* array-key names (`preorderItems`/
+  `liveCookItems`/etc.) — two different vocabularies that only look
+  similar. Every item silently failed the check and vanished from the
+  picker with no error. Fixed with an explicit translation map, kept
+  in sync with the backend's own `GROUP_TO_MENU_KEY`.
+- **Missing `eventId` field, pre-existing since bbqEventService.js was
+  first written** — `getBbqEvent`/`getBbqEvents` (backend) never
+  included the document ID as a field in their response, only the
+  document body. Every other BBQ collection's service already does
+  this correctly (`{ orderId: d.id, ...d.data() }` pattern); events
+  just missed it. Invisible until Screen #13 — the first screen in the
+  whole module that actually needed the ID back from a list/get call.
+  Fixed at the source in both functions.
+- **`getCurrentBbqEvent` ordering bug** — trusted the backend's
+  `eventDate desc` ordering + `limit=1` to mean "the current event."
+  Only ever worked by accident, because until tonight only one BBQ
+  event had ever been published at a time. `published` status never
+  reverts (same as `orderStatus` never un-cancels), so the moment a
+  second published event existed, the most-FUTURE one surfaced
+  instead of the nearest one — every employee-facing order screen
+  silently showed the wrong week. `getPublishedBbqEvents` had already
+  solved this exact problem with a client-side re-sort;
+  `getCurrentBbqEvent` never got the same fix. Rewritten to fetch all
+  published events, filter out any whose `closeoutAt` has passed, and
+  sort client-side for nearest-first. Both directions field-tested
+  live: a nearer event appearing (status-based), and the current event
+  aging out via `closeoutAt` while still status `published`
+  (timestamp-based) — confirmed as two genuinely different code paths,
+  both proven working.
+
+### Decisions Locked
+- Once a BBQ event leaves draft/returned (submitted, published, or
+  cancelled), it can NEVER be edited again — explicitly reconfirmed
+  tonight when asked to loosen this for "already-published menus need
+  fixing too." Guard stays exactly as-is. The only editing feature
+  built is prefill-for-a-NEW-draft ("copy from last published"), never
+  reopening anything locked.
+- "Nearest event, irrespective of publish order or recency" is the
+  correct current-event definition for all employee-facing screens —
+  confirmed explicitly, drove the getCurrentBbqEvent fix.
+- Menu Draft nav link: `manager` only, not `bbq_supervisor` — matches
+  the backend's actual permission, avoids a repeat of the
+  family-lookup-role-gap mistake from the Proxy/Official cluster.
+
+### Open Items
+- **M15** — Resubmit-after-return cycle never fully verified. Reopening
+  a returned draft and seeing the prefilled items + return note was
+  confirmed; clicking "Save & Submit for Review" again and landing
+  back at pending_review was not screenshotted. Same cycle the Table
+  Booking cluster explicitly closed out — BBQ's equivalent is still open.
+- **M16** — "Copy from last published" button has rendered but never
+  actually been clicked/tested.
+- **M17** — Friday-only date validation never tested against an actual
+  non-Friday date (only ever tested with valid Fridays).
+- **M18** — `cancelBbqEvent` has NO frontend anywhere — backend route
+  works, but neither Screen #12 nor #13 has a Cancel action. A manager
+  who drafts the wrong Friday currently has no way to remove it; it
+  sits as permanent clutter. Needs a decision: build now or defer.
+- **M11–M14** carried forward unchanged from the 02-Aug (earlier)
+  session — official-order live-only assumption unconfirmed, duplicate
+  Firestore index cleanup unverified, firestore.indexes.json
+  reconciliation incomplete, screen count needs updating.
+- **Full BBQ interdependency audit** — still not started, case is
+  stronger now than when first flagged: 15 screens, three separate
+  "what's the current event" resolution paths in the frontend
+  (getCurrentBbqEvent, getPublishedBbqEvents, and Menu Draft's own
+  existing-event lookup), and tonight proved one of those three had a
+  live bug sitting in it undetected. Exactly the class of problem this
+  audit exists to catch.
+
+### Next Steps
+- Close M15/M16/M17 (quick verification, no new code expected).
+- Decide + build M18 if needed.
+- Screen count: **all 13 original screens + Screens #14/#15 = 15 total,
+  all built.** Update BBQ_V1_4_Design_Draft header/Appendix.
+- Full interdependency audit — treat as its own dedicated session, not
+  squeezed into a build session.
