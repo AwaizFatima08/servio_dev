@@ -1546,3 +1546,136 @@ Screens #4, #5 (Proxy/Official Order — café has a close template) and
 BBQ menu creation at all) remain. Build order not pre-decided — choose
 fresh next session per standing discipline, same as every prior
 screen decision.
+## Session: 01–02-Aug-2026 — BBQ Proxy/Official Order cluster + field-testing fallout
+
+### Scope
+Originally Screens #4 (Proxy Order) and #5 (Official Order). Grew during
+field testing into a 15-screen total for BBQ frontend — a real, deliberate
+scope addition, not creep: two genuine gaps were found and closed rather
+than deferred, because both blocked the two screens actually being usable.
+
+### Completed
+- **Screen #4 — BBQ Proxy Order** (`BbqProxyOrderPage.jsx`). Live-only
+  (confirmed decision — no preorder toggle). Employee search →
+  window-gated 5-group live menu → consumer/family picker → dining mode.
+  Calls existing backend `createProxyBbqOrder` (was already built,
+  unused until now).
+- **Screen #5 — BBQ Official Order** (`BbqOfficialOrderPage.jsx`).
+  Live-only. Sponsor search → same menu/window gating, no consumer
+  picker → guest name + free-text cost centre. Calls existing
+  `createOfficialBbqOrder`.
+- **Screen #14 — BBQ Official Approvals** (`BbqOfficialPendingPage.jsx`,
+  new — not in the original 13/14 count until this session). Admin-only
+  billing-approval queue. Simpler than café's equivalent by design —
+  bbqOrders is one document per order, no group-by-bookingGroupId
+  reassembly needed the way café's per-line-item model requires.
+- **Screen #15 — BBQ History** (`BbqHistoryPage.jsx`, new). Card-grid
+  pattern copied from Tea Bar's shared history (not café's table — same
+  one-doc-per-order reasoning as Screen #14). Filters: Event Date /
+  Employee Number, mutually exclusive by design (avoids a 3-field
+  composite index for a low-volume weekly dataset). Scoped to proxy +
+  official only — self-placed orders filtered client-side. Later
+  extended with Edit/Cancel actions directly on the cards (role-gated,
+  not ownership-gated) — see Decision below.
+- Backend: `getBbqOfficialPendingOrders`, `getBbqOfficialPendingOrders`
+  route, `getBbqOrderHistory` + route — all in `bbqOrderService.js` /
+  `bbqRoutes.js`.
+- Frontend service: 7 new wrapper functions added to
+  `web/src/services/bbqOrderService.js` (proxy, official, list-pending,
+  approve, reject, history).
+- `App.jsx` + `Sidebar.jsx`: 4 new routes, nav links added to
+  `bbq_supervisor`/`manager`/`admin` blocks — grep-verified against the
+  M9 wrong-block risk each time, all landed correctly.
+
+### Bugs Found & Fixed (real, not process notes)
+- **`createdByEmployeeNumber` bug** — `createProxyBbqOrder` and
+  `createOfficialBbqOrder` never received the placing user's own
+  `officialEmployeeNumber` from the route layer; both silently fell
+  back to writing the *target*/*sponsor's* number into "placed by."
+  Pre-existing since those functions were first written — invisible
+  until Screen #14 became the first screen to ever display that field.
+  Fixed: added `placedByEmployeeNumber` parameter through
+  `bbqRoutes.js` → `bbqOrderService.js`, no fallback (writes `null`
+  rather than silently repeating the wrong value if ever missing).
+- **Access-control gap** — `bbq_supervisor` was missing from the
+  `cafeOrAdmin` role list gating `GET /family/employee/:employeeNumber`
+  (the endpoint Proxy/Official Order's employee-search step depends
+  on). Café-only role list, written before BBQ existed; BBQ was never
+  added when its own proxy/official screens started needing it. Fixed
+  by adding `ROLES.BBQ_SUPERVISOR`.
+- **Client-side ownership bug** — `BbqMyOrdersPage.jsx` showed
+  Edit/Cancel to the employee for ANY `placed` order regardless of who
+  actually created it. For proxy/official orders, `createdByUid` is the
+  supervisor's uid, not the employee's — so the buttons would have
+  failed at the API for any employee who actually clicked them. Fixed:
+  restricted to `bookingSource === 'self'` only.
+- **Missing error surfacing** — the first version of the
+  `official-pending` route swallowed the real error behind a fixed
+  string with no `console.error`. Caught immediately during first
+  testing (500 with no diagnosable cause) and fixed before it became a
+  pattern repeated elsewhere.
+- **Duplicate Firestore composite indexes** — two pairs of identical
+  indexes on `bbqOrders` (`approvalStatus/billingDestination/tenantId/
+  createdAt` and `employeeNumber/tenantId/createdAt`), each pair
+  field-for-field identical with different Index IDs. One pair from
+  this session (console-create + later CLI-deploy both creating a
+  copy), one pre-existing. Deleted the duplicates via console. CLI
+  deploy still flagged mismatch once (409 on a stale ID) immediately
+  after deletion — attributed to Firestore's async index-deletion lag,
+  not re-chased same-session; **needs a follow-up check** (see Open
+  Items).
+
+### Decisions Locked
+- Proxy orders are **live-only** — no preorder toggle. Confirmed
+  explicitly, not assumed.
+- Official orders built live-only on the **same reasoning**, not a
+  separately confirmed decision — flagged as an assumption in code
+  comments, never explicitly asked/answered.
+- Cost centre is **free text** on Official Order, not a dropdown from
+  `officialAccounts` — confirmed against café's actual code (an earlier
+  assumption in this session was wrong and corrected before building).
+- Admin does **not** get Proxy/Official Order links in the sidebar,
+  even though the backend permits admin to call those routes — matches
+  café's existing convention (admin can reach via URL, not surfaced in
+  nav).
+- Issue 5 (who manages a proxy/official order after it's placed):
+  **Option (a) chosen** — Edit/Cancel added directly to Screen #15's
+  cards, role-gated (`bbq_supervisor`/`manager`/`admin`, not
+  ownership-based), not a separate "orders I placed" screen. Confirmed
+  the Kitchen Dashboard does NOT expose these at any order stage before
+  choosing this — was briefly assumed to be a non-issue, verified false
+  by live test, then built.
+- Official orders **stay visible** in the sponsor's own `My BBQ Orders`
+  list, now clearly tagged "Official · billed to cost centre X" rather
+  than removed from that view — matches the same design principle
+  already used for proxy orders (visibility for the account holder,
+  even when it's not their own consumption).
+- History's two filters (Event Date / Employee Number) kept **mutually
+  exclusive** — deliberate index-count tradeoff, not a UI limitation
+  worth revisiting without a reason.
+
+### Open Items
+- **M11** — Official-order `orderType` live-only assumption never
+  explicitly confirmed with Homi (only Proxy's was). Revisit if a
+  preorder-style official order is ever actually needed.
+- **M12** — Duplicate Firestore index cleanup: confirm (next session,
+  not urgent) that the console now shows exactly one copy of each
+  `bbqOrders` composite index, and that a `firestore:indexes` deploy no
+  longer flags a mismatch. If still duplicated after a real time gap,
+  investigate further rather than re-deleting blindly.
+- **M13** — `firestore.indexes.json` reconciliation: confirmed clean
+  for the two indexes touched this session; the pre-existing
+  `teabarOrders` index gap (already tracked under P3) was reconfirmed
+  present, not fixed.
+- **M14** — BBQ screen count is now **15**, not 13 or 14. Update
+  wherever the total is referenced (design doc header, any prior CB
+  summary line) so it stops silently under-counting.
+- Firebase CLI is 6 minor versions behind (`15.19.1` → `15.25.1`,
+  flagged by the tool itself). Not urgent, logged only.
+
+### Next Steps
+- Confirm M12 (index duplication) resolved.
+- Update BBQ_V1_4_Design_Draft screen count + Appendix references to 15.
+- Full BBQ interdependency audit — still pending, now genuinely overdue
+  given how much cross-screen surface area exists (still explicitly
+  tracked from prior sessions, not newly added here).
