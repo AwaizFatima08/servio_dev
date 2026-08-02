@@ -44,6 +44,10 @@ import BbqTableConfirmationPage from './pages/admin/BbqTableConfirmationPage';
 import CafeProxyOrderPage     from './pages/admin/CafeProxyOrderPage';
 import CafeOfficialPage       from './pages/admin/CafeOfficialPage';
 import CafeOfficialPendingPage from './pages/admin/CafeOfficialPendingPage';
+import BbqProxyOrderPage      from './pages/admin/BbqProxyOrderPage';
+import BbqOfficialOrderPage   from './pages/admin/BbqOfficialOrderPage';
+import BbqOfficialPendingPage from './pages/admin/BbqOfficialPendingPage';
+import BbqHistoryPage         from './pages/admin/BbqHistoryPage';
 import TeabarLocationsPage    from './pages/admin/TeabarLocationsPage';
 import TeabarDashboardPage    from './pages/admin/TeabarDashboardPage';
 import TeabarProxyOrderPage   from './pages/admin/TeabarProxyOrderPage';
@@ -217,6 +221,8 @@ export default function App() {
             <Route path="/bbq-table-confirmation" element={<WithToken Page={BbqTableConfirmationPage} />} />
             <Route path="/cafe-proxy-order" element={<WithToken Page={CafeProxyOrderPage} />} />
             <Route path="/cafe-official"     element={<WithToken Page={CafeOfficialPage} />} />
+            <Route path="/bbq-proxy-order"    element={<WithToken Page={BbqProxyOrderPage} />} />
+            <Route path="/bbq-official-order" element={<WithToken Page={BbqOfficialOrderPage} />} />
             <Route path="/cafe-history"   element={<WithToken Page={CafeHistoryPage} />} />
             <Route path="/proxy-booking"  element={<WithToken Page={ProxyBookingPage} />} />
             <Route path="/walk-in"        element={<WithToken Page={WalkInPage} />} />
@@ -240,6 +246,8 @@ export default function App() {
             <Route path="/feedback-admin"        element={<WithToken Page={FeedbackDashboardPage} />} />
             <Route path="/guest-approvals"       element={<WithToken Page={OfficialGuestApprovalsPage} />} />
             <Route path="/cafe-official-pending" element={<WithToken Page={CafeOfficialPendingPage} />} />
+            <Route path="/bbq-official-pending"  element={<WithToken Page={BbqOfficialPendingPage} />} />
+            <Route path="/bbq-history"           element={<WithToken Page={BbqHistoryPage} />} />
             <Route path="/teabar-locations" element={<WithToken Page={TeabarLocationsPage} />} />
             <Route path="/teabar-dashboard" element={<WithToken Page={TeabarDashboardPage} />} />
             <Route path="/teabar-proxy-order" element={<WithToken Page={TeabarProxyOrderPage} />} />

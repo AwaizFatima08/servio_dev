@@ -144,9 +144,19 @@ export default function BbqMyOrdersPage({ token }) {
         <div className={styles.cardGrid}>
           {orders.map((o) => {
             const cancelPending = o.cancellationRequestStatus === 'pending';
-            const canEdit = o.orderStatus === 'placed' && !cancelPending;
-            const canCancel = o.orderStatus === 'placed' && !cancelPending;
-            const canRequestCancel = o.orderStatus === 'accepted' && !cancelPending;
+            // Only orders this employee actually placed themselves. Proxy
+            // and official orders are created with createdByUid set to the
+            // SUPERVISOR who placed them (bbqOrderService.js's
+            // _buildBbqOrderDoc) — the backend's isOwner check on cancel/edit
+            // will reject this employee for those regardless, so the button
+            // shouldn't be shown as if it would work. Corrected 02-Aug-2026 —
+            // previously showed Edit/Cancel to the employee for ANY placed
+            // order, which would have failed silently at the API for
+            // proxy/official ones.
+            const isOwnOrder = o.bookingSource === 'self';
+            const canEdit = isOwnOrder && o.orderStatus === 'placed' && !cancelPending;
+            const canCancel = isOwnOrder && o.orderStatus === 'placed' && !cancelPending;
+            const canRequestCancel = isOwnOrder && o.orderStatus === 'accepted' && !cancelPending;
             const busy = busyId === o.orderId;
 
             return (
@@ -166,6 +176,14 @@ export default function BbqMyOrdersPage({ token }) {
                 </div>
 
                 <div className={styles.pillRow}>
+                  {o.bookingSource === 'proxy' && (
+                    <span className={styles.pill}>Placed by supervisor</span>
+                  )}
+                  {o.bookingSource === 'official' && (
+                    <span className={styles.pill}>
+                      Official · billed to cost centre {o.costCentreCode || '—'}
+                    </span>
+                  )}
                   <span className={`${styles.pill} ${styles[`status_${o.orderStatus}`] || ''}`}>
                     {o.orderStatus}
                   </span>

@@ -64,15 +64,20 @@ const adminOnly = [verifyToken, verifyRole(
   ROLES.SUPER_ADMIN
 )];
 
-// Café staff + manager + admin. For reading ANOTHER employee's family during
-// proxy café ordering (V1.2 Slice 5). Excludes plain EMPLOYEE — an ordinary
-// employee must not enumerate another employee's dependents. Café staff already
-// know families by long affiliation (privacy non-issue per FFL), so the gate is
-// "staff who serve", not "everyone".
+// Staff who serve + manager + admin. For reading ANOTHER employee's family
+// during proxy ordering. Excludes plain EMPLOYEE — an ordinary employee must
+// not enumerate another employee's dependents. Originally café-only (V1.2
+// Slice 5); BBQ_SUPERVISOR added 02-Aug-2026 — BBQ's proxy/official screens
+// use this same endpoint and were incorrectly excluded (design doc §4
+// requires bbq_supervisor to be able to place proxy/official orders, which
+// needs this lookup to work). Name kept as "cafeOrAdmin" for now rather than
+// renamed — a rename would touch every call site for a cosmetic reason only,
+// not worth the diff right now.
 const cafeOrAdmin = [verifyToken, verifyRole(
   ROLES.CAFE_SUPERVISOR,
   ROLES.CAFE_WAITER,
   ROLES.CAFE_BAKERY_TUCKSHOP_SUPERVISOR, // legacy
+  ROLES.BBQ_SUPERVISOR,
   ROLES.MANAGER,
   ROLES.ADMIN,
   ROLES.SUPER_ADMIN

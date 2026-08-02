@@ -129,6 +129,9 @@ const NAV_CONFIG = {
         { label: 'Home',              icon: 'home',     to: '/dashboard' },
         { label: 'Kitchen Dashboard', icon: 'chef-hat', to: '/bbq-kitchen' },
         { label: 'Live Item Counts',  icon: 'chart-bar', to: '/bbq-live-counts' },
+        { label: 'Proxy Order',       icon: 'shopping-bag', to: '/bbq-proxy-order' },
+        { label: 'Official Order',    icon: 'receipt',      to: '/bbq-official-order' },
+        { label: 'History',           icon: 'history',      to: '/bbq-history' },
       ],
     },
   ],
@@ -183,6 +186,9 @@ const NAV_CONFIG = {
       items: [
         { label: 'Table Confirmation', icon: 'clipboard-check', to: '/bbq-table-confirmation' },
         { label: 'Exception Queue',    icon: 'alert-triangle',  to: '/bbq-exceptions' },
+        { label: 'Proxy Order',        icon: 'shopping-bag',    to: '/bbq-proxy-order' },
+        { label: 'Official Order',     icon: 'receipt',         to: '/bbq-official-order' },
+        { label: 'History',            icon: 'history',         to: '/bbq-history' },
       ],
     },
     {
@@ -217,7 +223,9 @@ const NAV_CONFIG = {
     {
       section: 'BBQ',
       items: [
-        { label: 'Table Approval', icon: 'clipboard-check', to: '/bbq-table-approval' },
+        { label: 'Table Approval',     icon: 'clipboard-check', to: '/bbq-table-approval' },
+        { label: 'Official Approvals', icon: 'receipt-2',       to: '/bbq-official-pending' },
+        { label: 'History',            icon: 'history',         to: '/bbq-history' },
       ],
     },
     {

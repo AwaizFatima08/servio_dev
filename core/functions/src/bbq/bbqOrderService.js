@@ -247,7 +247,7 @@ async function createBbqOrder({
 
 // ── createProxyBbqOrder — bbq_supervisor / manager, on behalf of a named employee ──
 async function createProxyBbqOrder({
-  uid, tenantId, userRole,
+  uid, tenantId, userRole, placedByEmployeeNumber,
   targetEmployeeNumber, eventDate, orderType, items, diningMode,
   consumerType = CAFE_CONSUMER_TYPES.SELF, consumerFamilyMemberId = null,
 }) {
@@ -271,7 +271,7 @@ async function createProxyBbqOrder({
 
   const doc = _buildBbqOrderDoc({
     tenantId, eventDate, orderType, isLateRequest,
-    createdByUid: uid, createdByRole: userRole, createdByEmployeeNumber: targetEmployeeNumber,
+    createdByUid: uid, createdByRole: userRole, createdByEmployeeNumber: placedByEmployeeNumber,
     bookingSource: BOOKING_SOURCES.PROXY,
     employeeNumber: targetEmployeeNumber, employeeName: employee.fullName,
     consumerType, consumerFamilyMemberId, consumerMemberName,
@@ -288,7 +288,7 @@ async function createProxyBbqOrder({
 
 // ── createOfficialBbqOrder — bbq_supervisor or manager initiates, admin approves billing ──
 async function createOfficialBbqOrder({
-  uid, tenantId, userRole,
+  uid, tenantId, userRole, placedByEmployeeNumber,
   sponsoringEmployeeNumber, guestName, eventDate, orderType, items, diningMode, costCentreCode,
 }) {
   if (!sponsoringEmployeeNumber) throw new Error('sponsoringEmployeeNumber is required for an official BBQ order.');
@@ -304,7 +304,7 @@ async function createOfficialBbqOrder({
 
   const doc = _buildBbqOrderDoc({
     tenantId, eventDate, orderType, isLateRequest,
-    createdByUid: uid, createdByRole: userRole, createdByEmployeeNumber: sponsoringEmployeeNumber,
+    createdByUid: uid, createdByRole: userRole, createdByEmployeeNumber: placedByEmployeeNumber,
     bookingSource: BOOKING_SOURCES.OFFICIAL,
     employeeNumber: sponsoringEmployeeNumber, employeeName: sponsor.fullName,
     guestName: guestName || null,
@@ -454,10 +454,66 @@ async function editBbqOrder({ orderId, tenantId, uid, userRole, items: newReques
   };
 }
 
+// ─────────────────────────────────────────
+// getBbqOfficialPendingOrders — admin's billing-approval queue. Mirrors
+// cafeOrderService.js's listOfficialPending, but simpler: bbqOrders is one
+// document per order (items[] array inside), so there's no group of line
+// items to reassemble — one query row IS one order. BBQ has no
+// subjectType field, so billingDestination is the correct official-order
+// filter here (confirmed against the schema, not guessed).
+// ─────────────────────────────────────────
+async function getBbqOfficialPendingOrders({ tenantId, eventDate = null }) {
+  let q = db.collection(COLLECTIONS.BBQ_ORDERS)
+    .where('tenantId', '==', tenantId)
+    .where('billingDestination', '==', BILLING_DESTINATIONS.OFFICIAL_ACCOUNT)
+    .where('approvalStatus', '==', 'pending_approval');
+
+  if (eventDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+      throw new Error('Invalid eventDate format. Use YYYY-MM-DD.');
+    }
+    q = q.where('eventDate', '==', eventDate);
+  }
+
+  const snap = await q.orderBy('createdAt', 'desc').get();
+  const orders = snap.docs.map((d) => _cleanOrder({ orderId: d.id, ...d.data() }));
+  return { orders, count: orders.length };
+}
+
+// ─────────────────────────────────────────
+// getBbqOrderHistory — read-only history for bbq_supervisor/manager/admin.
+// Mirrors the shape of Tea Bar's shared history, adapted to bbqOrders'
+// one-doc-per-order model: no server-side grouping needed, a query row IS
+// a card. eventDate/employeeNumber kept mutually exclusive at the call
+// site (not enforced here) to avoid a 3-field composite index for a
+// low-volume weekly dataset. No status/cancelled toggle — history shows
+// everything, including cancelled, same simpler choice Tea Bar made.
+// limit(200) is a safety cap, not real pagination — BBQ's volume doesn't
+// need cursor paging the way café's daily order stream does.
+// ─────────────────────────────────────────
+async function getBbqOrderHistory({ tenantId, eventDate = null, employeeNumber = null }) {
+  let q = db.collection(COLLECTIONS.BBQ_ORDERS).where('tenantId', '==', tenantId);
+
+  if (eventDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) {
+      throw new Error('Invalid eventDate format. Use YYYY-MM-DD.');
+    }
+    q = q.where('eventDate', '==', eventDate);
+  } else if (employeeNumber) {
+    q = q.where('employeeNumber', '==', employeeNumber.toUpperCase());
+  }
+
+  const snap = await q.orderBy('createdAt', 'desc').limit(200).get();
+  const orders = snap.docs.map((d) => _cleanOrder({ orderId: d.id, ...d.data() }));
+  return { orders, count: orders.length };
+}
+
 module.exports = {
   createBbqOrder,
   createProxyBbqOrder,
   createOfficialBbqOrder,
   getMyBbqOrders,
   editBbqOrder,
+  getBbqOfficialPendingOrders,
+  getBbqOrderHistory,
 };

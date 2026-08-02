@@ -28,6 +28,8 @@ const {
 } = require('./bbqEventService');
 const {
     createBbqOrder, createProxyBbqOrder, createOfficialBbqOrder, getMyBbqOrders, editBbqOrder,
+    getBbqOfficialPendingOrders,
+    getBbqOrderHistory,
 } = require('./bbqOrderService');
 const { getBbqLiveItemStatus } = require('./bbqLiveItemStatusService');
 const {
@@ -195,6 +197,7 @@ router.post('/orders/proxy', bbqSupervisorAndAbove, async (req, res) => {
     const { targetEmployeeNumber, eventDate, orderType, items, diningMode, consumerType, consumerFamilyMemberId } = req.body;
     const result = await createProxyBbqOrder({
       uid: req.user.uid, tenantId: req.tenantId, userRole: req.userRole,
+      placedByEmployeeNumber: req.officialEmployeeNumber,
       targetEmployeeNumber, eventDate, orderType, items, diningMode, consumerType, consumerFamilyMemberId,
     });
     return successResponse(res, result, 'BBQ proxy order placed', 201);
@@ -212,6 +215,7 @@ router.post('/orders/official', bbqSupervisorAndAbove, async (req, res) => {
     const { sponsoringEmployeeNumber, guestName, eventDate, orderType, items, diningMode, costCentreCode } = req.body;
     const result = await createOfficialBbqOrder({
       uid: req.user.uid, tenantId: req.tenantId, userRole: req.userRole,
+      placedByEmployeeNumber: req.officialEmployeeNumber,
       sponsoringEmployeeNumber, guestName, eventDate, orderType, items, diningMode, costCentreCode,
     });
     return successResponse(res, result, 'Official BBQ order placed', 201);
@@ -232,6 +236,39 @@ router.get('/orders/mine', anyAuthenticated, async (req, res) => {
     return successResponse(res, { count: orders.length, orders }, 'Your BBQ orders retrieved');
   } catch (error) {
     return errorResponse(res, 'Failed to retrieve your BBQ orders', 500, error);
+  }
+});
+
+// ── GET /bbq/orders/history — read-only history, screen #15 ──
+// ASSUMPTION FLAGGED: reusing `bbqSupervisorAndAbove` on the assumption its
+// role list is exactly bbq_supervisor/manager/admin/super_admin, matching
+// the /orders/proxy and /orders/official routes above. Grep-verify that
+// middleware's definition before trusting this — if it turns out to
+// include a role that shouldn't see billing/history data, this is the
+// line to narrow.
+router.get('/orders/history', bbqSupervisorAndAbove, async (req, res) => {
+  try {
+    const { eventDate, employeeNumber } = req.query;
+    const result = await getBbqOrderHistory({
+      tenantId: req.tenantId, eventDate: eventDate || null, employeeNumber: employeeNumber || null,
+    });
+    return successResponse(res, result, 'BBQ order history retrieved');
+  } catch (error) {
+    console.error('[GET /bbq/orders/history] error:', error);
+    return errorResponse(res, error.message || 'Failed to retrieve BBQ order history', 500, error);
+  }
+});
+
+// ── GET /bbq/orders/official-pending — admin billing-approval queue (screen #14) ──
+router.get('/orders/official-pending', adminOnly, async (req, res) => {
+  try {
+    const result = await getBbqOfficialPendingOrders({
+      tenantId: req.tenantId, eventDate: req.query.eventDate || null,
+    });
+    return successResponse(res, result, 'Pending official BBQ orders retrieved');
+  } catch (error) {
+    console.error('[GET /bbq/orders/official-pending] error:', error);
+    return errorResponse(res, error.message || 'Failed to retrieve pending official BBQ orders', 500, error);
   }
 });
 
