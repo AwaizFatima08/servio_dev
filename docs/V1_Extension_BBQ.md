@@ -1791,3 +1791,13 @@ building, not assumed.
   all built.** Update BBQ_V1_4_Design_Draft header/Appendix.
 - Full interdependency audit — treat as its own dedicated session, not
   squeezed into a build session.
+### Process Note
+- **M19** — 7355e49 (this session's close-out) is a MIXED commit — six
+  code files + docs/V1_Extension_BBQ.md landed together despite the
+  intended two-commit split. The `git add` + `git commit` sequence for
+  the code-only commit apparently didn't execute as a separate step
+  before the CB commit was staged; caught only after push, too late to
+  cleanly split without rewriting already-pushed history (not worth the
+  risk for a labeling issue with zero functional impact). No harm done —
+  logged so a future `git log` reader isn't confused why this one CB
+  commit also touched six code files.
