@@ -1855,5 +1855,70 @@ for M18.
   re-verifying the actual guard behavior first — caught before deploy,
   not after.
 
-### Open Items — carried forward, none closed this session
-- M11 —
+## Session: 03-Aug-2026 (continued) — M11 closed + Screen #13 Cancel Event
+
+### Scope
+Two small closes following the M15-M18 session earlier tonight — M11
+(confirmed, not built) and a genuine gap Screen #13 had that Screen #12
+didn't (no way to kill a pending_review event outright, only Return it
+for correction).
+
+### Completed
+- **M11 closed** — confirmed directly: official BBQ orders are live-only,
+  same reasoning as proxy (always for someone physically present that
+  night, no preorder scenario applies). `BbqOfficialOrderPage.jsx`'s
+  header comment updated from "ASSUMPTION FLAGGED, NOT CONFIRMED" to a
+  confirmed note with the decision date. No code/behavior change —
+  orderType was already correctly hardcoded 'live'; only the comment
+  was out of date with reality.
+- **Screen #13 — Cancel Event action added** (`BbqMenuApprovePage.jsx`).
+  Kills a pending_review event outright — distinct from Return, which
+  sends it back to the manager for correction and keeps the date usable.
+  Same backend action as Screen #12's Cancel (`cancelBbqEvent`, no new
+  service function needed — reused as-is). Same PERMANENT consequence
+  ('cancelled' status, deterministic doc ID means the date can never be
+  reused). Button styled `btnGhost`, deliberately not `btnDanger` like
+  Return — Return is already the screen's "danger" action for sending
+  work back; Cancel needed to read as the rarer, more drastic third
+  option, not compete visually with Return for attention.
+  Context-specific confirm-dialog wording (the "start a new draft
+  instead" escape hatch from Screen #12's dialog was correctly dropped
+  here — a submitted, already-reviewed menu has no equivalent "you
+  probably just picked the wrong date" framing; Return already covers
+  that case for a submitted menu).
+
+### Verification
+Full chain field-tested live on 18-Sept-2026 with screenshots at every
+transition: manager creates + submits draft → admin's detail pane shows
+Publish/Return/Cancel Event all present and correctly styled → Cancel
+Event clicked → confirm dialog shows the correct submitted-menu-specific
+warning text → confirmed → event removed from the pending-review list →
+manager reopens the same date → locked state correctly shows status
+`Cancelled`, consistent with Screen #12's own Cancel behavior from
+earlier tonight.
+
+### Decisions Locked
+- Official BBQ orders: live-only, confirmed (was previously an
+  unconfirmed assumption — M11).
+- Screen #13 now has feature parity with Screen #12 on the
+  Cancel/permanence pattern — both screens can kill an event, at
+  whichever stage of its lifecycle they naturally encounter it
+  (draft/returned on #12, pending_review on #13), with consistent
+  wording adapted to what's actually true at that stage.
+
+### Open Items — carried forward, unchanged
+- Full BBQ interdependency audit — in progress, feedback expected
+  tomorrow at session start.
+- M12/M13 — duplicate Firestore index cleanup verification, still
+  pending (low urgency, already confirmed the surviving indexes work).
+- M14 — screen count reference in design doc still needs updating.
+- Pre-BBQ-cluster items (bbqLiveItemStatus cross-order isolation,
+  Uncategorized menu bucket, hardcoded role-list pattern) — untouched,
+  unrelated to this or the prior BBQ session.
+- Mobile BBQ screens — deliberately deferred until after V1 Extension
+  closes (confirmed intentional, not an oversight — see prior exchange).
+
+### Next Steps
+- Review audit findings at start of next session, work through them one
+  at a time per usual discipline (verify before fix, not batch-assumed).
+- M12-M14 cleanup whenever convenient.
