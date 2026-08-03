@@ -17,7 +17,7 @@
 // Styling: zero new CSS — reuses EventManagementPage.module.css directly.
 
 import { useState, useCallback, useEffect } from 'react';
-import { getBbqEventsList, getBbqEvent, publishBbqEvent, returnBbqEvent } from '../../services/bbqEventService';
+import { getBbqEventsList, getBbqEvent, publishBbqEvent, returnBbqEvent, cancelBbqEvent } from '../../services/bbqEventService';
 import styles from './EventManagementPage.module.css';
 
 const GROUP_LABELS = {
@@ -51,6 +51,8 @@ export default function BbqMenuApprovePage({ token }) {
   const [returnModal, setReturnModal] = useState(false);
   const [returnComments, setReturnComments] = useState('');
   const [returning, setReturning] = useState(false);
+
+  const [cancelling, setCancelling] = useState(false);
 
   const loadList = useCallback(async () => {
     setListLoading(true);
@@ -110,6 +112,33 @@ export default function BbqMenuApprovePage({ token }) {
       setActionError(e.message);
     } finally {
       setReturning(false);
+    }
+  };
+
+  // Kill a pending_review event outright — distinct from Return, which
+  // sends it back to the manager for correction. Cancel here means
+  // "this Friday's BBQ isn't happening, full stop," same PERMANENT
+  // action as Screen #12's Cancel (same backend function, same
+  // consequence: 'cancelled' status can never be edited or replaced for
+  // this date again). The warning text is adapted for this screen's
+  // context — the manager already submitted a finished menu, not an
+  // in-progress draft, so the "wrong date, start over" escape hatch
+  // from Screen #12's dialog doesn't apply here; a submitted-and-killed
+  // menu really is just gone.
+  const onCancel = async () => {
+    if (!window.confirm(
+      `Cancel the BBQ event for ${selectedEvent.eventDate} entirely? This is PERMANENT — this Friday's date can never be used for a new BBQ menu again afterward. Use Return instead if the menu just needs correction and resubmission.`
+    )) return;
+    setCancelling(true);
+    setActionError('');
+    try {
+      await cancelBbqEvent(token, selectedEvent.eventId);
+      setSelectedEvent(null);
+      loadList();
+    } catch (e) {
+      setActionError(e.message);
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -177,11 +206,14 @@ export default function BbqMenuApprovePage({ token }) {
               {actionError && <p className={styles.errorText}>{actionError}</p>}
 
               <div className={styles.actionRow}>
-                <button className={styles.btnPrimary} onClick={onPublish} disabled={publishing}>
+                <button className={styles.btnPrimary} onClick={onPublish} disabled={publishing || cancelling}>
                   <i className="ti ti-check" /> {publishing ? 'Publishing…' : 'Publish'}
                 </button>
-                <button className={styles.btnDanger} onClick={() => { setReturnModal(true); setActionError(''); }} disabled={publishing}>
+                <button className={styles.btnDanger} onClick={() => { setReturnModal(true); setActionError(''); }} disabled={publishing || cancelling}>
                   <i className="ti ti-arrow-back-up" /> Return
+                </button>
+                <button className={styles.btnGhost} onClick={onCancel} disabled={publishing || cancelling}>
+                  <i className="ti ti-x" /> {cancelling ? 'Cancelling…' : 'Cancel Event'}
                 </button>
               </div>
             </div>

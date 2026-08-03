@@ -8,13 +8,10 @@
 // separately (Screen — new 14th, BbqOfficialPendingPage) — the order is
 // served regardless of that outcome, same as café.
 //
-// ASSUMPTION FLAGGED, NOT CONFIRMED WITH HOMI: this is built live-only,
-// same reasoning as Screen #4 (an official/guest order is placed for
-// someone physically present that night) — but this specific question was
-// never asked separately from Screen #4's. orderType is hardcoded 'live'
-// below. If official orders should ALSO support a preorder path, flag it
-// and this needs a toggle added, same shape as Screen #4 would need if its
-// own answer had gone the other way.
+// CONFIRMED with Homi 03-Aug-2026 (M11 closed): official orders are
+// live-only, same as proxy — an official/guest order is always for
+// someone physically present that night, no preorder path needed.
+// orderType hardcoded 'live' below, by design, not by assumption.
 //
 // Differences from CafeOfficialPage.jsx (the template this was built from):
 //   1. NO takeaway/advance-date machinery. Café's official screen carries
