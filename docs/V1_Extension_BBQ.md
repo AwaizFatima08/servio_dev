@@ -1801,3 +1801,59 @@ building, not assumed.
   risk for a labeling issue with zero functional impact). No harm done —
   logged so a future `git log` reader isn't confused why this one CB
   commit also touched six code files.
+## Session: 03-Aug-2026 — M15-M18 verification + Cancel Event feature (M18)
+
+### Scope
+Closing out the four open items from the 02-Aug (Screens #12/#13) session.
+No new screens — verification passes on M15-M17, one real feature build
+for M18.
+
+### Completed
+- **M15 closed** — full return→resubmit→re-pending→publish cycle
+  verified live on 16-Oct-2026, with screenshots at every transition.
+  Stronger than the minimum bar: proved the entire lifecycle end to end
+  a second time on a document that had already been through one return.
+- **M16 closed** — "Copy from last published" verified: fresh date
+  (13-Nov-2026), single click, all 5 items from the most recent
+  published event pulled in pre-checked, count matched.
+- **M17 closed, with a real bug found and fixed along the way** — the
+  Friday-only date error displayed correctly but never actually gated
+  the Save buttons; both remained clickable and would have hit the
+  backend's own Friday guard on every invalid-date attempt (harmless,
+  but a wasted round trip with no visible reason why nothing happened).
+  Fixed: both buttons now `disabled` whenever `dateError` is set.
+  Verified: buttons visibly greyed out on 10-08-2026 (a Monday) before
+  any click is possible.
+- **M18 closed** — new "Cancel This Event" action on Screen #12, scoped
+  to draft/returned only (never offered on pending_review — that's
+  Admin/Screen #13 territory if it's ever needed, not built tonight).
+  New frontend service wrapper `cancelBbqEvent`. Verified end to end:
+  confirm dialog showed the full permanence warning verbatim, action
+  completed, reload correctly showed the locked/blocked message with a
+  properly-styled `Cancelled` tag.
+
+### Design Correction Caught Mid-Build (real, not just a note)
+- M18 was originally scoped from "a manager drafted the wrong Friday,
+  wants it gone" — a cleanup framing. Re-reading cancelBbqEvent's actual
+  guard while writing the confirm-dialog text surfaced that this framing
+  was wrong: cancelling does NOT free the date. 'cancelled' isn't in the
+  backend's editableStatuses list, and the deterministic
+  {tenantId}_{eventDate} doc ID means a cancelled Friday can never get a
+  fresh draft again, ever — same permanent-lockout the published-event
+  edit guard already has, just reached through Cancel instead of
+  resubmission. An unsubmitted wrong-date draft is already harmless
+  (invisible to employees, only costs anything once a year when that
+  calendar date recurs) — clicking Cancel on it would make the mistake
+  permanent instead of ignorable.
+- Confirmed with Homi: the REAL use case is BBQ being called off
+  entirely (weather, official commitment) — genuinely rare, deliberate,
+  and correctly never rescheduled onto the same date. The confirm
+  dialog now actively warns managers away from using Cancel for the
+  wrong-date scenario it was originally imagined to solve.
+- This is the kind of thing the process almost shipped wrong by
+  building toward the original request literally rather than
+  re-verifying the actual guard behavior first — caught before deploy,
+  not after.
+
+### Open Items — carried forward, none closed this session
+- M11 —
