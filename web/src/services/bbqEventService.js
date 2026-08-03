@@ -140,3 +140,20 @@ export const returnBbqEvent = async (token, eventId, returnComments) => {
   if (!res.ok) throw new Error(data.message || 'Failed to return BBQ event');
   return data.data;
 };
+
+// ── PATCH /bbq/events/:eventId/cancel — M18, Screen #12 (manager) ──
+// Permanent — 'cancelled' status is never editable again afterward, and
+// the deterministic {tenantId}_{eventDate} doc ID means that Friday can
+// never get a fresh draft either. Genuinely rare, deliberate action
+// (event called off entirely — weather, official commitment), not a
+// mistake-cleanup tool. The screen's own confirm dialog carries the
+// real warning; this function just passes the call through.
+export const cancelBbqEvent = async (token, eventId) => {
+  const res = await fetch(`${BASE_URL}/bbq/events/${eventId}/cancel`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to cancel BBQ event');
+  return data.data;
+};

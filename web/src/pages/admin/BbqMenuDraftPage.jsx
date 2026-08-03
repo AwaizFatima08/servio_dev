@@ -45,7 +45,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getMenuItems } from '../../services/menuService';
 import {
   getBbqEventsList, getBbqEvent, getPublishedBbqEvents,
-  saveBbqEventDraft, submitBbqEvent,
+  saveBbqEventDraft, submitBbqEvent, cancelBbqEvent,
 } from '../../services/bbqEventService';
 import styles from './EventManagementPage.module.css';
 
@@ -128,6 +128,9 @@ export default function BbqMenuDraftPage({ token }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState('');
+
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
 
   // ── Load the bbq-tagged catalogue once ──
   useEffect(() => {
@@ -251,6 +254,33 @@ export default function BbqMenuDraftPage({ token }) {
     }
   };
 
+  // M18 — cancel the currently-loaded draft/returned event entirely.
+  // PERMANENT: 'cancelled' is not in the backend's editableStatuses list,
+  // and the deterministic doc ID means this Friday can never get a fresh
+  // draft afterward either. Confirmed with Homi 03-Aug-2026: this is the
+  // correct, intended behavior for this action specifically — BBQ being
+  // called off entirely (weather, official commitment) is never
+  // rescheduled onto the same date. NOT a mistake-cleanup tool — an
+  // unsubmitted wrong-date draft is already harmless and needs no fix;
+  // the dialog actively warns against using this for that case.
+  const onCancelEvent = async () => {
+    if (!window.confirm(
+      `Cancel the BBQ event for ${eventDate}? This is PERMANENT — this Friday's date can never be used for a new BBQ menu again afterward (the system has no way to create a fresh draft for a date that's already been cancelled). If you just picked the wrong date, close this dialog and start a NEW draft on a different Friday instead — don't cancel this one.`
+    )) return;
+    setCancelling(true);
+    setCancelError('');
+    try {
+      await cancelBbqEvent(token, existingEvent.eventId);
+      setSelectedIds(new Set());
+      setSaveSuccess('');
+      await checkExisting();
+    } catch (e) {
+      setCancelError(e.message);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   const blocked = existingEvent && NON_EDITABLE_STATUSES.includes(existingEvent.status);
   const isEditingDraft = existingEvent && !blocked;
 
@@ -337,14 +367,20 @@ export default function BbqMenuDraftPage({ token }) {
 
           {saveError && <p className={styles.errorText}>{saveError}</p>}
           {saveSuccess && <p className={styles.modalNote}>{saveSuccess}</p>}
+          {cancelError && <p className={styles.errorText}>{cancelError}</p>}
 
           <div className={styles.headerActions}>
-            <button className={styles.btnSecondary} onClick={() => doSave(false)} disabled={saving}>
+            <button className={styles.btnSecondary} onClick={() => doSave(false)} disabled={saving || !!dateError}>
               {saving ? 'Saving…' : 'Save as Draft'}
             </button>
-            <button className={styles.btnPrimary} onClick={() => doSave(true)} disabled={saving}>
+            <button className={styles.btnPrimary} onClick={() => doSave(true)} disabled={saving || !!dateError}>
               {saving ? 'Saving…' : 'Save & Submit for Review'}
             </button>
+            {isEditingDraft && (
+              <button className={styles.btnDanger} onClick={onCancelEvent} disabled={saving || cancelling}>
+                {cancelling ? 'Cancelling…' : 'Cancel This Event'}
+              </button>
+            )}
           </div>
         </>
       )}
