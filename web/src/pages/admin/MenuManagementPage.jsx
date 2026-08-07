@@ -31,6 +31,17 @@ const BASE_UNIT_OPTIONS = [
   'portion', 'piece', 'glass', 'kg', 'litre', 'plate', 'cup', 'bowl',
 ];
 
+// V1.4 BBQ — must match core/functions/src/constants.js BBQ_MENU_GROUPS
+// exactly. Required by the backend whenever 'bbq' is in serviceCategories.
+const BBQ_MENU_GROUP_OPTIONS = [
+  { value: 'preorder',  label: 'Preorder' },
+  { value: 'live_cook', label: 'Live Cook' },
+  { value: 'kids',      label: 'Kids' },
+  { value: 'beverage',  label: 'Beverage' },
+  { value: 'bread',     label: 'Bread' },
+  { value: 'dessert',   label: 'Dessert' },
+];
+
 // ── Helpers ──
 function categoryLabel(value) {
   return SERVICE_CATEGORY_OPTIONS.find(o => o.value === value)?.label || value;
@@ -54,7 +65,10 @@ function ItemForm({ initial, foodTypes, onSubmit, onCancel, submitting, error })
     supportsFeedback:  initial?.supportsFeedback  !== false,
     supportsRate:      initial?.supportsRate       !== false,
     sortOrder:         initial?.sortOrder          ?? 0,
+    bbqMenuGroup:      initial?.bbqMenuGroup        || '',
   });
+
+  const isBbqSelected = form.serviceCategories.includes('bbq');
 
   const set = (field, value) => setForm(p => ({ ...p, [field]: value }));
 
@@ -70,7 +84,20 @@ function ItemForm({ initial, foodTypes, onSubmit, onCancel, submitting, error })
   const handleSubmit = () => {
     if (!form.itemName.trim()) return;
     if (!form.foodTypeCode) return;
-    onSubmit(form);
+    if (isBbqSelected && !form.bbqMenuGroup) return;
+
+    // Only include bbqMenuGroup in the payload for BBQ items. The backend
+    // treats the mere presence of this key as "please validate/set it" —
+    // sending it (even as '') on a non-BBQ item's edit gets rejected.
+    const payload = { ...form };
+    if (!isBbqSelected) {
+      if (initial?.bbqMenuGroup) {
+        payload.bbqMenuGroup = null;
+      } else {
+        delete payload.bbqMenuGroup;
+      }
+    }
+    onSubmit(payload);
   };
 
   return (
@@ -152,6 +179,28 @@ function ItemForm({ initial, foodTypes, onSubmit, onCancel, submitting, error })
         </div>
       </div>
 
+      {/* BBQ menu group — required only when BBQ is selected above */}
+      {isBbqSelected && (
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>
+            BBQ Menu Group <span className={styles.req}>*</span>
+          </label>
+          <span className={styles.formHint}>
+            Which part of the Friday BBQ menu this item belongs to. Required because BBQ is selected above.
+          </span>
+          <select
+            className={styles.select}
+            value={form.bbqMenuGroup}
+            onChange={e => set('bbqMenuGroup', e.target.value)}
+          >
+            <option value="">Select BBQ menu group…</option>
+            {BBQ_MENU_GROUP_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Flags row */}
       <div className={styles.flagsRow}>
         <label className={styles.toggleLabel}>
@@ -198,7 +247,12 @@ function ItemForm({ initial, foodTypes, onSubmit, onCancel, submitting, error })
         <button
           className={styles.submitBtn}
           onClick={handleSubmit}
-          disabled={submitting || !form.itemName.trim() || !form.foodTypeCode}
+          disabled={
+            submitting ||
+            !form.itemName.trim() ||
+            !form.foodTypeCode ||
+            (isBbqSelected && !form.bbqMenuGroup)
+          }
         >
           {submitting
             ? <><div className={styles.spinnerSmall} /> Saving…</>

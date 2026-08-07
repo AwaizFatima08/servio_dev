@@ -194,7 +194,10 @@ const updateMenuItem = async (itemId, updates) => {
   // present (partial updates to unrelated fields shouldn't fail just
   // because bbqMenuGroup was omitted) — only checks the value is legal
   // when the caller is actually trying to set it.
-  if (safeUpdates.bbqMenuGroup !== undefined) {
+  // `null` is explicitly allowed through unchecked — it means "clear this
+  // field", used when an item is un-tagged from the bbq service category
+  // on edit.
+  if (safeUpdates.bbqMenuGroup !== undefined && safeUpdates.bbqMenuGroup !== null) {
     const { BBQ_MENU_GROUPS } = require('../constants');
     const validGroups = Object.values(BBQ_MENU_GROUPS);
     if (!validGroups.includes(safeUpdates.bbqMenuGroup)) {
