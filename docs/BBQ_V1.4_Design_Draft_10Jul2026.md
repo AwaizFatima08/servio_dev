@@ -211,6 +211,29 @@ Document ID: `{tenantId}_{eventDate}`
 | 12 | Menu Draft | Manager | Builds the week's `bbqEvents.menu` from the `menuItems` catalogue, saves as `draft`/`pending_review` |
 | 13 | Menu Approve & Publish | Admin | Separate screen from #12 (locked 10-Jul) — approve/return/publish |
 
+> **AMENDED 08-Aug-2026 — Screens #4 and #5 order-type restriction, added and then reversed.**
+> This document's original 10-Jul text never restricted Proxy Order (#4)
+> or Official Order (#5) to `orderType: live` — both rows above are, and
+> always were, silent on order type. A live-only restriction was decided
+> **out-of-band**, in a 01/03-Aug-2026 build session, and recorded only in
+> code comments (`BbqProxyOrderPage.jsx`, `BbqOfficialOrderPage.jsx`) —
+> never propagated back into this document. Tracked informally as "M11."
+>
+> M11 was reopened and reversed 08-Aug-2026, after live testing surfaced
+> a genuine need: a sponsor/supervisor may legitimately arrange a
+> future-consumption order ahead of the event, not only a floor-relay
+> for someone physically present. Both screens now carry a Live/Preorder
+> toggle, defaulting to Live. Preorder mode on these screens mirrors
+> Screen #1's own rules exactly: menu source becomes `preorderItems`,
+> the live order-window gate (`orderWindowStartAt`/`orderWindowEndAt`)
+> does not apply, and the late-request banner/flow triggers past
+> `preorderCutoffAt`, same as Screen #1.
+>
+> Backend required no changes — `createProxyBbqOrder` and
+> `createOfficialBbqOrder` already accepted `orderType` generically per
+> §2.3's schema, which was never restricted to `live` in the first place.
+> This was purely a frontend gap, now closed.
+
 **No-phone / floor-relay scenario (employee can't use their own device):** No new screen needed — this is the existing **Proxy Order screen (#4)**. Confirmed 10-Jul: floor-supervisor tablet access is an administrative decision, and its frontend is deferred to the mobile build phase along with the rest of V1.1–V1.4 mobile — not a V1.4 web concern. For now, this scenario is handled from the fixed terminal only, fed by a paper slip if needed.
 
 **⚠ Flagging plainly:** this is a bigger build than Tea Bar (13 screens vs. 8). Worth knowing that going in, not discovering partway through.
