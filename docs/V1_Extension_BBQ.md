@@ -2051,3 +2051,61 @@ Resume with: push pending commit, decide console.error fate + commit,
 delete orphaned indexes, then continue the not-yet-clicked-through
 flows list above (Order Edit/Cancel is the natural next step — quick,
 low-setup, and touches code already proven fragile today).
+## Update Entry - 08-Aug-2026 (continued) — M11 Reversed: Proxy/Official Preorder Support
+
+### Context
+Live testing surfaced a real gap: Proxy Order and Official Order supported
+only `orderType: live`, per M11 (confirmed 01/03-Aug-2026, "no-phone /
+floor-relay" framing in design doc §3). Testing today showed a legitimate
+need for a preorder path on both screens (e.g. sponsor arranging a
+future-consumption order ahead of the event). Explicitly reopened and
+reversed M11 — a deliberate decision, not scope drift; confirmed with Homi
+before any code was touched.
+
+### Change
+Added a Live/Preorder toggle to both `BbqProxyOrderPage.jsx` and
+`BbqOfficialOrderPage.jsx`, defaulting to Live (prior behavior, unchanged
+unless explicitly switched). When Preorder is selected:
+- Menu source switches to `event.menu.preorderItems` (flat list, mirrors
+  employee Preorder screen — Screen #1)
+- Live-window gating (Not Open Yet / Closed countdown) is skipped entirely
+  — preorder has no equivalent hard client-side gate, same as Screen #1
+- Late-request banner shows once `now > preorderCutoffAt`, matching
+  Screen #1's exact rule and copy
+- Switching order type clears the cart (different menus, avoids confusing
+  quantity carry-over)
+- `orderType` sent as the real toggle value, not hardcoded `'live'`
+
+Backend: zero changes — `createProxyBbqOrder`/`createOfficialBbqOrder`
+already accepted `orderType` generically and validated correctly against
+both preorder/live branches of `_validateOrderWindow`.
+
+**Bug caught before shipping, not after:** initial draft used
+`styles.lateBanner`, but `styles` in these two files points to
+`BbqLiveOrderPage.module.css`, which has no such class (Live Order has no
+late-request concept) — `lateBanner` only exists in
+`BbqPreorderPage.module.css`. Would have shipped a silently-unstyled
+warning banner with no error to catch it. Fixed by importing that module
+separately as `lateStyles` before handing off the files.
+
+### Verified — all three behavioral paths
+1. Live order, both screens — confirmed unchanged (regression check)
+2. On-time preorder, both screens — correct menu, correct modal/button
+   copy, correct success text, correctly shows in Supervisor History with
+   `Approval pending` (official) and correct event date
+3. Late preorder — temporarily set `ffl_2026-10-23`'s `preorderCutoffAt`
+   to a past value, confirmed amber late-banner rendered correctly with
+   exact expected copy; restored the field immediately after
+
+### Cleanup completed
+`ffl_2026-10-23`'s three time fields (`orderWindowStartAt`,
+`orderWindowEndAt`, `preorderCutoffAt`) — tampered at various points
+across today's session for live-window and late-request testing — all
+confirmed reverted to real values in one pass, verified via console
+screenshot. No longer a stale-test-data risk for this event.
+
+### Still outstanding
+- Design doc (`BBQ_V1.4_Design_Draft_10Jul2026.md`) itself not yet
+  updated to reflect the M11 reversal — code comments document it, the
+  doc doesn't yet.
+- New files not yet committed to git.
