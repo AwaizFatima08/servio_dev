@@ -984,6 +984,15 @@
       "collectionGroup": "bbqOrders",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "employeeNumber", "order": "ASCENDING" },
+        { "fieldPath": "tenantId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },    
+    {
+      "collectionGroup": "bbqOrders",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "approvalStatus", "order": "ASCENDING" },
         { "fieldPath": "billingDestination", "order": "ASCENDING" },
         { "fieldPath": "tenantId", "order": "ASCENDING" },

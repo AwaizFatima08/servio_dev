@@ -235,6 +235,7 @@ router.get('/orders/mine', anyAuthenticated, async (req, res) => {
     });
     return successResponse(res, { count: orders.length, orders }, 'Your BBQ orders retrieved');
   } catch (error) {
+    console.error('DEBUG /orders/mine failed:', error); // TEMP — remove after diagnosis
     return errorResponse(res, 'Failed to retrieve your BBQ orders', 500, error);
   }
 });
