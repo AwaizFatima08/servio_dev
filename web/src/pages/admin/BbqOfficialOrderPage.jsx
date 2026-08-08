@@ -8,10 +8,12 @@
 // separately (Screen — new 14th, BbqOfficialPendingPage) — the order is
 // served regardless of that outcome, same as café.
 //
-// CONFIRMED with Homi 03-Aug-2026 (M11 closed): official orders are
-// live-only, same as proxy — an official/guest order is always for
-// someone physically present that night, no preorder path needed.
-// orderType hardcoded 'live' below, by design, not by assumption.
+// M11 REVERSED 08-Aug-2026: official orders were live-only from 03-Aug-2026
+// until real-time testing surfaced the gap — an official/guest order can
+// legitimately be a future-consumption preorder too (e.g. a visiting
+// guest confirmed for Friday but the sponsoring employee arranges it
+// ahead of time). orderType is now a toggle, mirroring Proxy Order's own
+// M11 reversal and the employee Preorder page's (Screen #1) gating rules.
 //
 // Differences from CafeOfficialPage.jsx (the template this was built from):
 //   1. NO takeaway/advance-date machinery. Café's official screen carries
@@ -41,6 +43,7 @@ import { createOfficialBbqOrder } from '../../services/bbqOrderService';
 import { getFamilyForEmployee } from '../../services/familyService';
 import teabar from '../employee/TeabarSelfOrderPage.module.css';
 import styles from '../employee/BbqLiveOrderPage.module.css';
+import lateStyles from '../employee/BbqPreorderPage.module.css';
 import search from './CafeProxyOrderPage.module.css';
 
 const DINING_MODES = [
@@ -114,7 +117,7 @@ function MenuList({ items, cart, onAdd, onInc, onDec }) {
   );
 }
 
-function OfficialOrderModal({ cart, itemsById, sponsorName, submitting, error, onClose, onPlace }) {
+function OfficialOrderModal({ cart, itemsById, sponsorName, orderType, isLate, submitting, error, onClose, onPlace }) {
   const [diningMode, setDiningMode] = useState('dine_in');
   const [costCentreCode, setCostCentreCode] = useState('');
   const [guestName, setGuestName] = useState('');
@@ -136,7 +139,17 @@ function OfficialOrderModal({ cart, itemsById, sponsorName, submitting, error, o
   return (
     <div className={teabar.modalOverlay} onClick={onClose}>
       <div className={teabar.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={teabar.modalTitle}>Official order — sponsored by {sponsorName}</div>
+        <div className={teabar.modalTitle}>
+          {orderType === 'preorder' ? 'Official preorder' : 'Official order'} — sponsored by {sponsorName}
+        </div>
+
+        {orderType === 'preorder' && isLate && (
+          <div className={lateStyles.lateBanner}>
+            <i className="ti ti-clock-exclamation" />
+            Preorder cutoff has passed — this will be submitted as a late
+            request, pending Manager approval.
+          </div>
+        )}
 
         <div className={teabar.modalLines}>
           {lines.map((l) => (
@@ -192,7 +205,7 @@ function OfficialOrderModal({ cart, itemsById, sponsorName, submitting, error, o
           <button type="button" className={teabar.modalConfirmBtn} onClick={handlePlace} disabled={!canPlace}>
             {submitting
               ? <><span className={teabar.spinnerSm} /> Placing…</>
-              : <><i className="ti ti-check" /> Place Order</>}
+              : <><i className="ti ti-check" /> Place {orderType === 'preorder' ? 'Preorder' : 'Order'}</>}
           </button>
         </div>
       </div>
@@ -204,6 +217,11 @@ export default function BbqOfficialOrderPage({ token }) {
   const [event, setEvent] = useState(undefined);
   const [eventError, setEventError] = useState('');
   const [now, setNow] = useState(new Date());
+
+  // ── Order type toggle. Reversal of M11 (03-Aug-2026) — see file
+  //    header. Default 'live' keeps prior behavior unchanged unless
+  //    explicitly switched. ──
+  const [orderType, setOrderType] = useState('live');
 
   const [empNumInput, setEmpNumInput] = useState('');
   const [searching, setSearching] = useState(false);
@@ -262,6 +280,14 @@ export default function BbqOfficialOrderPage({ token }) {
     setSuccess(null);
   };
 
+  // ── Switching order type clears the cart — see BbqProxyOrderPage's
+  //    identical choice for the identical reason. ──
+  const changeOrderType = (type) => {
+    if (type === orderType) return;
+    setOrderType(type);
+    setCart({});
+  };
+
   const addItem = (item) => setCart((c) => ({ ...c, [item.itemId]: (c[item.itemId] || 0) + 1 }));
   const incItem = (id) => setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }));
   const decItem = (id) => setCart((c) => {
@@ -278,7 +304,7 @@ export default function BbqOfficialOrderPage({ token }) {
       const result = await createOfficialBbqOrder(token, {
         sponsoringEmployeeNumber: sponsor.employeeNumber,
         eventDate: event.eventDate,
-        orderType: 'live',
+        orderType,
         items, diningMode, costCentreCode, guestName,
       });
       setSuccess(result);
@@ -314,10 +340,15 @@ export default function BbqOfficialOrderPage({ token }) {
       <div className={teabar.page}>
         <div className={teabar.successBody}>
           <i className={`ti ti-circle-check ${teabar.successIcon}`} />
-          <h2 className={teabar.successTitle}>Official order placed · sponsored by {sponsor.employeeName}</h2>
+          <h2 className={teabar.successTitle}>
+            {orderType === 'preorder'
+              ? (success.isLateRequest ? 'Late official preorder submitted' : 'Official preorder placed')
+              : 'Official order placed'} · sponsored by {sponsor.employeeName}
+          </h2>
           <p className={teabar.successLocation}>For {event.eventDate}</p>
           <p className={teabar.successNote}>
             Billed to an official account · pending billing approval by admin.
+            {orderType === 'preorder' && success.isLateRequest && ' Also pending Manager approval as a late request.'}
           </p>
           <div className={teabar.successActions}>
             <button type="button" className={teabar.successAgainBtn} onClick={resetToSearch}>
@@ -331,8 +362,12 @@ export default function BbqOfficialOrderPage({ token }) {
 
   const windowStart = event.orderWindowStartAt ? new Date(event.orderWindowStartAt) : null;
   const windowEnd = event.orderWindowEndAt ? new Date(event.orderWindowEndAt) : null;
+  const preorderCutoff = event.preorderCutoffAt ? new Date(event.preorderCutoffAt) : null;
+  const isLate = orderType === 'preorder' && preorderCutoff ? now > preorderCutoff : false;
 
-  if (windowStart && now < windowStart) {
+  // ── Live-window gating only applies when orderType is 'live' — see
+  //    BbqProxyOrderPage's identical comment for the reasoning. ──
+  if (orderType === 'live' && windowStart && now < windowStart) {
     return (
       <div className={teabar.page}>
         <div className={teabar.emptyCard}>
@@ -348,7 +383,7 @@ export default function BbqOfficialOrderPage({ token }) {
     );
   }
 
-  if (windowEnd && now > windowEnd) {
+  if (orderType === 'live' && windowEnd && now > windowEnd) {
     return (
       <div className={teabar.page}>
         <div className={teabar.emptyCard}>
@@ -395,10 +430,15 @@ export default function BbqOfficialOrderPage({ token }) {
   const groupsWithItems = MENU_GROUPS
     .map((g) => ({ ...g, items: menu[g.key] || [] }))
     .filter((g) => g.items.length > 0);
+  const preorderItems = menu.preorderItems || [];
 
   const itemsById = {};
-  for (const g of groupsWithItems) {
-    for (const it of g.items) itemsById[it.itemId] = it;
+  if (orderType === 'preorder') {
+    for (const it of preorderItems) itemsById[it.itemId] = it;
+  } else {
+    for (const g of groupsWithItems) {
+      for (const it of g.items) itemsById[it.itemId] = it;
+    }
   }
 
   const lineCount = Object.keys(cart).length;
@@ -419,15 +459,56 @@ export default function BbqOfficialOrderPage({ token }) {
         </button>
       </div>
 
-      {groupsWithItems.length === 0 ? (
-        <div className={teabar.emptyCard}>
-          <i className={`ti ti-meat-off ${teabar.emptyIcon}`} />
-          <h2 className={teabar.emptyTitle}>No live-order items on this week's menu</h2>
-          <p className={teabar.emptyBody}>Please check back later.</p>
+      <div className={styles.formRow}>
+        <label className={styles.fieldLabel}>Order type</label>
+        <div className={styles.toggleRow}>
+          <button
+            type="button"
+            className={`${styles.toggleBtn} ${orderType === 'live' ? styles.toggleBtnActive : ''}`}
+            onClick={() => changeOrderType('live')}
+          >
+            Live
+          </button>
+          <button
+            type="button"
+            className={`${styles.toggleBtn} ${orderType === 'preorder' ? styles.toggleBtnActive : ''}`}
+            onClick={() => changeOrderType('preorder')}
+          >
+            Preorder
+          </button>
         </div>
+      </div>
+
+      {orderType === 'preorder' && isLate && (
+        <div className={lateStyles.lateBanner}>
+          <i className="ti ti-clock-exclamation" />
+          Preorder cutoff has passed — this will be submitted as a late
+          request, pending Manager approval.
+        </div>
+      )}
+
+      {orderType === 'preorder' ? (
+        preorderItems.length === 0 ? (
+          <div className={teabar.emptyCard}>
+            <i className={`ti ti-meat-off ${teabar.emptyIcon}`} />
+            <h2 className={teabar.emptyTitle}>No preorder items on this week's menu</h2>
+            <p className={teabar.emptyBody}>Please check back later.</p>
+          </div>
+        ) : (
+          <>
+            <h2 className={teabar.sectionTitle}>Menu</h2>
+            <MenuList items={preorderItems} cart={cart} onAdd={addItem} onInc={incItem} onDec={decItem} />
+          </>
+        )
       ) : (
-        <>
-          {groupsWithItems.map((g) => (
+        groupsWithItems.length === 0 ? (
+          <div className={teabar.emptyCard}>
+            <i className={`ti ti-meat-off ${teabar.emptyIcon}`} />
+            <h2 className={teabar.emptyTitle}>No live-order items on this week's menu</h2>
+            <p className={teabar.emptyBody}>Please check back later.</p>
+          </div>
+        ) : (
+          groupsWithItems.map((g) => (
             <div key={g.key} className={styles.groupBlock}>
               <h2 className={styles.groupHeader}>
                 <i className={`ti ti-${g.icon} ${styles.groupHeaderIcon}`} />
@@ -435,21 +516,21 @@ export default function BbqOfficialOrderPage({ token }) {
               </h2>
               <MenuList items={g.items} cart={cart} onAdd={addItem} onInc={incItem} onDec={decItem} />
             </div>
-          ))}
+          ))
+        )
+      )}
 
-          {lineCount > 0 && (
-            <div className={teabar.cartBar}>
-              <div className={teabar.cartSummary}>
-                <i className="ti ti-shopping-cart" />
-                <span>{lineCount} item{lineCount === 1 ? '' : 's'} · {totalQty} unit{totalQty === 1 ? '' : 's'}</span>
-              </div>
-              <button type="button" className={teabar.cartReviewBtn}
-                onClick={() => { setSubmitError(''); setShowModal(true); }}>
-                Review &amp; Place Order
-              </button>
-            </div>
-          )}
-        </>
+      {lineCount > 0 && (
+        <div className={teabar.cartBar}>
+          <div className={teabar.cartSummary}>
+            <i className="ti ti-shopping-cart" />
+            <span>{lineCount} item{lineCount === 1 ? '' : 's'} · {totalQty} unit{totalQty === 1 ? '' : 's'}</span>
+          </div>
+          <button type="button" className={teabar.cartReviewBtn}
+            onClick={() => { setSubmitError(''); setShowModal(true); }}>
+            Review &amp; Place {orderType === 'preorder' ? 'Preorder' : 'Order'}
+          </button>
+        </div>
       )}
 
       {showModal && (
@@ -457,6 +538,8 @@ export default function BbqOfficialOrderPage({ token }) {
           cart={cart}
           itemsById={itemsById}
           sponsorName={sponsor.employeeName}
+          orderType={orderType}
+          isLate={isLate}
           submitting={submitting}
           error={submitError}
           onClose={() => !submitting && setShowModal(false)}
