@@ -2109,3 +2109,10 @@ screenshot. No longer a stale-test-data risk for this event.
   updated to reflect the M11 reversal — code comments document it, the
   doc doesn't yet.
 - New files not yet committed to git.
+
+### Multi-Event Resolution — Fully Closed
+Exception Queue checked (was the one screen not yet verified as of the
+earlier entry today): confirmed it also imports and calls
+`getCurrentBbqEvent()` from `bbqEventService.js`, same as all other 7
+screens. Multi-event "current event" resolution is now confirmed
+consistent across all 8 screens that need it — no exceptions found.
