@@ -2116,3 +2116,10 @@ earlier entry today): confirmed it also imports and calls
 `getCurrentBbqEvent()` from `bbqEventService.js`, same as all other 7
 screens. Multi-event "current event" resolution is now confirmed
 consistent across all 8 screens that need it — no exceptions found.
+### Order Edit (placed status) — Confirmed
+Tested both directions on two simultaneous still-`placed` orders — one
+quantity decrease (preorder), one quantity increase (live). Live Item
+Counts deltas matched exactly in both cases (net -1 and net +1
+respectively), with no cross-contamination between the two orders'
+counts. Confirms `editBbqOrder`'s subtract-old/add-new logic works
+correctly in both directions, not just net-positive edits.
