@@ -1922,3 +1922,132 @@ earlier tonight.
 - Review audit findings at start of next session, work through them one
   at a time per usual discipline (verify before fix, not batch-assumed).
 - M12-M14 cleanup whenever convenient.
+## Update Entry - 08-Aug-2026 (BBQ V1.4 post-menu-fix testing session)
+
+### Context
+Resumed from 03-Aug-2026 close (5d50e7e). Full BBQ interdependency audit
+begun live — created real menu items, built and published two BBQ event
+menus, exercised preorder/live/proxy/official/table-request flows across
+multiple real accounts, and specifically targeted the audit's flagged
+risk categories (multi-event resolution, catalogue-vs-resolved-menu field
+mismatches, status guards, disabled-state logic).
+
+### Bug Found & Fixed #1 — bbqMenuGroup missing from Menu Management
+Menu Management's Add/Edit Item form never collected `bbqMenuGroup`,
+even though the backend (`menuService.js`) has always required it for
+any item tagged `bbq`. Result: BBQ menu items could not be created
+through the UI at all — a complete dead end, not a partial gap. Edit
+path had a second, worse issue: since Edit never sent the field, the
+backend's validation was never triggered there, meaning existing items
+could be silently tagged `bbq` with no `bbqMenuGroup` set — exactly the
+"nowhere to bucket the item" failure mode the resolver's own code
+comments warned about.
+
+**Fix (frontend + backend, both required):**
+- `MenuManagementPage.jsx`: added required BBQ Menu Group dropdown,
+  shown only when `bbq` is checked in Service Categories; payload logic
+  omits the field entirely for non-BBQ items (add), and explicitly sends
+  `null` to clear it when BBQ is unchecked on an existing BBQ item (edit).
+- `menuService.js` (`updateMenuItem`): backend previously rejected any
+  `bbqMenuGroup` value not in the controlled vocabulary — including
+  `null`. Updated to allow `null` through unvalidated, since it means
+  "clear this field," distinct from an actually-invalid value.
+
+Verified: new BBQ item creation (all 6 groups), non-BBQ item edit
+(regression check), BBQ→non-BBQ toggle correctly clearing the stale
+value — all confirmed via UI. Also independently confirmed in Firestore
+console: `bbqEvents/ffl_2026-10-23.menu.*` correctly bucketed all 11
+menu-draft items into the right resolved-key arrays.
+
+Committed: `a2bc1ed` — **NOT YET PUSHED**, push before next session.
+
+### Bug Found & Fixed #2 — Missing composite index, /bbq/orders/mine
+"My BBQ Orders" (screen #3) returned a generic 500 for all employees.
+Root cause took real digging — two prior index theories were checked
+and ruled out with evidence before finding the actual cause; logged
+here as a lesson, not just the fix, because the gap between "index
+looks right" and "index actually matches" is subtle:
+
+The query is `.where('employeeNumber','==',x).where('tenantId','==',y)
+.orderBy('createdAt','desc')`. An index already existed live with the
+exact same three fields — but its trailing `__name__` tiebreaker was
+ASCENDING. Firestore requires `__name__` direction to match the last
+explicit sort field's direction (here, `createdAt DESC`) — so the
+existing index, despite matching on fields, did NOT satisfy the query.
+Firestore's own error (`FAILED_PRECONDITION`, code 9) only surfaced
+after adding temporary `console.error` logging to the route — the
+original `catch` block swallowed the real exception entirely, logging
+nothing, at any severity. Cloud Functions Gen2 also logs non-console.error
+output at DEBUG severity, not ERROR — worth remembering when searching
+Logs Explorer by severity filter next time; it will come up empty even
+when real failures are happening.
+
+**Fix:** added a new composite index entry (`employeeNumber ASC,
+tenantId ASC, createdAt DESC`) to `firestore.indexes.json`, letting
+Firestore auto-derive the correct `__name__ DESC` tiebreaker. Deployed,
+confirmed `Enabled` in console, re-verified via curl (200, 8 orders
+returned correctly) and in the actual employee UI.
+
+**Not yet done:**
+- Old duplicate index (`CICAgLiT_JAK`, wrong `__name__` direction) not
+  yet deleted — safe to delete once confident, folds into M12/M13
+  duplicate-cleanup item below.
+- Temporary `console.error('DEBUG /orders/mine failed:', error)` still
+  sitting in `bbqRoutes.js`, uncommitted. Decision needed: keep as
+  permanent logging (recommended, given today's diagnosis pain) or
+  revert. Either way, needs its own commit.
+- `firestore.indexes.json` change itself not yet committed to git.
+
+### Confirmed Working — Multi-Event "Current Event" Resolution
+This was the audit's top flagged risk category going in. Resolved with
+real evidence, not assumption:
+- Structural check: all 7 screens that need "the current BBQ event"
+  (Preorder, Live Order, Proxy Order, Official Order, Table Request,
+  Kitchen Dashboard, Live Item Counts) import and call the exact same
+  `getCurrentBbqEvent()` from `bbqEventService.js` — grep-confirmed,
+  no exceptions, no screen has its own separate copy of the logic.
+- Behavioral check: published two real events (`2026-10-16`,
+  `2026-10-23`). Before closing `10-16`: Table Request, Kitchen
+  Dashboard, and Live Item Counts all independently resolved to
+  `10-16` (the earlier date, per the ascending-sort/take-first rule).
+  After manually closing `10-16` in Firestore: Table Request and Live
+  Item Counts both correctly fell through to `10-23`. No disagreement
+  observed at either point.
+
+**Not yet checked:** Exception Queue's event resolution — not in the
+grep'd file list, unverified whether it uses the same shared function.
+
+### Parked (Design Gap Found During Testing, Deliberately Deferred)
+Proxy Order and Official Order currently only support `orderType:
+live` — no preorder option exists on either screen, despite being
+logically expected. Confirmed NOT in the original design doc; this is
+a genuine gap discovered through live testing, not scope creep.
+Backend (`bbqOrderService.js` — `createProxyBbqOrder`,
+`createOfficialBbqOrder`) already accepts `orderType` generically and
+validates against `BBQ_ORDER_TYPES` — likely a frontend-only gap if
+picked up. Deferred; design doc not yet reopened for this.
+
+### Other Open Items (Carried or New)
+- `ffl_2026-10-23`'s `orderWindowStartAt`/`orderWindowEndAt` still
+  manually overwritten for today's testing — needs revert or
+  regeneration before this event is used for anything real. (Second
+  event now in this state alongside the earlier `2026-09-04` one —
+  worth a clean sweep of all manually-tampered test events before V1.4
+  ships.)
+- Two `Building...` duplicate indexes from earlier M12/M13 flag
+  (`tenantId+createdAt` and `approvalStatus+billingDestination+
+  tenantId+createdAt`, each with a live Enabled twin) — check status,
+  delete duplicates once built.
+- Possible legacy menu items with `bbq` in serviceCategories but no
+  `bbqMenuGroup` (created via Edit before today's fix) — not yet swept.
+- Order Edit, Order Cancel/cancellation-request approval, late-request
+  approve/reject, official-order billing approve/reject, and full
+  table-request lifecycle (approve/return/reject/resubmit/confirm) —
+  entry points seen today, decision buttons not yet clicked through.
+- `git push` for `a2bc1ed` still outstanding.
+
+### Next Session
+Resume with: push pending commit, decide console.error fate + commit,
+delete orphaned indexes, then continue the not-yet-clicked-through
+flows list above (Order Edit/Cancel is the natural next step — quick,
+low-setup, and touches code already proven fragile today).
