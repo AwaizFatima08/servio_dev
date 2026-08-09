@@ -7,11 +7,14 @@
 // owner can, and there's no other screen this action would naturally
 // belong to.
 //
-// Single list: approved requests awaiting confirmation. No separate
-// "already confirmed" history view — the design doc calls this a
-// confirmation screen, not a review screen like #10. (Default taken,
-// not explicitly locked — flag if a history view turns out to be
-// wanted too.)
+// Two tabs (added 09-Aug-2026, Homi's call): "Awaiting Confirmation"
+// (approved requests, Confirm/Cancel actions — original screen) and
+// "History" (returned/rejected/confirmed, read-only). History's status
+// set deliberately differs from Admin Screen #10's history tab: Manager's
+// "awaiting" queue IS 'approved' status, so History here is
+// ['returned','rejected','confirmed'] — swapping approved out for
+// confirmed in, not just appending, to avoid a request appearing in
+// both tabs at once.
 //
 // Event-scoped via dropdown, same pattern as Screen #10 — table
 // requests may be reviewed for an upcoming Friday on any day, not just
@@ -37,6 +40,7 @@ export default function BbqTableConfirmationPage({ token }) {
 
   const [confirmingId, setConfirmingId] = useState(null);
   const [cancellingId, setCancellingId] = useState(null);
+  const [tab, setTab] = useState('awaiting'); // 'awaiting' | 'history'
 
   const loadEvents = useCallback(async () => {
     setEventsLoading(true);
@@ -69,6 +73,17 @@ export default function BbqTableConfirmationPage({ token }) {
   useEffect(() => { if (selectedDate) loadRequests(selectedDate); }, [selectedDate, loadRequests]);
 
   const approved = useMemo(() => requests.filter((r) => r.status === 'approved'), [requests]);
+
+  const HISTORY_BADGE = {
+    returned:  { label: 'Returned',  cls: 'status_returned' },
+    rejected:  { label: 'Rejected',  cls: 'status_rejected' },
+    confirmed: { label: 'Confirmed', cls: 'status_confirmed' },
+  };
+  const history = useMemo(
+    () => requests.filter((r) => ['returned', 'rejected', 'confirmed'].includes(r.status)),
+    [requests]
+  );
+  const list = tab === 'awaiting' ? approved : history;
 
   const onConfirm = async (requestId) => {
     setConfirmingId(requestId);
@@ -103,7 +118,9 @@ export default function BbqTableConfirmationPage({ token }) {
         <div className={styles.headerLeft}>
           <h1 className={styles.title}>BBQ Table Booking Confirmation</h1>
           <p className={styles.subtitle}>
-            {approved.length > 0 ? `${approved.length} awaiting confirmation` : 'Nothing awaiting confirmation'}
+            {tab === 'awaiting'
+              ? (approved.length > 0 ? `${approved.length} awaiting confirmation` : 'Nothing awaiting confirmation')
+              : `${history.length} decided request${history.length === 1 ? '' : 's'}`}
           </p>
         </div>
         <div className={styles.headerRight}>
@@ -119,6 +136,21 @@ export default function BbqTableConfirmationPage({ token }) {
             ))}
           </select>
         </div>
+      </div>
+
+      <div className={styles.tabs}>
+        <button
+          className={`${styles.tabBtn} ${tab === 'awaiting' ? styles.tabActive : ''}`}
+          onClick={() => setTab('awaiting')}
+        >
+          Awaiting Confirmation ({approved.length})
+        </button>
+        <button
+          className={`${styles.tabBtn} ${tab === 'history' ? styles.tabActive : ''}`}
+          onClick={() => setTab('history')}
+        >
+          History ({history.length})
+        </button>
       </div>
 
       {error && (
@@ -137,42 +169,58 @@ export default function BbqTableConfirmationPage({ token }) {
           <i className="ti ti-calendar-off" />
           <p>No published BBQ events to confirm requests for.</p>
         </div>
-      ) : approved.length === 0 ? (
+      ) : list.length === 0 ? (
         <div className={styles.emptyState}>
           <i className="ti ti-armchair-off" />
-          <p>No approved requests awaiting confirmation.</p>
+          <p>{tab === 'awaiting' ? 'No approved requests awaiting confirmation.' : 'No decided requests yet.'}</p>
         </div>
       ) : (
         <div className={styles.requestGrid}>
-          {approved.map((req) => (
+          {list.map((req) => (
             <div key={req.requestId} className={styles.requestCard}>
               <div className={styles.cardTop}>
                 <span className={styles.employeeName}>{req.employeeName}</span>
-                <span className={styles.empNum}>{req.employeeNumber}</span>
+                {tab === 'history' ? (
+                  <span className={`${styles.statusBadge} ${styles[HISTORY_BADGE[req.status]?.cls]}`}>
+                    {HISTORY_BADGE[req.status]?.label || req.status}
+                  </span>
+                ) : (
+                  <span className={styles.empNum}>{req.employeeNumber}</span>
+                )}
               </div>
-
+              {tab === 'history' && <span className={styles.empNum}>{req.employeeNumber}</span>}
               <div className={styles.guestCountLine}>
                 <i className="ti ti-users" /> {req.expectedGuestCount} guests
               </div>
-
               {req.requestNote && <div className={styles.noteLine}>"{req.requestNote}"</div>}
-
-              <div className={styles.cardActionsRow}>
-                <button
-                  className={styles.confirmBtn}
-                  onClick={() => onConfirm(req.requestId)}
-                  disabled={confirmingId === req.requestId || cancellingId === req.requestId}
-                >
-                  {confirmingId === req.requestId ? 'Confirming…' : 'Confirm'}
-                </button>
-                <button
-                  className={styles.cancelBtn}
-                  onClick={() => onCancel(req.requestId)}
-                  disabled={confirmingId === req.requestId || cancellingId === req.requestId}
-                >
-                  {cancellingId === req.requestId ? 'Cancelling…' : 'Cancel'}
-                </button>
-              </div>
+              {tab === 'history' && req.status === 'returned' && (
+                <div className={styles.rowInfo}>
+                  <strong>Returned:</strong> {req.returnComments}
+                </div>
+              )}
+              {tab === 'history' && req.status === 'rejected' && (
+                <div className={styles.rowError}>
+                  <strong>Rejected:</strong> {req.rejectionReason}
+                </div>
+              )}
+              {tab === 'awaiting' && (
+                <div className={styles.cardActionsRow}>
+                  <button
+                    className={styles.confirmBtn}
+                    onClick={() => onConfirm(req.requestId)}
+                    disabled={confirmingId === req.requestId || cancellingId === req.requestId}
+                  >
+                    {confirmingId === req.requestId ? 'Confirming…' : 'Confirm'}
+                  </button>
+                  <button
+                    className={styles.cancelBtn}
+                    onClick={() => onCancel(req.requestId)}
+                    disabled={confirmingId === req.requestId || cancellingId === req.requestId}
+                  >
+                    {cancellingId === req.requestId ? 'Cancelling…' : 'Cancel'}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
