@@ -2151,3 +2151,119 @@ Counts deltas matched exactly in both cases (net -1 and net +1
 respectively), with no cross-contamination between the two orders'
 counts. Confirms `editBbqOrder`'s subtract-old/add-new logic works
 correctly in both directions, not just net-positive edits.
+---
+
+## Update Entry — 09-Aug-2026 — Manager Table Confirmation History Tab (Screen #11)
+
+### Context
+Follow-on from the Table Request lifecycle audit closing clean this
+session. Manager (floor incharge on BBQ night) had no way to look back
+at a request once it left the `approved` action queue —
+approved-and-confirmed, returned, and rejected requests simply
+vanished from view.
+
+### Change
+Added a History tab to `BbqTableConfirmationPage.jsx`, alongside the
+existing "Awaiting Confirmation" tab. History status set deliberately
+differs from Screen #10's: Screen #10's history includes `approved`
+(since Admin's job ends there); Screen #11's action queue **is**
+`approved`, so its History is `returned` + `rejected` + `confirmed` —
+swapping `approved` out for `confirmed` in, not appending, to avoid a
+request appearing in both tabs simultaneously. Tab/badge/rowInfo/rowError
+CSS copied from `BbqTableApprovalPage.module.css` for visual
+consistency. No detail line for `confirmed` entries (badge only) —
+unlike Return/Reject, Confirm has no accompanying reason field in the
+backend.
+
+### Verified live
+3 real records across two employees (FFL00002 + a pre-existing
+FFL00100 confirmed request), correct badges, correct Returned/Rejected
+reason text, Awaiting Confirmation correctly empty, no console errors
+on tab switch.
+
+Commits: `24d036b` (code), `8ca5dde` (CB doc).
+
+---
+
+## Update Entry — 09-Aug-2026 — V1.4 Interdependency Audit Closed
+
+### Context
+The full BBQ interdependency audit, flagged as deliberately deferred
+since 01-Aug (and re-flagged at every subsequent session close),
+finally run to completion now that all 13 screens exist. Three
+genuinely-open items, all verified live against real data:
+
+### 1. Table Request full lifecycle (Screens #9/#10/#11)
+Every state transition walked through by clicking, not just observed
+as static data: Create→Pending, Pending→Approved/Returned/Rejected
+(Admin), Returned→Resubmit (employee edits note/guestCount)→Pending
+loop, Approved→Confirmed (Manager). All Firestore field transitions
+correct, no stray fields, no cross-contamination between documents.
+Rejected requests correctly have no Cancel option in the UI at all.
+
+### 2. Late Preorder approve/reject (Exception Queue)
+Functions live in `bbqKitchenService.js` (`approveLateOrder`/
+`rejectLateOrder`), route-guarded `managerAndAbove`. Tested by
+temporarily setting `ffl_2026-09-04`'s `preorderCutoffAt` into the
+past, submitting a real preorder as FFL00002, then reverting the field
+immediately after (confirmed restored to `2026-09-04 17:30 UTC+5`).
+Approve leaves `orderStatus` untouched (order becomes visually
+indistinguishable from a normal one — deliberate). Reject cascades:
+`orderStatus→cancelled`, `cancellationReason` written, live item
+counts decremented via the same `applyBbqItemDeltas` path proven
+elsewhere. UI blocks Reject submission client-side without a typed
+reason.
+
+### 3. Official Order billing approve/reject (Official Approvals)
+Functions live in `bbqKitchenService.js`
+(`approveOfficialBbqOrder`/`rejectOfficialBbqOrder`), route-guarded
+`adminOnly`. Tested using 2 real pre-existing `pending_approval`
+orders — no test data needed. Confirmed live across 3 roles
+(Employee/BBQ Supervisor/Admin) that `approvalStatus` is fully
+independent of `orderStatus`: both approved and rejected orders stayed
+`placed`, fully editable/servable, exactly matching the design doc's
+"order served regardless of billing outcome." Optional `approvalNote`
+stores correctly when given, `null` when omitted.
+
+### Minor observation, not actioned
+Rejection's `approvalNote` isn't visibly surfaced to the
+bbq_supervisor who placed the order, on their own History card —
+unlike Table Request's inline Returned/Rejected reason display. Same
+category as the Manager History gap above, not fixed this session.
+
+### Status
+**V1.4 BBQ interdependency audit — fully closed.** No bugs found in
+any of the three items. Ready for phase close-out.
+
+---
+
+## Update Entry — 09-Aug-2026 — Screen #12 Menu Draft: 6-Column Checkbox Grid Redesign
+
+### Context
+Homi flagged the original single-column chip-list layout as visually
+unappealing for picking a week's items across 6 menu groups. Requested
+a 6-column grid, one column per group, checkbox-style selection.
+
+### Change
+`BbqMenuDraftPage.jsx` rendering block replaced — no state logic
+touched (`selectedIds`, `toggleItem`, `grouped` memo all reused as-is).
+Each of the 6 `GROUP_ORDER` groups always renders its own column, even
+when empty (shows "No items" in italics) — deliberate choice over
+hiding empty groups, so the layout stays visually consistent week to
+week regardless of catalogue changes. Item rows reuse the existing
+`.checkLabel` class verbatim (real `<input type="checkbox">`, not the
+old clickable-chip pattern) — more correct for multi-select
+(keyboard/screen-reader friendly) as a side benefit, not just a
+repaint.
+
+New CSS appended to `EventManagementPage.module.css` (shared file, per
+Homi's explicit choice not to spin up a dedicated CSS file for this
+screen): `.menuGroupGrid` (responsive: 6 columns → 3 at 900px → 1 at
+560px), `.menuGroupColumn`, `.menuGroupColumnLabel`,
+`.menuGroupEmptyNote`.
+
+### Verified live
+All 6 columns render with correct labels; existing draft's prior
+selections correctly pre-checked on reload; "Copy from last published"
+correctly pre-checks boxes; window resize collapses correctly to fewer
+columns without breaking the list.
