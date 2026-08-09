@@ -335,33 +335,35 @@ export default function BbqMenuDraftPage({ token }) {
           )}
 
           {catalogueLoading ? (
-            <p className={styles.loadingText}>Loading BBQ item catalogue…</p>
-          ) : catalogueError ? (
-            <p className={styles.errorText}>{catalogueError}</p>
-          ) : (
-            GROUP_ORDER.map((key) => (
-              grouped[key].length > 0 && (
-                <div key={key} className={styles.formGroup}>
-                  <label>{GROUP_LABELS[key]}</label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {grouped[key].map((item) => {
-                      const selected = selectedIds.has(item.itemId);
-                      return (
-                        <button
-                          key={item.itemId}
-                          type="button"
-                          className={`${styles.categoryChip} ${selected ? styles.categoryChipActive : ''}`}
-                          onClick={() => toggleItem(item.itemId)}
-                        >
-                          {selected && <i className="ti ti-check" style={{ fontSize: 11 }} />} {item.itemName}
-                        </button>
-                      );
-                    })}
+              <p className={styles.loadingText}>Loading BBQ item catalogue…</p>
+            ) : catalogueError ? (
+              <p className={styles.errorText}>{catalogueError}</p>
+            ) : (
+              <div className={styles.menuGroupGrid}>
+                {GROUP_ORDER.map((key) => (
+                  <div key={key} className={styles.menuGroupColumn}>
+                    <p className={styles.menuGroupColumnLabel}>{GROUP_LABELS[key]}</p>
+                    {grouped[key].length === 0 ? (
+                      <p className={styles.menuGroupEmptyNote}>No items</p>
+                    ) : (
+                      grouped[key].map((item) => {
+                        const selected = selectedIds.has(item.itemId);
+                        return (
+                          <label key={item.itemId} className={styles.checkLabel}>
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => toggleItem(item.itemId)}
+                            />
+                            {item.itemName}
+                          </label>
+                        );
+                      })
+                    )}
                   </div>
-                </div>
-              )
-            ))
-          )}
+                ))}
+              </div>
+            )}
 
           <p className={styles.loadingText}>{selectedIds.size} item{selectedIds.size === 1 ? '' : 's'} selected</p>
 

@@ -1179,3 +1179,51 @@
   font-size: 11px;
   color: #6B8F7E;
 }
+
+/* ── Add to EventManagementPage.module.css, 09-Aug-2026 ──────────────────
+   BBQ Menu Draft (Screen #12) redesign — 6-column checkbox grid, one
+   column per bbqMenuGroup, always all 6 shown (even empty) so the
+   layout stays consistent week to week. Item rows reuse .checkLabel
+   as-is — no new checkbox styling needed.
+─────────────────────────────────────────────────────────────────────── */
+
+.menuGroupGrid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 900px) {
+  .menuGroupGrid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .menuGroupGrid { grid-template-columns: 1fr; }
+}
+
+.menuGroupColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: #F2F8F5;
+  border: 1px solid #C6F0E5;
+  border-radius: 8px;
+  min-width: 0;
+}
+
+.menuGroupColumnLabel {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #0F6E56;
+  margin: 0 0 4px;
+}
+
+.menuGroupEmptyNote {
+  font-size: 12px;
+  color: #A8C5B8;
+  font-style: italic;
+  margin: 0;
+}
