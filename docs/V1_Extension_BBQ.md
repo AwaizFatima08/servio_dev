@@ -240,7 +240,8 @@ Each line is the rule you must not break. Pre-BBQ reasoning lives in `docs/Servi
 - **Screen #9 (Table Request) combines submission + own history/resubmit/cancel in one screen** — confirmed 02-Aug. Unlike orders (split #1/#2 creation vs. #3 history), the design doc lists only one employee-facing table-request screen, so both jobs live here. Multiple concurrent active requests per employee are allowed, no UI restriction — the backend never enforced one-active-request-per-employee either.
 - **Screens #10/#11 use an explicit event-dropdown, not the single-"current"-event auto-pick every other BBQ screen uses** — confirmed 02-Aug, deliberately inconsistent with #1/#2/#3/#6/#7/#8/#9. Reasoning: table requests may be reviewed on any day for an upcoming Friday, unlike same-day kitchen-floor urgency. Defaults to the soonest published event.
 - **Screen #10's History tab covers `approved` + `returned` + `rejected`**, not just returned/rejected as first built — widened same session, 02-Aug, after an approved request proved invisible on Admin's screen the moment it left Pending (it moves on to Screen #11, but Admin had no record of having approved it).
-- **Screen #11 (Confirm) also carries Cancel** for approved requests — confirmed 02-Aug. The backend allows manager+ to cancel from `approved` same as the owner can, and no other screen would naturally hold that action. No separate confirmed-history view on this screen (default taken, not explicitly requested).
+- **Screen #11 (Confirm) also carries Cancel** for approved requests — confirmed 02-Aug. The backend allows manager+ to cancel from `approved` same as the owner can, and no other screen would naturally hold that action.
+- **Screen #11 gained a History tab, 09-Aug** — Manager previously lost all visibility on a request the moment it left `approved` (confirmed or not, it just vanished). Deliberately NOT the same status set as Screen #10's history: Manager's action queue IS `approved`, so History here is `returned`+`rejected`+`confirmed` — swapping `approved` out for `confirmed` in, not appending, so a request never appears in both tabs at once. See full amendment below.
 
 ---
 
@@ -1513,6 +1514,33 @@ usability gap, not a bug. Widened to include `approved` too, with a
 small colored status-badge system (green/orange/red) added to
 history cards. Confirmed visually correct after the fix — the
 previously-invisible 4-guest approved request became visible.
+
+### Design change, 09-Aug: Screen #11 gained a History tab
+Originally locked as a single list, no history view (line above,
+now amended). Raised by Homi after the full Table Request lifecycle
+audit closed clean — Manager is floor incharge on BBQ night and had
+no way to look back once a request left the "awaiting confirmation"
+queue. Deliberately parked mid-audit (Homi's own call) rather than
+built immediately, then picked up right after.
+
+Two tabs added: "Awaiting Confirmation" (unchanged — the original
+approved-only Confirm/Cancel queue) and "History" (`returned` +
+`rejected` + `confirmed`, read-only, status badges + Returned/Rejected
+reason lines reused visually from Screen #10). Confirmed status set
+deliberately differs from Screen #10's: Manager's action queue already
+IS `approved`, so it can't also sit in History without appearing in
+both tabs simultaneously — `confirmed` swaps in for `approved` rather
+than being appended.
+
+No extra detail line for `confirmed` entries — unlike Return/Reject,
+confirm has no accompanying reason/comment field in the backend, so
+the badge alone is shown (Homi's call, avoiding a manufactured line
+with no real content behind it).
+
+Verified live post-build: History correctly showed 3 real records
+across two different employees (FFL00002 and a pre-existing FFL00100
+entry), correct badges, correct reason text, Awaiting Confirmation
+correctly empty, no console errors on tab switch.
 
 ### CB consolidation, same session
 Filled in Screen #7's session-close entry's two placeholder commit
